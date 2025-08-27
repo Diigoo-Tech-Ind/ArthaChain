@@ -1,0 +1,25 @@
+{
+  "dashboard": {
+    "title": "ArthaChain Consensus Metrics",
+    "panels": [
+      {
+        "title": "Consensus Rounds per Second",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(arthachain_consensus_rounds_total[5m])"
+          }
+        ]
+      },
+      {
+        "title": "Consensus Latency",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "arthachain_consensus_latency_seconds"
+          }
+        ]
+      }
+    ]
+  }
+}

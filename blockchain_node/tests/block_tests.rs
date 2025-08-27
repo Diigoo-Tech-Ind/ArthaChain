@@ -9,7 +9,7 @@ mod tests {
     }
 
     /* Commented out problematic tests
-    use blockchain_node::ledger::block::{Block, BlockHeader};
+    use arthachain_node::ledger::block::{Block, BlockHeader};
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn create_test_block() -> Block {

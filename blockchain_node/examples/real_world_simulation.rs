@@ -15,9 +15,9 @@ use std::sync::Arc;
  */
 use std::time::{Duration, Instant};
 
-use blockchain_node::execution::executor::{ExecutionResult, TransactionExecutor};
-use blockchain_node::ledger::state::State;
-use blockchain_node::ledger::transaction::{Transaction, TransactionType};
+use arthachain_node::execution::executor::{ExecutionResult, TransactionExecutor};
+use arthachain_node::ledger::state::State;
+use arthachain_node::ledger::transaction::{Transaction, TransactionType};
 
 // Transaction mix configuration
 #[derive(Clone)]
@@ -278,7 +278,7 @@ async fn run_real_world_simulation(config: &SimulationConfig) -> Result<()> {
              config.tx_mix.data_storage_percent);
 
     // Initialize state
-    let state_tree = Arc::new(State::new(&blockchain_node::config::Config::default()).unwrap());
+    let state_tree = Arc::new(State::new(&arthachain_node::config::Config::default()).unwrap());
 
     // Create transaction generator
     let mut tx_generator = TransactionGenerator::new(

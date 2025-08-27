@@ -11,7 +11,9 @@ use tokio::sync::RwLock;
 use crate::api::{handlers::transactions::TransactionResponse, ApiError};
 #[cfg(feature = "evm")]
 use crate::evm::backend::EvmBackend;
+use crate::evm::types::EvmAddress;
 use crate::ledger::state::State;
+use crate::storage::hybrid_storage::HybridStorage;
 
 // Ethereum types for EVM compatibility
 #[cfg(feature = "evm")]
@@ -28,6 +30,12 @@ pub struct AccountResponse {
     pub code: Option<String>,
     /// Storage entries count
     pub storage_entries: Option<u64>,
+    /// Account type (native or EVM)
+    pub account_type: String,
+    /// Contract code hash (if smart contract)
+    pub code_hash: Option<String>,
+    /// Storage root (if smart contract)
+    pub storage_root: Option<String>,
 }
 
 /// Query parameters for transaction list
@@ -71,35 +79,91 @@ pub async fn get_account(
             let address = H160::from_str(&address[2..]).map_err(|_| ApiError::invalid_address())?;
             
             // Convert H160 to EvmAddress
-            let evm_address = crate::evm::types::EvmAddress::from_slice(address.as_bytes());
-            
-            // For now, return basic account info without EVM storage access
-            // TODO: Implement proper EVM storage integration
-            
-            // Return basic EVM account info
+            let evm_address = EvmAddress::from_slice(address.as_bytes());
+
+            // Get real EVM account data from state
+            let state_guard = state.read().await;
+
+            // Try to get EVM account balance and nonce
+            let balance = state_guard.get_evm_balance(&evm_address).unwrap_or(0);
+            let nonce = state_guard.get_evm_nonce(&evm_address).unwrap_or(0);
+
+            // Check if account has code (is a smart contract)
+            let has_code = state_guard.has_evm_code(&evm_address).unwrap_or(false);
+            let code = if has_code {
+                state_guard
+                    .get_evm_code(&evm_address)
+                    .ok()
+                    .map(|c| format!("0x{}", hex::encode(c)))
+            } else {
+                None
+            };
+
+            // Get storage entries count for smart contracts
+            let storage_entries = if has_code {
+                state_guard.get_evm_storage_count(&evm_address).ok()
+            } else {
+                Some(0)
+            };
+
+            // Get code hash and storage root for smart contracts
+            let code_hash = if has_code {
+                state_guard
+                    .get_evm_code_hash(&evm_address)
+                    .ok()
+                    .map(|h| format!("0x{}", hex::encode(h.as_ref())))
+            } else {
+                None
+            };
+
+            let storage_root = if has_code {
+                state_guard
+                    .get_evm_storage_root(&evm_address)
+                    .ok()
+                    .map(|h| format!("0x{}", hex::encode(h.as_ref())))
+            } else {
+                None
+            };
+
             Ok(Json(AccountResponse {
-                balance: "0".to_string(),
-                nonce: 0,
-                code: None,
-                storage_entries: Some(0),
+                balance: balance.to_string(),
+                nonce,
+                code,
+                storage_entries,
+                account_type: "evm".to_string(),
+                code_hash,
+                storage_root,
             }))
         }
 
         #[cfg(not(feature = "evm"))]
         {
-            // Mock EVM account for testing
-            let balance = if address == "0x742d35Cc6634C0532925a3b844Bc454e4438f44e" {
-                "2000000000000000000" // 2.0 ARTHA in wei
-            } else {
-                "0"
-            };
+            // Fallback for non-EVM builds - get from state if available
+            let state_guard = state.read().await;
 
+            // Try to get account info from state
+            if let Some(account) = state_guard.get_account(&address) {
+                Ok(Json(AccountResponse {
+                    balance: account.balance.to_string(),
+                    nonce: account.nonce,
+                    code: None,
+                    storage_entries: None,
+                    account_type: "native".to_string(),
+                    code_hash: None,
+                    storage_root: None,
+                }))
+            } else {
+                // Return zero balance account for unknown EVM addresses
             Ok(Json(AccountResponse {
-                balance: balance.to_string(),
+                    balance: "0".to_string(),
                 nonce: 0,
                 code: None,
                 storage_entries: Some(0),
+                    account_type: "evm".to_string(),
+                    code_hash: None,
+                    storage_root: None,
             }))
+            }
         }
     } else {
         // Handle native account
@@ -113,6 +177,9 @@ pub async fn get_account(
             nonce: account.nonce,
             code: None,
             storage_entries: None,
+            account_type: "native".to_string(),
+            code_hash: None,
+            storage_root: None,
         }))
     }
 }
@@ -168,39 +235,62 @@ pub async fn get_account_balance(
             let address = H160::from_str(&address[2..]).map_err(|_| ApiError::invalid_address())?;
             
             // Convert H160 to EvmAddress
-            let evm_address = crate::evm::types::EvmAddress::from_slice(address.as_bytes());
-            
-            // For now, return basic account info without EVM storage access
-            // TODO: Implement proper EVM storage integration
+            let evm_address = EvmAddress::from_slice(address.as_bytes());
+
+            // Get real EVM account data from state
+            let state_guard = state.read().await;
+            let balance = state_guard.get_evm_balance(&evm_address).unwrap_or(0);
+            let nonce = state_guard.get_evm_nonce(&evm_address).unwrap_or(0);
+
+            // Check if account has code (is a smart contract)
+            let has_code = state_guard.has_evm_code(&evm_address).unwrap_or(false);
+            let is_contract = has_code;
+
+            let balance_artha = balance as f64 / 1e18;
             
             Ok(Json(serde_json::json!({
                 "address": address,
-                "balance": "0",
+                "balance": balance.to_string(),
+                "nonce": nonce,
                 "currency": "ARTHA",
                 "decimals": 18,
-                "formatted_balance": "0.0 ARTHA"
+                "formatted_balance": format!("{:.6} ARTHA", balance_artha),
+                "is_contract": is_contract,
+                "account_type": "evm"
             })))
         }
 
         #[cfg(not(feature = "evm"))]
         {
-            // Mock EVM account for testing
-            let balance = if address == "0x742d35Cc6634C0532925a3b844Bc454e4438f44e" {
-                "2000000000000000000" // 2.0 ARTHA in wei
+            // Fallback for non-EVM builds
+            let state_guard = state.read().await;
+
+            if let Some(account) = state_guard.get_account(&address) {
+                let balance_artha = account.balance as f64 / 1e18;
+
+                Ok(Json(serde_json::json!({
+                    "address": address,
+                    "balance": account.balance.to_string(),
+                    "nonce": account.nonce,
+                    "currency": "ARTHA",
+                    "decimals": 18,
+                    "formatted_balance": format!("{:.6} ARTHA", balance_artha),
+                    "is_contract": false,
+                    "account_type": "native"
+                })))
             } else {
-                "0"
-            };
-
-            let balance_wei = u128::from_str_radix(&balance[2..], 16).unwrap_or(0);
-            let balance_artha = balance_wei as f64 / 1e18;
-
+                // Return zero balance for unknown addresses
             Ok(Json(serde_json::json!({
                 "address": address,
-                "balance": balance,
+                    "balance": "0",
+                    "nonce": 0,
                 "currency": "ARTHA",
                 "decimals": 18,
-                "formatted_balance": format!("{:.6} ARTHA", balance_artha)
+                    "formatted_balance": "0.0 ARTHA",
+                    "is_contract": false,
+                    "account_type": "evm"
             })))
+            }
         }
     } else {
         // Handle native account
@@ -214,9 +304,12 @@ pub async fn get_account_balance(
         Ok(Json(serde_json::json!({
             "address": address,
             "balance": account.balance.to_string(),
+            "nonce": account.nonce,
             "currency": "ARTHA",
             "decimals": 18,
-            "formatted_balance": format!("{:.6} ARTHA", balance_artha)
+            "formatted_balance": format!("{:.6} ARTHA", balance_artha),
+            "is_contract": false,
+            "account_type": "native"
         })))
     }
 }

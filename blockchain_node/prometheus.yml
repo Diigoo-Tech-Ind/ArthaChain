@@ -1,0 +1,19 @@
+global:
+  scrape_interval: 15s
+  retention: 30d
+
+scrape_configs:
+  - job_name: 'arthachain-blockchain'
+    static_configs:
+      - targets: ['arthachain-service:8080']
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  - job_name: 'kubernetes-nodes'
+    kubernetes_sd_configs:
+      - role: node
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '(.*):10250'
+        target_label: __address__
+        replacement: '${1}:9100'

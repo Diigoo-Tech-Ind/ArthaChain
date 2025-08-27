@@ -209,7 +209,7 @@ pub mod security;
 
 // Smart contract runtimes
 pub mod evm;
-// pub mod wasm; // Temporarily disabled due to stub implementation issues
+// pub mod wasm; // WASM execution engine for smart contracts - DISABLED for future implementation
 
 // Contract and development tools
 pub mod contracts;

@@ -275,6 +275,19 @@ pub struct StateSyncStatus {
     pub percentage_complete: f32,
 }
 
+/// Shard statistics for monitoring
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShardStats {
+    pub shard_id: u64,
+    pub status: String,
+    pub transaction_count: u64,
+    pub last_block_height: u64,
+    pub connected_peers: u64,
+    pub active_validators: u64,
+    pub total_stake: u64,
+    pub health_score: f64,
+}
+
 /// Manager for cross-shard communication
 pub struct CrossShardManager {
     /// Configuration
@@ -586,6 +599,28 @@ impl CrossShardManager {
         }
 
         Ok(())
+    }
+
+    /// Get shard statistics for a specific shard
+    pub async fn get_shard_stats(&self, shard_id: u64) -> Result<ShardStats, anyhow::Error> {
+        // For now, return default shard statistics
+        // In a full implementation, this would retrieve real shard data
+        Ok(ShardStats {
+            shard_id,
+            status: "active".to_string(),
+            transaction_count: 1000,
+            last_block_height: 100,
+            connected_peers: 5,
+            active_validators: 3,
+            total_stake: 1000000,
+            health_score: 95.0,
+        })
+    }
+
+    /// Get list of connected shards
+    pub async fn get_connected_shards(&self) -> Vec<u32> {
+        // Return the configured connected shards
+        self.config.connected_shards.clone()
     }
 }
 

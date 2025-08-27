@@ -14,9 +14,9 @@ use std::sync::{Arc, Mutex};
  */
 use std::time::{Duration, Instant};
 
-use blockchain_node::execution::executor::{ExecutionResult, TransactionExecutor};
-use blockchain_node::ledger::state::State;
-use blockchain_node::ledger::transaction::{Transaction, TransactionType};
+use arthachain_node::execution::executor::{ExecutionResult, TransactionExecutor};
+use arthachain_node::ledger::state::State;
+use arthachain_node::ledger::transaction::{Transaction, TransactionType};
 
 // Test configuration
 struct FaultToleranceConfig {
@@ -54,7 +54,7 @@ struct Node {
 
 impl Node {
     fn new(id: usize, _max_parallel: usize) -> Self {
-        let state_tree = Arc::new(State::new(&blockchain_node::config::Config::default()).unwrap());
+        let state_tree = Arc::new(State::new(&arthachain_node::config::Config::default()).unwrap());
         let executor = Arc::new(TransactionExecutor::new(
             None,      // wasm_executor: no WASM for examples
             1.0,       // gas_price_adjustment

@@ -34,6 +34,54 @@ path = "src/bin/contract_verifier.rs"
 name = "real_time_api_server"
 path = "src/bin/real_time_api_server.rs"
 
+[[example]]
+name = "cross_shard_tx_example"
+path = "examples/cross_shard_tx_example.rs"
+
+[[example]]
+name = "uups_proxy_example"
+path = "examples/uups_proxy_example.rs"
+
+[[example]]
+name = "diamond_proxy_example"
+path = "examples/diamond_proxy_example.rs"
+
+[[example]]
+name = "hybrid_storage_demo"
+path = "examples/hybrid_storage_demo.rs"
+
+[[example]]
+name = "fault_tolerance_test"
+path = "examples/fault_tolerance_test.rs"
+
+[[example]]
+name = "blockchain_wasm_example"
+path = "examples/blockchain_wasm_example.rs"
+
+[[example]]
+name = "memmap_storage_example"
+path = "examples/memmap_storage_example.rs"
+
+[[example]]
+name = "quantum_svbft_example"
+path = "examples/quantum_svbft_example.rs"
+
+[[example]]
+name = "real_world_simulation"
+path = "examples/real_world_simulation.rs"
+
+[[example]]
+name = "sustainability_test"
+path = "examples/sustainability_test.rs"
+
+[[example]]
+name = "data_chunking_test"
+path = "examples/data_chunking_test.rs"
+
+[[example]]
+name = "transaction_execution_example"
+path = "examples/transaction_execution_example.rs"
+
 [dependencies]
 # Async and runtime
 tokio = { workspace = true }
@@ -54,7 +102,7 @@ libp2p = { workspace = true }
 hickory-resolver = { workspace = true }
 
 # Storage
-rocksdb = { workspace = true }
+# rocksdb = { version = "0.23.0", features = ["multi-threaded-cf"] }  # Temporarily disabled due to macOS ARM64 linking issues
 
 # Cryptography and security
 ed25519-dalek = { workspace = true }
@@ -118,6 +166,8 @@ axum = { workspace = true }
 tower = { workspace = true }
 tower-http = { workspace = true }
 reqwest = { workspace = true }
+tokio-tungstenite = "0.25"
+url = "2.5"
 
 # WASM Runtime
 wasmtime = { workspace = true }

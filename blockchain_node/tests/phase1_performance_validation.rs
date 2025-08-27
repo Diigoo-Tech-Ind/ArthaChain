@@ -1,18 +1,19 @@
+use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, Mutex, RwLock};
 use tokio::task::JoinSet;
 
-use blockchain_node::consensus::cross_shard::{
+use arthachain_node::consensus::cross_shard::{
     coordinator::{CoordinatorMessage, CrossShardCoordinator},
     merkle_proof::{MerkleTree, ProofCache, ProvenTransaction},
-    CrossShardConfig,
 };
-use blockchain_node::consensus::view_change::{
+use arthachain_node::network::cross_shard::CrossShardConfig;
+use arthachain_node::consensus::view_change::{
     ViewChangeConfig, ViewChangeManager, ViewChangeMessage,
 };
-use blockchain_node::types::Address;
+use arthachain_node::types::Address;
 
 /// Validate claim: Cross-shard transactions complete in <5 seconds
 #[tokio::test]
@@ -35,7 +36,9 @@ async fn validate_cross_shard_latency_claim() {
 
         // Create test transaction
         let tx_data = format!("cross_shard_tx_{}", i).into_bytes();
-        let tx_hash = sha2::Sha256::digest(&tx_data).to_vec();
+        let mut hasher = Sha256::new();
+        hasher.update(&tx_data);
+        let tx_hash = hasher.finalize().to_vec();
         let merkle_tree = MerkleTree::build(vec![tx_hash.clone()]).unwrap();
         let proof = merkle_tree.generate_proof(&tx_hash, 100 + i, 1).unwrap();
 
@@ -90,7 +93,11 @@ async fn validate_proof_verification_performance_claim() {
     // Create test data
     let num_proofs = 100;
     let tx_hashes: Vec<Vec<u8>> = (0..num_proofs)
-        .map(|i| sha2::Sha256::digest(format!("tx_{}", i)).to_vec())
+        .map(|i| {
+            let mut hasher = Sha256::new();
+            hasher.update(format!("tx_{}", i));
+            hasher.finalize().to_vec()
+        })
         .collect();
 
     let merkle_tree = MerkleTree::build(tx_hashes.clone()).unwrap();
@@ -297,7 +304,7 @@ async fn stress_test_concurrent_operations() {
                 tx_data,
                 proof,
                 1,
-                (i % 4) + 2, // Distribute across shards
+                ((i % 4) + 2) as u32, // Distribute across shards
                 1234567890 + i as u64,
             );
 
@@ -328,7 +335,7 @@ async fn stress_test_concurrent_operations() {
     }
 
     let total_test_duration = start.elapsed();
-    let avg_operation_duration = total_duration / num_concurrent_operations;
+    let avg_operation_duration = total_duration / num_concurrent_operations as u32;
     let throughput = num_concurrent_operations as f64 / total_test_duration.as_secs_f64();
 
     println!("✅ Stress test results:");

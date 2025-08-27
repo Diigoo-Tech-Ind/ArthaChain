@@ -23,7 +23,7 @@ impl Default for EvmConfig {
         Self {
             chain_id: 1,
             default_gas_price: 20_000_000_000, // 20 gwei
-            default_gas_limit: 21_000, // Standard gas limit
+            default_gas_limit: 21_000,         // Standard gas limit
             precompiles: HashMap::new(),
         }
     }

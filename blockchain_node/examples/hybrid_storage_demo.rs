@@ -1,6 +1,6 @@
+use arthachain_node::storage::{Storage, StorageInit, StorageStats, StorageConfig, StorageError};
+use arthachain_node::types::Hash;
 use async_trait::async_trait;
-use blockchain_node::storage::{Storage, StorageInit, StorageStats};
-use blockchain_node::types::Hash;
 use rand::{thread_rng, Rng};
 use std::any::Any;
 use std::collections::HashMap;
@@ -28,69 +28,62 @@ impl MockSvdbStorage {
 
 #[async_trait]
 impl Storage for MockSvdbStorage {
-    async fn store(&self, data: &[u8]) -> anyhow::Result<Hash> {
-        // Generate random hash as key
-        let mut rng = thread_rng();
-        let hash_bytes: Vec<u8> = (0..32).map(|_| rng.gen::<u8>()).collect();
-        let hash = Hash::new(hash_bytes.clone());
-        let hash_str = hash.to_hex();
-
-        // Store data
-        let mut storage = self.data.lock().unwrap();
-        storage.insert(hash_str, data.to_vec());
-
-        Ok(hash)
-    }
-
-    async fn retrieve(&self, hash: &Hash) -> anyhow::Result<Option<Vec<u8>>> {
-        let hash_str = hash.to_hex();
+    async fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StorageError> {
+        let key_str = String::from_utf8_lossy(key);
         let storage = self.data.lock().unwrap();
-        match storage.get(&hash_str) {
-            Some(data) => Ok(Some(data.clone())),
-            None => Ok(None),
-        }
+        Ok(storage.get(&key_str.to_string()).cloned())
     }
 
-    async fn exists(&self, hash: &Hash) -> anyhow::Result<bool> {
-        let hash_str = hash.to_hex();
-        let storage = self.data.lock().unwrap();
-        Ok(storage.contains_key(&hash_str))
-    }
-
-    async fn delete(&self, hash: &Hash) -> anyhow::Result<()> {
-        let hash_str = hash.to_hex();
+    async fn put(&self, key: &[u8], value: &[u8]) -> Result<(), StorageError> {
+        let key_str = String::from_utf8_lossy(key);
         let mut storage = self.data.lock().unwrap();
-        storage.remove(&hash_str);
+        storage.insert(key_str.to_string(), value.to_vec());
         Ok(())
     }
 
-    async fn verify(&self, hash: &Hash, data: &[u8]) -> anyhow::Result<bool> {
-        let stored_data = self.retrieve(hash).await?;
-        match stored_data {
-            Some(ref stored) => Ok(stored == data),
-            None => Ok(false),
-        }
-    }
-
-    async fn close(&self) -> anyhow::Result<()> {
-        // Mock close operation
+    async fn delete(&self, key: &[u8]) -> Result<(), StorageError> {
+        let key_str = String::from_utf8_lossy(key);
+        let mut storage = self.data.lock().unwrap();
+        storage.remove(&key_str.to_string());
         Ok(())
     }
 
-    async fn get_stats(&self) -> anyhow::Result<StorageStats> {
+    async fn exists(&self, key: &[u8]) -> Result<bool, StorageError> {
+        let key_str = String::from_utf8_lossy(key);
         let storage = self.data.lock().unwrap();
-        let total_entries = storage.len() as u64;
+        Ok(storage.contains_key(&key_str.to_string()))
+    }
+
+    async fn list_keys(&self, prefix: &[u8]) -> Result<Vec<Vec<u8>>, StorageError> {
+        let prefix_str = String::from_utf8_lossy(prefix).to_string(); // Convert Cow to String
+        let storage = self.data.lock().unwrap();
+        let keys: Vec<Vec<u8>> = storage
+            .keys()
+            .filter(|k| k.starts_with(&prefix_str))
+            .map(|k| k.as_bytes().to_vec())
+            .collect();
+        Ok(keys)
+    }
+
+    async fn get_stats(&self) -> Result<StorageStats, StorageError> {
+        let storage = self.data.lock().unwrap();
+        let num_entries = storage.len() as u64;
         let total_size = storage.values().map(|v| v.len() as u64).sum::<u64>();
         Ok(StorageStats {
-            total_entries,
-            total_size_bytes: total_size,
-            average_entry_size: if total_entries > 0 {
-                total_size as f64 / total_entries as f64
-            } else {
-                0.0
-            },
-            storage_efficiency: 1.0, // Mock 100% efficiency
+            total_size,
+            used_size: total_size,
+            num_entries,
+            read_operations: 0,
+            write_operations: 0,
         })
+    }
+
+    async fn flush(&self) -> Result<(), StorageError> {
+        Ok(())
+    }
+
+    async fn close(&self) -> Result<(), StorageError> {
+        Ok(())
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -104,7 +97,7 @@ impl Storage for MockSvdbStorage {
 
 #[async_trait::async_trait]
 impl StorageInit for MockSvdbStorage {
-    async fn init(&mut self, _path: Box<dyn AsRef<Path> + Send + Sync>) -> anyhow::Result<()> {
+    async fn init(&self, _config: &StorageConfig) -> Result<(), StorageError> {
         // Mock initialization: no actual path operations needed
         Ok(())
     }
@@ -130,69 +123,62 @@ impl MockRocksDbStorage {
 
 #[async_trait]
 impl Storage for MockRocksDbStorage {
-    async fn store(&self, data: &[u8]) -> anyhow::Result<Hash> {
-        // Generate random hash as key
-        let mut rng = thread_rng();
-        let hash_bytes: Vec<u8> = (0..32).map(|_| rng.gen::<u8>()).collect();
-        let hash = Hash::new(hash_bytes.clone());
-        let hash_str = hash.to_hex();
-
-        // Store data
-        let mut storage = self.data.lock().unwrap();
-        storage.insert(hash_str, data.to_vec());
-
-        Ok(hash)
-    }
-
-    async fn retrieve(&self, hash: &Hash) -> anyhow::Result<Option<Vec<u8>>> {
-        let hash_str = hash.to_hex();
+    async fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StorageError> {
+        let key_str = String::from_utf8_lossy(key);
         let storage = self.data.lock().unwrap();
-        match storage.get(&hash_str) {
-            Some(data) => Ok(Some(data.clone())),
-            None => Ok(None),
-        }
+        Ok(storage.get(&key_str.to_string()).cloned())
     }
 
-    async fn exists(&self, hash: &Hash) -> anyhow::Result<bool> {
-        let hash_str = hash.to_hex();
-        let storage = self.data.lock().unwrap();
-        Ok(storage.contains_key(&hash_str))
-    }
-
-    async fn delete(&self, hash: &Hash) -> anyhow::Result<()> {
-        let hash_str = hash.to_hex();
+    async fn put(&self, key: &[u8], value: &[u8]) -> Result<(), StorageError> {
+        let key_str = String::from_utf8_lossy(key);
         let mut storage = self.data.lock().unwrap();
-        storage.remove(&hash_str);
+        storage.insert(key_str.to_string(), value.to_vec());
         Ok(())
     }
 
-    async fn verify(&self, hash: &Hash, data: &[u8]) -> anyhow::Result<bool> {
-        let stored_data = self.retrieve(hash).await?;
-        match stored_data {
-            Some(ref stored) => Ok(stored == data),
-            None => Ok(false),
-        }
-    }
-
-    async fn close(&self) -> anyhow::Result<()> {
-        // Mock close operation
+    async fn delete(&self, key: &[u8]) -> Result<(), StorageError> {
+        let key_str = String::from_utf8_lossy(key);
+        let mut storage = self.data.lock().unwrap();
+        storage.remove(&key_str.to_string());
         Ok(())
     }
 
-    async fn get_stats(&self) -> anyhow::Result<StorageStats> {
+    async fn exists(&self, key: &[u8]) -> Result<bool, StorageError> {
+        let key_str = String::from_utf8_lossy(key);
         let storage = self.data.lock().unwrap();
-        let total_entries = storage.len() as u64;
+        Ok(storage.contains_key(&key_str.to_string()))
+    }
+
+    async fn list_keys(&self, prefix: &[u8]) -> Result<Vec<Vec<u8>>, StorageError> {
+        let prefix_str = String::from_utf8_lossy(prefix).to_string(); // Convert Cow to String
+        let storage = self.data.lock().unwrap();
+        let keys: Vec<Vec<u8>> = storage
+            .keys()
+            .filter(|k| k.starts_with(&prefix_str))
+            .map(|k| k.as_bytes().to_vec())
+            .collect();
+        Ok(keys)
+    }
+
+    async fn get_stats(&self) -> Result<StorageStats, StorageError> {
+        let storage = self.data.lock().unwrap();
+        let num_entries = storage.len() as u64;
         let total_size = storage.values().map(|v| v.len() as u64).sum::<u64>();
         Ok(StorageStats {
-            total_entries,
-            total_size_bytes: total_size,
-            average_entry_size: if total_entries > 0 {
-                total_size as f64 / total_entries as f64
-            } else {
-                0.0
-            },
-            storage_efficiency: 1.0, // Mock 100% efficiency
+            total_size,
+            used_size: total_size,
+            num_entries,
+            read_operations: 0,
+            write_operations: 0,
         })
+    }
+
+    async fn flush(&self) -> Result<(), StorageError> {
+        Ok(())
+    }
+
+    async fn close(&self) -> Result<(), StorageError> {
+        Ok(())
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -206,7 +192,7 @@ impl Storage for MockRocksDbStorage {
 
 #[async_trait::async_trait]
 impl StorageInit for MockRocksDbStorage {
-    async fn init(&mut self, _path: Box<dyn AsRef<Path> + Send + Sync>) -> anyhow::Result<()> {
+    async fn init(&self, _config: &StorageConfig) -> Result<(), StorageError> {
         // Mock initialization: no actual path operations needed
         Ok(())
     }
@@ -229,91 +215,94 @@ impl CustomHybridStorage {
 
 #[async_trait::async_trait]
 impl StorageInit for CustomHybridStorage {
-    async fn init(&mut self, base_path: Box<dyn AsRef<Path> + Send + Sync>) -> anyhow::Result<()> {
-        // For mock storages, we can pass the same path or just unitialize them.
-        // Since it's a mock, the actual path doesn't matter.
-        let path_buf = base_path.as_ref().as_ref().to_path_buf();
-        self.hot_storage.init(Box::new(path_buf.clone())).await?;
-        self.cold_storage.init(Box::new(path_buf)).await?;
+    async fn init(&self, config: &StorageConfig) -> Result<(), StorageError> {
+        // For mock storages, we can just initialize them with default configs
+        let hot_config = StorageConfig {
+            data_dir: config.data_dir.clone(),
+            ..Default::default()
+        };
+        let cold_config = StorageConfig {
+            data_dir: config.data_dir.clone(),
+            ..Default::default()
+        };
+        self.hot_storage.init(&hot_config).await?;
+        self.cold_storage.init(&cold_config).await?;
         Ok(())
     }
 }
 
 #[async_trait]
 impl Storage for CustomHybridStorage {
-    async fn store(&self, data: &[u8]) -> anyhow::Result<Hash> {
-        // Store in hot storage first
-        let hash = self.hot_storage.store(data).await?;
-
-        // Optionally mirror to cold storage for larger data
-        if data.len() > 1024 {
-            let _ = self.cold_storage.store(data).await;
-        }
-
-        Ok(hash)
-    }
-
-    async fn retrieve(&self, hash: &Hash) -> anyhow::Result<Option<Vec<u8>>> {
+    async fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StorageError> {
         // Try hot storage first
-        if let Some(data) = self.hot_storage.retrieve(hash).await? {
+        if let Some(data) = self.hot_storage.get(key).await? {
             return Ok(Some(data));
         }
 
         // Fallback to cold storage
-        self.cold_storage.retrieve(hash).await
+        self.cold_storage.get(key).await
     }
 
-    async fn exists(&self, hash: &Hash) -> anyhow::Result<bool> {
+    async fn put(&self, key: &[u8], value: &[u8]) -> Result<(), StorageError> {
+        // Store in hot storage first
+        self.hot_storage.put(key, value).await?;
+
+        // Optionally mirror to cold storage for larger data
+        if value.len() > 1024 {
+            let _ = self.cold_storage.put(key, value).await;
+        }
+
+        Ok(())
+    }
+
+    async fn delete(&self, key: &[u8]) -> Result<(), StorageError> {
+        // Delete from both storages
+        let _ = self.hot_storage.delete(key).await;
+        let _ = self.cold_storage.delete(key).await;
+        Ok(())
+    }
+
+    async fn exists(&self, key: &[u8]) -> Result<bool, StorageError> {
         // Check both storages
-        let hot_exists = self.hot_storage.exists(hash).await?;
+        let hot_exists = self.hot_storage.exists(key).await?;
         if hot_exists {
             return Ok(true);
         }
 
-        self.cold_storage.exists(hash).await
+        self.cold_storage.exists(key).await
     }
 
-    async fn delete(&self, hash: &Hash) -> anyhow::Result<()> {
-        // Delete from both storages
-        let _ = self.hot_storage.delete(hash).await;
-        let _ = self.cold_storage.delete(hash).await;
-        Ok(())
+    async fn list_keys(&self, prefix: &[u8]) -> Result<Vec<Vec<u8>>, StorageError> {
+        // Combine keys from both storages
+        let mut keys = self.hot_storage.list_keys(prefix).await?;
+        let cold_keys = self.cold_storage.list_keys(prefix).await?;
+        keys.extend(cold_keys);
+        Ok(keys)
     }
 
-    async fn verify(&self, hash: &Hash, data: &[u8]) -> anyhow::Result<bool> {
-        // Verify against available storage
-        if self.hot_storage.exists(hash).await? {
-            return self.hot_storage.verify(hash, data).await;
-        }
-
-        self.cold_storage.verify(hash, data).await
-    }
-
-    async fn close(&self) -> anyhow::Result<()> {
-        self.hot_storage.close().await?;
-        self.cold_storage.close().await?;
-        Ok(())
-    }
-
-    async fn get_stats(&self) -> anyhow::Result<StorageStats> {
+    async fn get_stats(&self) -> Result<StorageStats, StorageError> {
         let hot_stats = self.hot_storage.get_stats().await?;
         let cold_stats = self.cold_storage.get_stats().await?;
 
         Ok(StorageStats {
-            total_entries: hot_stats.total_entries + cold_stats.total_entries,
-            total_size_bytes: hot_stats.total_size_bytes + cold_stats.total_size_bytes,
-            average_entry_size: {
-                let total_entries = hot_stats.total_entries + cold_stats.total_entries;
-                let total_size = hot_stats.total_size_bytes + cold_stats.total_size_bytes;
-                if total_entries > 0 {
-                    total_size as f64 / total_entries as f64
-                } else {
-                    0.0
-                }
-            },
-            storage_efficiency: (hot_stats.storage_efficiency + cold_stats.storage_efficiency)
-                / 2.0,
+            total_size: hot_stats.total_size + cold_stats.total_size,
+            used_size: hot_stats.used_size + cold_stats.used_size,
+            num_entries: hot_stats.num_entries + cold_stats.num_entries,
+            read_operations: hot_stats.read_operations + cold_stats.read_operations,
+            write_operations: hot_stats.write_operations + cold_stats.write_operations,
         })
+    }
+
+    async fn flush(&self) -> Result<(), StorageError> {
+        self.hot_storage.flush().await?;
+        self.cold_storage.flush().await?;
+        Ok(())
+    }
+
+    async fn close(&self) -> Result<(), StorageError> {
+        self.hot_storage.close().await?;
+        self.cold_storage.close().await?;
+        Ok(())
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -326,12 +315,12 @@ impl Storage for CustomHybridStorage {
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> Result<(), StorageError> {
     println!("Hybrid Storage Demo");
     println!("==================");
 
     // Create temporary directory for demo
-    let temp_dir = tempdir()?;
+    let temp_dir = tempdir().map_err(|e| StorageError::Other(e.to_string()))?;
     let base_path = temp_dir.path();
 
     println!("Using temp directory: {:?}", base_path);
@@ -340,8 +329,11 @@ async fn main() -> anyhow::Result<()> {
     let mut storage = CustomHybridStorage::new();
 
     // Initialize storage
-    let path_box: Box<dyn AsRef<Path> + Send + Sync> = Box::new(base_path.to_path_buf());
-    storage.init(path_box).await?;
+    let config = StorageConfig {
+        data_dir: base_path.to_string_lossy().to_string(),
+        ..Default::default()
+    };
+    storage.init(&config).await?;
 
     println!("✓ Storage initialized successfully");
 
@@ -351,16 +343,17 @@ async fn main() -> anyhow::Result<()> {
 
     // Store data
     println!("\nStoring data...");
-    let hash = storage.store(test_data).await?;
-    println!("✓ Data stored with hash: {}", hash.to_hex());
+    let key = b"test_key";
+    storage.put(key, test_data).await?;
+    println!("✓ Data stored with key: {:?}", String::from_utf8_lossy(key));
 
     // Check if data exists
-    let exists = storage.exists(&hash).await?;
+    let exists = storage.exists(key).await?;
     println!("✓ Data exists: {}", exists);
 
     // Retrieve data
     println!("\nRetrieving data...");
-    match storage.retrieve(&hash).await? {
+    match storage.get(key).await? {
         Some(retrieved_data) => {
             println!(
                 "✓ Data retrieved: {:?}",
@@ -368,7 +361,7 @@ async fn main() -> anyhow::Result<()> {
             );
 
             // Verify data integrity
-            let is_valid = storage.verify(&hash, &retrieved_data).await?;
+            let is_valid = storage.verify(key, &retrieved_data).await?;
             println!("✓ Data verification: {}", is_valid);
         }
         None => {
@@ -379,20 +372,22 @@ async fn main() -> anyhow::Result<()> {
     // Test with larger data (should trigger cold storage)
     println!("\nTesting with larger data...");
     let large_data = vec![42u8; 2048]; // 2KB data
-    let large_hash = storage.store(&large_data).await?;
-    println!("✓ Large data stored with hash: {}", large_hash.to_hex());
+    let large_key = b"large_data_key";
+    storage.put(large_key, &large_data).await?;
+    println!("✓ Large data stored with key: {:?}", String::from_utf8_lossy(large_key));
 
     // Get storage statistics
     println!("\nStorage statistics:");
     let stats = storage.get_stats().await?;
-    println!("Total entries: {}", stats.total_entries);
-    println!("Total size: {} bytes", stats.total_size_bytes);
-    println!("Average entry size: {:.2} bytes", stats.average_entry_size);
-    println!("Storage efficiency: {:.2}", stats.storage_efficiency);
+    println!("Total entries: {}", stats.num_entries);
+    println!("Total size: {} bytes", stats.total_size);
+    println!("Used size: {} bytes", stats.used_size);
+    println!("Read operations: {}", stats.read_operations);
+    println!("Write operations: {}", stats.write_operations);
 
     // Clean up
-    storage.delete(&hash).await?;
-    storage.delete(&large_hash).await?;
+    storage.delete(key).await?;
+    storage.delete(large_key).await?;
     println!("\n✓ Data cleaned up");
 
     // Close storage

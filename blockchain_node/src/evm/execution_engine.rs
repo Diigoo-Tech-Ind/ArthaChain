@@ -62,7 +62,7 @@ pub enum EvmVersion {
 impl Default for EvmExecutionConfig {
     fn default() -> Self {
         Self {
-            chain_id: 201766,                    // ArthaChain testnet
+            chain_id: 201766,                  // ArthaChain testnet
             default_gas_price: 20_000_000_000, // 20 gwei
             default_gas_limit: 21_000,
             block_gas_limit: 30_000_000,       // 30M gas per block
@@ -720,11 +720,11 @@ impl EvmExecutionEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::rocksdb_storage::RocksDBStorage;
+    use crate::storage::MemMapStorage;
 
     #[tokio::test]
     async fn test_evm_engine_creation() {
-        let storage = Arc::new(RocksDBStorage::new(":memory:").unwrap());
+        let storage = Arc::new(MemMapStorage::default());
         let config = EvmExecutionConfig::default();
         let engine = EvmExecutionEngine::new(storage, config);
         assert!(engine.is_ok());
@@ -732,7 +732,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_precompile_execution() {
-        let storage = Arc::new(RocksDBStorage::new(":memory:").unwrap());
+        let storage = Arc::new(MemMapStorage::default());
         let config = EvmExecutionConfig::default();
         let engine = EvmExecutionEngine::new(storage, config).unwrap();
 
@@ -743,7 +743,7 @@ mod tests {
             value: U256::zero(),
             data: b"hello world".to_vec(),
             gas_limit: U256::from(100000),
-            gas_price: U256::from(20_000_000_000),
+            gas_price: U256::from(20_000_000_000u64),
             nonce: U256::zero(),
             chain_id: Some(201766),
             signature: None,

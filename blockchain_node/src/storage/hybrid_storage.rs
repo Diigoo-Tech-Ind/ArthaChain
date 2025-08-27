@@ -20,8 +20,8 @@ impl HybridStorage {
     /// Create a new hybrid storage instance
     pub fn new(_svdb_url: String, size_threshold: usize) -> anyhow::Result<Self> {
         // Assume both storages are provided externally in production; here we keep placeholders
-        let rocksdb = crate::storage::rocksdb_storage::RocksDbStorage::new();
-        let svdb = crate::storage::svdb_storage::SvdbStorage::new("memory://".to_string())?;
+        let rocksdb = crate::storage::MemMapStorage::default();
+        let svdb = crate::storage::MemMapStorage::default();
         let rocksdb: Box<dyn Storage> = Box::new(rocksdb);
         let svdb: Box<dyn Storage> = Box::new(svdb);
 
@@ -31,15 +31,15 @@ impl HybridStorage {
             size_threshold,
         })
     }
-    
+
     /// Clone the hybrid storage (creates new instances)
     pub fn clone(&self) -> anyhow::Result<Self> {
         // Create new storage instances for the clone
-        let rocksdb = crate::storage::rocksdb_storage::RocksDbStorage::new();
-        let svdb = crate::storage::svdb_storage::SvdbStorage::new("memory://".to_string())?;
+        let rocksdb = crate::storage::MemMapStorage::default();
+        let svdb = crate::storage::MemMapStorage::default();
         let rocksdb: Box<dyn Storage> = Box::new(rocksdb);
         let svdb: Box<dyn Storage> = Box::new(svdb);
-        
+
         Ok(Self {
             rocksdb,
             svdb,
@@ -114,8 +114,12 @@ impl Storage for HybridStorage {
         self.svdb.close().await?;
         Ok(())
     }
-    
+
     fn as_any(&self) -> &dyn Any {
+        self
+    }
+    
+    fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
 }

@@ -4,7 +4,7 @@
 //! with advanced optimization, security features, and interoperability.
 
 #[cfg(feature = "evm")]
-use crate::evm::{EvmAddress, EvmExecutor, EvmRuntime, EvmTransaction, types::EvmConfig};
+use crate::evm::{types::EvmConfig, EvmAddress, EvmExecutor, EvmRuntime, EvmTransaction};
 use crate::ledger::state::State;
 use crate::storage::Storage;
 use crate::types::{Address, Hash, Transaction};
@@ -218,19 +218,27 @@ struct OptimizationResult {
 impl SmartContractEngine {
     /// Create a new smart contract engine
     pub async fn new(storage: Arc<dyn Storage>, config: SmartContractEngineConfig) -> Result<Self> {
-
         // Initialize EVM runtime if available
         #[cfg(feature = "evm")]
         let evm_runtime = {
             // Convert storage to HybridStorage
-            let hybrid_storage = match storage.as_any().downcast_ref::<crate::storage::hybrid_storage::HybridStorage>() {
+            let hybrid_storage = match storage
+                .as_any()
+                .downcast_ref::<crate::storage::hybrid_storage::HybridStorage>()
+            {
                 Some(hybrid) => hybrid.clone()?,
                 None => {
                     // Create a new HybridStorage if the current storage is not compatible
-                    crate::storage::hybrid_storage::HybridStorage::new("memory://".to_string(), 1024 * 1024)?
+                    crate::storage::hybrid_storage::HybridStorage::new(
+                        "memory://".to_string(),
+                        1024 * 1024,
+                    )?
                 }
             };
-            Arc::new(Mutex::new(EvmRuntime::new(Arc::new(hybrid_storage), EvmConfig::default())))
+            Arc::new(Mutex::new(EvmRuntime::new(
+                Arc::new(hybrid_storage),
+                EvmConfig::default(),
+            )))
         };
 
         // Create execution semaphore
@@ -289,7 +297,9 @@ impl SmartContractEngine {
                         value: ethereum_types::U256::from(0u128),
                         data: final_bytecode.clone(),
                         gas_price: ethereum_types::U256::from(1u128),
-                        gas_limit: ethereum_types::U256::from(self.config.default_gas_limit as u128),
+                        gas_limit: ethereum_types::U256::from(
+                            self.config.default_gas_limit as u128,
+                        ),
                         nonce: ethereum_types::U256::from(0u128),
                         chain_id: Some(1), // Mainnet
                         signature: None,
@@ -370,7 +380,7 @@ impl SmartContractEngine {
                 .ok_or_else(|| anyhow!("Contract not found: {:?}", request.contract_address))?
         };
 
-                // Execute based on runtime type
+        // Execute based on runtime type
         let result: ContractExecutionResult = match contract_info.runtime {
             ContractRuntime::Wasm => {
                 return Err(anyhow!("WASM runtime not available"));
@@ -381,7 +391,9 @@ impl SmartContractEngine {
                     // Create real EVM call transaction
                     let evm_tx = crate::evm::types::EvmTransaction {
                         from: crate::evm::types::EvmAddress::from_slice(request.caller.as_bytes()),
-                        to: Some(crate::evm::types::EvmAddress::from_slice(request.contract_address.as_bytes())),
+                        to: Some(crate::evm::types::EvmAddress::from_slice(
+                            request.contract_address.as_bytes(),
+                        )),
                         value: ethereum_types::U256::from(request.value as u128),
                         data: request.args,
                         gas_price: ethereum_types::U256::from(request.gas_price as u128),

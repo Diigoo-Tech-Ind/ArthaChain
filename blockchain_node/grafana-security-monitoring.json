@@ -1,0 +1,25 @@
+{
+  "dashboard": {
+    "title": "ArthaChain Security Monitoring",
+    "panels": [
+      {
+        "title": "Security Incidents",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(arthachain_security_incidents_total[5m])"
+          }
+        ]
+      },
+      {
+        "title": "Failed Authentication Attempts",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(arthachain_auth_failures_total[5m])"
+          }
+        ]
+      }
+    ]
+  }
+}

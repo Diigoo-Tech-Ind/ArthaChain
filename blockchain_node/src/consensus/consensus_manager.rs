@@ -61,7 +61,7 @@ pub struct ConsensusConfig {
     pub byzantine_tolerance: bool,
     /// Maximum Byzantine nodes (f in 3f+1)
     pub max_byzantine_nodes: usize,
-    
+
     // 🛡️ SPOF ELIMINATION: Multi-Leader Consensus (SPOF FIX #4)
     /// Enable multi-leader consensus
     pub enable_multi_leader: bool,
@@ -84,12 +84,12 @@ impl Default for ConsensusConfig {
             emergency_mode_duration_secs: 300, // 5 minutes
             byzantine_tolerance: true,
             max_byzantine_nodes: 1, // Assume 4 nodes minimum (3*1+1)
-            
+
             // 🛡️ SPOF ELIMINATION: Multi-Leader defaults
-            enable_multi_leader: true,          // Enable multi-leader by default
-            concurrent_leaders: 3,              // 3 concurrent leaders for fault tolerance
+            enable_multi_leader: true, // Enable multi-leader by default
+            concurrent_leaders: 3,     // 3 concurrent leaders for fault tolerance
             leader_rotation_strategy: LeaderRotationStrategy::LoadBalanced,
-            leader_failure_timeout_ms: 2000,   // 2 second timeout for leader detection
+            leader_failure_timeout_ms: 2000, // 2 second timeout for leader detection
         }
     }
 }
@@ -107,6 +107,8 @@ pub enum ConsensusState {
     Emergency,
     /// Recovery in progress
     Recovery,
+    /// View change in progress
+    ViewChange(u64),
 }
 
 /// Consensus event
@@ -171,7 +173,7 @@ pub struct ConsensusManager {
     emergency_mode: Arc<RwLock<Option<SystemTime>>>,
     /// Node ID
     node_id: NodeId,
-    
+
     // 🛡️ SPOF ELIMINATION: Multi-Leader Consensus
     /// Current active leaders
     active_leaders: Arc<RwLock<Vec<NodeId>>>,
@@ -226,7 +228,7 @@ impl ConsensusManager {
             recovery_handle: Arc::new(Mutex::new(None)),
             emergency_mode: Arc::new(RwLock::new(None)),
             node_id: node_id.clone(),
-            
+
             // 🛡️ SPOF ELIMINATION: Initialize multi-leader consensus fields
             active_leaders: Arc::new(RwLock::new(vec![node_id.clone()])), // Start with self as leader
             leader_balancer: Arc::new(Mutex::new(LeaderLoadBalancer {
@@ -589,6 +591,61 @@ impl ConsensusManager {
         self.failover_manager.stop().await;
 
         info!("Consensus manager stopped");
+    }
+
+    // WebSocket service methods
+    /// Get current consensus view
+    pub async fn get_current_view(&self) -> Result<u64> {
+        let state = self.state.read().await;
+        match *state {
+            ConsensusState::Normal => Ok(0),
+            ConsensusState::LeaderElection => Ok(0),
+            ConsensusState::Failover => Ok(0),
+            ConsensusState::ViewChange(view) => Ok(view),
+            ConsensusState::Recovery => Ok(0),
+            ConsensusState::Emergency => Ok(0),
+        }
+    }
+
+    /// Get current consensus phase
+    pub async fn get_current_phase(&self) -> Result<String> {
+        let state = self.state.read().await;
+        match *state {
+            ConsensusState::Normal => Ok("normal".to_string()),
+            ConsensusState::LeaderElection => Ok("leader_election".to_string()),
+            ConsensusState::Failover => Ok("failover".to_string()),
+            ConsensusState::ViewChange(_) => Ok("view_change".to_string()),
+            ConsensusState::Recovery => Ok("recovery".to_string()),
+            ConsensusState::Emergency => Ok("emergency".to_string()),
+        }
+    }
+
+    /// Get validator count
+    pub async fn get_validator_count(&self) -> Result<usize> {
+        let validators = self.validators.read().await;
+        Ok(validators.len())
+    }
+
+    /// Get current consensus round
+    pub async fn get_current_round(&self) -> Result<u64> {
+        let metrics = self.metrics.read().await;
+        Ok(metrics.current_round)
+    }
+
+    /// Get block time
+    pub async fn get_block_time(&self) -> Result<u64> {
+        let metrics = self.metrics.read().await;
+        Ok(metrics.avg_round_time_ms as u64)
+    }
+
+    /// Get finality type
+    pub async fn get_finality_type(&self) -> Result<String> {
+        let metrics = self.metrics.read().await;
+        if metrics.byzantine_faults > 0 {
+            Ok("probabilistic".to_string())
+        } else {
+            Ok("final".to_string())
+        }
     }
 }
 

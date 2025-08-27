@@ -10,7 +10,6 @@ use tokio::sync::RwLock;
 
 use crate::api::ApiError;
 use crate::ledger::state::State;
-use crate::ledger::transaction::TransactionType;
 use crate::types::{Address, Hash};
 
 /// JSON-RPC 2.0 Request
@@ -586,8 +585,8 @@ async fn handle_get_transaction_by_hash(
         Some((tx, block_hash, block_height)) => {
             let tx_json = json!({
                 "hash": format!("0x{}", tx.hash()),
-                "from": format!("0x{}", hex::encode(tx.sender.as_bytes())),
-                "to": format!("0x{}", hex::encode(tx.recipient.as_bytes())),
+                "from": format!("0x{}", tx.sender),
+                "to": format!("0x{}", tx.recipient),
                 "value": format!("0x{:x}", tx.amount),
                 "gas": "0x5208", // Default gas limit
                 "gasPrice": format!("0x{:x}", tx.fee()),

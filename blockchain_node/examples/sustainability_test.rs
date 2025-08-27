@@ -3,9 +3,9 @@ use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 
-use blockchain_node::execution::executor::{ExecutionResult, TransactionExecutor};
-use blockchain_node::ledger::state::State;
-use blockchain_node::ledger::transaction::{Transaction, TransactionType};
+use arthachain_node::execution::executor::{ExecutionResult, TransactionExecutor};
+use arthachain_node::ledger::state::State;
+use arthachain_node::ledger::transaction::{Transaction, TransactionType};
 
 // Test configuration
 struct SustainabilityConfig {
@@ -26,7 +26,7 @@ async fn run_sustainability_test(config: &SustainabilityConfig) -> Result<()> {
     );
 
     // Initialize state
-    let state_tree = Arc::new(State::new(&blockchain_node::config::Config::default()).unwrap());
+    let state_tree = Arc::new(State::new(&arthachain_node::config::Config::default()).unwrap());
 
     // Create transaction executor
     let executor = Arc::new(TransactionExecutor::new(

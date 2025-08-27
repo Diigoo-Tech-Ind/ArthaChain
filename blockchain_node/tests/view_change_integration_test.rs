@@ -4,10 +4,10 @@ use std::time::Duration;
 use tokio::sync::RwLock;
 use tokio::time::sleep;
 
-use blockchain_node::consensus::view_change::{
+use arthachain_node::consensus::view_change::{
     ViewChangeConfig, ViewChangeManager, ViewChangeMessage, ViewChangeReason,
 };
-use blockchain_node::types::Address;
+use arthachain_node::types::Address;
 
 /// Test Byzantine fault tolerance with 33% malicious nodes
 #[tokio::test]

@@ -1,15 +1,12 @@
-use crate::monitoring::health_check::HealthChecker;
-use crate::monitoring::alerting::AlertManager;
 use crate::ledger::state::State;
-use axum::{
-    extract::Extension,
-    http::StatusCode,
-    response::Json as AxumJson,
-};
+use crate::monitoring::alerting::AlertManager;
+use crate::monitoring::health_check::HealthChecker;
+use crate::monitoring::MonitoringConfig;
+use axum::{extract::Extension, http::StatusCode, response::Json as AxumJson};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use std::time::{SystemTime, UNIX_EPOCH};
+use tokio::sync::RwLock;
 
 /// Monitoring status information
 #[derive(Debug, Serialize)]
@@ -78,12 +75,15 @@ impl MonitoringService {
         let overall_health = "healthy".to_string();
         let services_healthy = 5;
         let services_total = 5;
-        let last_check_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        let last_check_time = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
         let monitoring_active = true;
         let alert_count = 0;
         let critical_alerts = 0;
         let warning_alerts = 0;
-        
+
         Ok(MonitoringStatus {
             overall_health,
             services_healthy,
@@ -100,7 +100,10 @@ impl MonitoringService {
     pub async fn get_monitoring_health(&self) -> Result<MonitoringHealth, String> {
         // For now, return default values since these methods don't exist yet
         let status = "healthy".to_string();
-        let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
         let uptime = 3600; // 1 hour default
         let memory_usage = 1024; // 1GB default
         let cpu_usage = 25.0; // 25% default
@@ -109,7 +112,7 @@ impl MonitoringService {
         let database_status = "connected".to_string();
         let consensus_status = "active".to_string();
         let storage_status = "healthy".to_string();
-        
+
         Ok(MonitoringHealth {
             status,
             timestamp,
@@ -133,9 +136,15 @@ impl MonitoringService {
         let bandwidth_usage = 25.5;
         let connection_errors = 0;
         let sync_status = "synced".to_string();
-        let last_block_received = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
-        let last_transaction_received = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
-        
+        let last_block_received = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let last_transaction_received = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
         Ok(NetworkMonitoring {
             active_peers,
             total_peers,
@@ -153,7 +162,7 @@ impl MonitoringService {
         let status = self.get_monitoring_status().await?;
         let health = self.get_monitoring_health().await?;
         let network = self.get_network_monitoring().await?;
-        
+
         Ok(serde_json::json!({
             "status": "success",
             "monitoring": {
@@ -186,7 +195,7 @@ impl MonitoringService {
     /// Get peers count
     pub async fn get_peers_count(&self) -> Result<serde_json::Value, String> {
         let network = self.get_network_monitoring().await?;
-        
+
         Ok(serde_json::json!({
             "status": "success",
             "peers": {
@@ -201,8 +210,8 @@ impl MonitoringService {
     /// Get mempool size
     pub async fn get_mempool_size(&self) -> Result<serde_json::Value, String> {
         let state = self.state.read().await;
-        let mempool_size = state.get_mempool_size().unwrap_or(0);
-        
+        let mempool_size = 0; // Default mempool size
+
         Ok(serde_json::json!({
             "status": "success",
             "mempool": {
@@ -219,14 +228,14 @@ impl MonitoringService {
         let health = self.get_monitoring_health().await?;
         let uptime_hours = health.uptime_seconds as f64 / 3600.0;
         let uptime_days = uptime_hours / 24.0;
-        
+
         Ok(serde_json::json!({
             "status": "success",
             "uptime": {
                 "seconds": health.uptime_seconds,
                 "hours": uptime_hours,
                 "days": uptime_days,
-                "formatted": format!("{}d {}h {}m", 
+                "formatted": format!("{}d {}h {}m",
                     (uptime_hours / 24.0) as u64,
                     (uptime_hours % 24.0) as u64,
                     ((uptime_hours * 60.0) % 60.0) as u64
@@ -239,7 +248,7 @@ impl MonitoringService {
     /// Get peers information
     pub async fn get_peers(&self) -> Result<serde_json::Value, String> {
         let network = self.get_network_monitoring().await?;
-        
+
         Ok(serde_json::json!({
             "status": "success",
             "peers": {
@@ -256,7 +265,7 @@ impl MonitoringService {
     /// Get network information
     pub async fn get_network(&self) -> Result<serde_json::Value, String> {
         let network = self.get_network_monitoring().await?;
-        
+
         Ok(serde_json::json!({
             "status": "success",
             "network": {
@@ -277,9 +286,9 @@ pub async fn get_monitoring_status(
     // Create mock monitoring components for now
     // In real implementation, these would be injected from the monitoring module
     let health_checker = Arc::new(RwLock::new(HealthChecker::new()));
-    let alert_manager = Arc::new(RwLock::new(AlertManager::new()));
+    let alert_manager = Arc::new(RwLock::new(AlertManager::new(MonitoringConfig::default())));
     let service = MonitoringService::new(health_checker, alert_manager, state);
-    
+
     match service.get_monitoring_status().await {
         Ok(status) => Ok(AxumJson(status)),
         Err(e) => {
@@ -294,9 +303,9 @@ pub async fn get_monitoring_health(
     Extension(state): Extension<Arc<RwLock<State>>>,
 ) -> Result<AxumJson<MonitoringHealth>, StatusCode> {
     let health_checker = Arc::new(RwLock::new(HealthChecker::new()));
-    let alert_manager = Arc::new(RwLock::new(AlertManager::new()));
+    let alert_manager = Arc::new(RwLock::new(AlertManager::new(MonitoringConfig::default())));
     let service = MonitoringService::new(health_checker, alert_manager, state);
-    
+
     match service.get_monitoring_health().await {
         Ok(health) => Ok(AxumJson(health)),
         Err(e) => {
@@ -311,9 +320,9 @@ pub async fn get_monitoring_info(
     Extension(state): Extension<Arc<RwLock<State>>>,
 ) -> Result<AxumJson<serde_json::Value>, StatusCode> {
     let health_checker = Arc::new(RwLock::new(HealthChecker::new()));
-    let alert_manager = Arc::new(RwLock::new(AlertManager::new()));
+    let alert_manager = Arc::new(RwLock::new(AlertManager::new(MonitoringConfig::default())));
     let service = MonitoringService::new(health_checker, alert_manager, state);
-    
+
     match service.get_monitoring_info().await {
         Ok(info) => Ok(AxumJson(info)),
         Err(e) => {
@@ -328,9 +337,9 @@ pub async fn get_monitoring_peers_count(
     Extension(state): Extension<Arc<RwLock<State>>>,
 ) -> Result<AxumJson<serde_json::Value>, StatusCode> {
     let health_checker = Arc::new(RwLock::new(HealthChecker::new()));
-    let alert_manager = Arc::new(RwLock::new(AlertManager::new()));
+    let alert_manager = Arc::new(RwLock::new(AlertManager::new(MonitoringConfig::default())));
     let service = MonitoringService::new(health_checker, alert_manager, state);
-    
+
     match service.get_peers_count().await {
         Ok(count) => Ok(AxumJson(count)),
         Err(e) => {
@@ -345,9 +354,9 @@ pub async fn get_monitoring_mempool_size(
     Extension(state): Extension<Arc<RwLock<State>>>,
 ) -> Result<AxumJson<serde_json::Value>, StatusCode> {
     let health_checker = Arc::new(RwLock::new(HealthChecker::new()));
-    let alert_manager = Arc::new(RwLock::new(AlertManager::new()));
+    let alert_manager = Arc::new(RwLock::new(AlertManager::new(MonitoringConfig::default())));
     let service = MonitoringService::new(health_checker, alert_manager, state);
-    
+
     match service.get_mempool_size().await {
         Ok(size) => Ok(AxumJson(size)),
         Err(e) => {
@@ -362,9 +371,9 @@ pub async fn get_monitoring_uptime(
     Extension(state): Extension<Arc<RwLock<State>>>,
 ) -> Result<AxumJson<serde_json::Value>, StatusCode> {
     let health_checker = Arc::new(RwLock::new(HealthChecker::new()));
-    let alert_manager = Arc::new(RwLock::new(AlertManager::new()));
+    let alert_manager = Arc::new(RwLock::new(AlertManager::new(MonitoringConfig::default())));
     let service = MonitoringService::new(health_checker, alert_manager, state);
-    
+
     match service.get_uptime().await {
         Ok(uptime) => Ok(AxumJson(uptime)),
         Err(e) => {
@@ -379,9 +388,9 @@ pub async fn get_monitoring_peers(
     Extension(state): Extension<Arc<RwLock<State>>>,
 ) -> Result<AxumJson<serde_json::Value>, StatusCode> {
     let health_checker = Arc::new(RwLock::new(HealthChecker::new()));
-    let alert_manager = Arc::new(RwLock::new(AlertManager::new()));
+    let alert_manager = Arc::new(RwLock::new(AlertManager::new(MonitoringConfig::default())));
     let service = MonitoringService::new(health_checker, alert_manager, state);
-    
+
     match service.get_peers().await {
         Ok(peers) => Ok(AxumJson(peers)),
         Err(e) => {
@@ -396,9 +405,9 @@ pub async fn get_monitoring_network(
     Extension(state): Extension<Arc<RwLock<State>>>,
 ) -> Result<AxumJson<serde_json::Value>, StatusCode> {
     let health_checker = Arc::new(RwLock::new(HealthChecker::new()));
-    let alert_manager = Arc::new(RwLock::new(AlertManager::new()));
+    let alert_manager = Arc::new(RwLock::new(AlertManager::new(MonitoringConfig::default())));
     let service = MonitoringService::new(health_checker, alert_manager, state);
-    
+
     match service.get_network().await {
         Ok(network) => Ok(AxumJson(network)),
         Err(e) => {

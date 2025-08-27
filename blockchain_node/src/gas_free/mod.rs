@@ -2,8 +2,8 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use std::time::{SystemTime, UNIX_EPOCH};
+use tokio::sync::RwLock;
 
 /// Gas-Free Application Configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -105,14 +105,17 @@ impl GasFreeManager {
 
         let mut apps = self.apps.write().await;
         apps.insert(app.app_id.clone(), app);
-        
+
         Ok(true)
     }
 
     /// Check if transaction is eligible for gas-free
-    pub async fn is_gas_free_eligible(&self, request: &GasFreeTxRequest) -> Result<Option<GasFreeApp>> {
+    pub async fn is_gas_free_eligible(
+        &self,
+        request: &GasFreeTxRequest,
+    ) -> Result<Option<GasFreeApp>> {
         let apps = self.apps.read().await;
-        
+
         if let Some(app) = apps.get(&request.app_id) {
             if !app.is_active {
                 return Ok(None);
@@ -154,7 +157,7 @@ impl GasFreeManager {
         if let Some(app) = self.is_gas_free_eligible(request).await? {
             // Increment daily counter
             self.increment_daily_counter(&request.app_id).await?;
-            
+
             // Log the gas-free transaction
             println!("🚀 Gas-Free Transaction Processed:");
             println!("   App ID: {}", app.app_id);
@@ -163,7 +166,7 @@ impl GasFreeManager {
             println!("   From: {:?}", request.from_address);
             println!("   To: {:?}", request.to_address);
             println!("   Value: {} wei", request.value);
-            
+
             Ok(true)
         } else {
             Ok(false)
@@ -173,19 +176,16 @@ impl GasFreeManager {
     /// Get all active gas-free applications
     pub async fn get_active_apps(&self) -> Result<Vec<GasFreeApp>> {
         let apps = self.apps.read().await;
-        let active_apps: Vec<GasFreeApp> = apps
-            .values()
-            .filter(|app| app.is_active)
-            .cloned()
-            .collect();
-        
+        let active_apps: Vec<GasFreeApp> =
+            apps.values().filter(|app| app.is_active).cloned().collect();
+
         Ok(active_apps)
     }
 
     /// Update application status
     pub async fn update_app_status(&self, app_id: &str, is_active: bool) -> Result<bool> {
         let mut apps = self.apps.write().await;
-        
+
         if let Some(app) = apps.get_mut(app_id) {
             app.is_active = is_active;
             Ok(true)
@@ -214,7 +214,7 @@ impl GasFreeManager {
     async fn check_daily_limit(&self, app_id: &str) -> Result<bool> {
         let apps = self.apps.read().await;
         let counters = self.daily_counters.read().await;
-        
+
         if let Some(app) = apps.get(app_id) {
             let current_count = counters.get(app_id).unwrap_or(&0);
             Ok(*current_count < app.max_tx_per_day)
@@ -259,32 +259,50 @@ impl GasFreeManager {
                 company_name: "ArthaChain".to_string(),
                 app_type: GasFreeAppType::CompletelyFree,
                 duration: 86400 * 30, // 30 days
-                start_time: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+                start_time: SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs(),
                 end_time: 0, // Permanent for demo
                 max_tx_per_day: 1000,
                 daily_tx_count: 0,
-                last_reset: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+                last_reset: SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs(),
                 gas_limit_per_tx: 21_000, // Standard ETH gas limit
                 allowed_tx_types: vec!["transfer".to_string(), "contract_call".to_string()],
                 company_signature: vec![0x01, 0x02, 0x03, 0x04],
                 is_active: true,
-                created_at: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+                created_at: SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs(),
             },
             GasFreeApp {
                 app_id: "enterprise_project_1".to_string(),
                 company_name: "ArthaCorp".to_string(),
                 app_type: GasFreeAppType::Discounted { percentage: 50 },
                 duration: 86400 * 90, // 90 days
-                start_time: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+                start_time: SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs(),
                 end_time: 0,
                 max_tx_per_day: 5000,
                 daily_tx_count: 0,
-                last_reset: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+                last_reset: SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs(),
                 gas_limit_per_tx: 100_000,
                 allowed_tx_types: vec!["transfer".to_string(), "contract_deploy".to_string()],
                 company_signature: vec![0x05, 0x06, 0x07, 0x08],
                 is_active: true,
-                created_at: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+                created_at: SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs(),
             },
         ];
 
@@ -309,7 +327,7 @@ mod tests {
     #[tokio::test]
     async fn test_gas_free_app_registration() {
         let manager = GasFreeManager::new();
-        
+
         let app = GasFreeApp {
             app_id: "test_app".to_string(),
             company_name: "ArthaChain".to_string(),
@@ -334,7 +352,7 @@ mod tests {
     #[tokio::test]
     async fn test_gas_free_eligibility() {
         let manager = GasFreeManager::new();
-        
+
         // Create demo apps first
         manager.create_demo_apps().await.unwrap();
 
@@ -346,7 +364,10 @@ mod tests {
             value: 1000,
             gas_limit: 21000,
             tx_type: "transfer".to_string(),
-            timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
         };
 
         let result = manager.is_gas_free_eligible(&request).await.unwrap();

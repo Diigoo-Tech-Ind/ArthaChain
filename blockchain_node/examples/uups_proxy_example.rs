@@ -4,7 +4,7 @@
 //! pattern without requiring WASM functionality.
 
 use anyhow::Result;
-use blockchain_node::types::Address;
+use arthachain_node::types::Address;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 

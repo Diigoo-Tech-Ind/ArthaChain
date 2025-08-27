@@ -1,5 +1,5 @@
 use crate::utils::quantum_merkle::QuantumMerkleTree;
-use crate::wasm::types::{WasmContractAddress, WasmModule};
+// use crate::wasm::types::{WasmContractAddress, WasmModule}; // WASM module disabled
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

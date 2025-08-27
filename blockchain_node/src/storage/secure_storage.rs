@@ -745,8 +745,12 @@ impl Storage for SecureStorage {
     async fn close(&self) -> Result<()> {
         self.storage.close().await
     }
-    
+
     fn as_any(&self) -> &dyn Any {
+        self
+    }
+    
+    fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
 }
@@ -782,11 +786,11 @@ fn current_timestamp() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::rocksdb_storage::RocksDbStorage;
+    use crate::storage::MemMapStorage;
 
     #[tokio::test]
     async fn test_secure_storage() {
-        let storage = Box::new(RocksDbStorage::new());
+        let storage = Box::new(MemMapStorage::default());
         let access_control = Arc::new(AccessControlManager::new());
         let encryption = Arc::new(EncryptionManager::new());
         let config = SecureStorageConfig::default();

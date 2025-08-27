@@ -5,7 +5,7 @@ use std::time::Duration;
 /// Test Merkle proof functionality
 #[tokio::test]
 async fn test_merkle_proof_system() {
-    use blockchain_node::consensus::cross_shard::merkle_proof::{MerkleTree, ProofCache};
+    use arthachain_node::consensus::cross_shard::merkle_proof::{MerkleTree, ProofCache};
 
     // Create test transaction hashes
     let tx_hashes = vec![
@@ -35,7 +35,7 @@ async fn test_merkle_proof_system() {
 /// Test view change manager
 #[tokio::test]
 async fn test_view_change_manager() {
-    use blockchain_node::consensus::view_change::{ViewChangeConfig, ViewChangeManager};
+    use arthachain_node::consensus::view_change::{ViewChangeConfig, ViewChangeManager};
 
     let config = ViewChangeConfig {
         view_timeout: Duration::from_secs(1),
@@ -67,9 +67,10 @@ async fn test_view_change_manager() {
 /// Test cross-shard coordinator basic functionality
 #[tokio::test]
 async fn test_cross_shard_coordinator() {
-    use blockchain_node::consensus::cross_shard::{
-        coordinator::CrossShardCoordinator, CrossShardConfig,
+    use arthachain_node::consensus::cross_shard::{
+        coordinator::CrossShardCoordinator,
     };
+    use arthachain_node::network::cross_shard::CrossShardConfig;
     use tokio::sync::mpsc;
 
     let config = CrossShardConfig {
@@ -98,7 +99,7 @@ async fn test_cross_shard_coordinator() {
 /// Test performance of proof verification
 #[tokio::test]
 async fn test_proof_verification_performance() {
-    use blockchain_node::consensus::cross_shard::merkle_proof::MerkleTree;
+    use arthachain_node::consensus::cross_shard::merkle_proof::MerkleTree;
     use std::time::Instant;
 
     // Create larger test data
@@ -140,7 +141,7 @@ async fn test_proof_verification_performance() {
 /// Test Byzantine fault tolerance calculation
 #[tokio::test]
 async fn test_byzantine_fault_tolerance() {
-    use blockchain_node::consensus::view_change::{ViewChangeConfig, ViewChangeManager};
+    use arthachain_node::consensus::view_change::{ViewChangeConfig, ViewChangeManager};
 
     // Test with different network sizes
     let test_cases = vec![
@@ -195,8 +196,8 @@ async fn phase1_integration_summary() {
     println!("=====================================");
 
     // Test all major components work together
-    use blockchain_node::consensus::cross_shard::merkle_proof::{MerkleTree, ProvenTransaction};
-    use blockchain_node::consensus::view_change::{ViewChangeConfig, ViewChangeManager};
+    use arthachain_node::consensus::cross_shard::merkle_proof::{MerkleTree, ProvenTransaction};
+    use arthachain_node::consensus::view_change::{ViewChangeConfig, ViewChangeManager};
     use std::time::Instant;
 
     let start = Instant::now();

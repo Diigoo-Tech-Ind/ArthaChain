@@ -1,12 +1,12 @@
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
-use tokio::sync::RwLock;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
+use tokio::sync::RwLock;
 
-use crate::types::{Transaction, Address, Hash};
+use crate::types::{Address, Hash, Transaction};
 
 pub mod shard;
 
@@ -52,12 +52,12 @@ pub struct ShardPerformance {
 }
 
 /// Types of shards with different specializations
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ShardType {
-    HighPerformance,    // Optimized for speed
-    StorageOptimized,   // Optimized for storage
-    ComputeIntensive,   // Optimized for complex computations
-    GeneralPurpose,     // Balanced performance
+    HighPerformance,  // Optimized for speed
+    StorageOptimized, // Optimized for storage
+    ComputeIntensive, // Optimized for complex computations
+    GeneralPurpose,   // Balanced performance
 }
 
 impl ShardType {
@@ -180,7 +180,12 @@ impl ShardManager {
     }
 
     /// Register a new shard
-    pub async fn register_shard(&self, shard_id: u64, shard_type: ShardType, parallel_capacity: u32) -> Result<(), String> {
+    pub async fn register_shard(
+        &self,
+        shard_id: u64,
+        shard_type: ShardType,
+        parallel_capacity: u32,
+    ) -> Result<(), String> {
         let info = ShardInfo {
             id: shard_id,
             shard_type: shard_type.clone(),
@@ -198,10 +203,12 @@ impl ShardManager {
 
         let mut shards = self.shards.write().await;
         shards.insert(shard_id, info);
-        
+
         // Initialize monitoring for the new shard
-        self.performance_monitor.initialize_shard_monitoring(shard_id).await;
-        
+        self.performance_monitor
+            .initialize_shard_monitoring(shard_id)
+            .await;
+
         Ok(())
     }
 
@@ -212,11 +219,23 @@ impl ShardManager {
             id: info.id,
             shard_type: info.shard_type.clone(),
             performance: ShardPerformance {
-                transactions_processed: AtomicU64::new(info.performance.transactions_processed.load(Ordering::Relaxed)),
-                blocks_created: AtomicU64::new(info.performance.blocks_created.load(Ordering::Relaxed)),
-                average_processing_time: AtomicU64::new(info.performance.average_processing_time.load(Ordering::Relaxed)),
+                transactions_processed: AtomicU64::new(
+                    info.performance
+                        .transactions_processed
+                        .load(Ordering::Relaxed),
+                ),
+                blocks_created: AtomicU64::new(
+                    info.performance.blocks_created.load(Ordering::Relaxed),
+                ),
+                average_processing_time: AtomicU64::new(
+                    info.performance
+                        .average_processing_time
+                        .load(Ordering::Relaxed),
+                ),
                 current_load: AtomicU64::new(info.performance.current_load.load(Ordering::Relaxed)),
-                last_activity: AtomicU64::new(info.performance.last_activity.load(Ordering::Relaxed)),
+                last_activity: AtomicU64::new(
+                    info.performance.last_activity.load(Ordering::Relaxed),
+                ),
             },
             parallel_capacity: info.parallel_capacity,
             validator_count: info.validator_count,
@@ -238,31 +257,81 @@ impl ShardManager {
         _transaction_data: &TransactionData,
     ) -> Result<(), String> {
         // Record cross-shard transaction
-        self.performance_monitor.record_cross_shard_transaction(_source_shard, _target_shard).await;
-        
+        self.performance_monitor
+            .record_cross_shard_transaction(_source_shard, _target_shard)
+            .await;
+
         // Simulate cross-shard processing
         tokio::time::sleep(Duration::from_millis(10)).await;
-        
+
         Ok(())
     }
 
     /// Get all shards
     pub async fn get_all_shards(&self) -> Vec<ShardInfo> {
         let shards = self.shards.read().await;
-        shards.values().map(|info| ShardInfo {
-            id: info.id,
-            shard_type: info.shard_type.clone(),
-            performance: ShardPerformance {
-                transactions_processed: AtomicU64::new(info.performance.transactions_processed.load(Ordering::Relaxed)),
-                blocks_created: AtomicU64::new(info.performance.blocks_created.load(Ordering::Relaxed)),
-                average_processing_time: AtomicU64::new(info.performance.average_processing_time.load(Ordering::Relaxed)),
-                current_load: AtomicU64::new(info.performance.current_load.load(Ordering::Relaxed)),
-                last_activity: AtomicU64::new(info.performance.last_activity.load(Ordering::Relaxed)),
-            },
-            parallel_capacity: info.parallel_capacity,
-            validator_count: info.validator_count,
-            is_active: info.is_active,
-        }).collect()
+        shards
+            .values()
+            .map(|info| ShardInfo {
+                id: info.id,
+                shard_type: info.shard_type.clone(),
+                performance: ShardPerformance {
+                    transactions_processed: AtomicU64::new(
+                        info.performance
+                            .transactions_processed
+                            .load(Ordering::Relaxed),
+                    ),
+                    blocks_created: AtomicU64::new(
+                        info.performance.blocks_created.load(Ordering::Relaxed),
+                    ),
+                    average_processing_time: AtomicU64::new(
+                        info.performance
+                            .average_processing_time
+                            .load(Ordering::Relaxed),
+                    ),
+                    current_load: AtomicU64::new(
+                        info.performance.current_load.load(Ordering::Relaxed),
+                    ),
+                    last_activity: AtomicU64::new(
+                        info.performance.last_activity.load(Ordering::Relaxed),
+                    ),
+                },
+                parallel_capacity: info.parallel_capacity,
+                validator_count: info.validator_count,
+                is_active: info.is_active,
+            })
+            .collect()
+    }
+
+    /// Get shard statistics for a specific shard
+    pub async fn get_shard_stats(&self, shard_id: u64) -> Option<ShardStats> {
+        let shards = self.shards.read().await;
+        if let Some(shard) = shards.get(&shard_id) {
+            Some(ShardStats {
+                shard_id,
+                transaction_count: shard
+                    .performance
+                    .transactions_processed
+                    .load(Ordering::Relaxed),
+                block_count: shard.performance.blocks_created.load(Ordering::Relaxed),
+                average_processing_time: shard
+                    .performance
+                    .average_processing_time
+                    .load(Ordering::Relaxed),
+                current_load: shard.performance.current_load.load(Ordering::Relaxed),
+                last_activity: shard.performance.last_activity.load(Ordering::Relaxed),
+                parallel_capacity: shard.parallel_capacity,
+                shard_type: shard.shard_type.clone(),
+            })
+        } else {
+            None
+        }
+    }
+
+    /// Get list of connected shards
+    pub async fn get_connected_shards(&self) -> Vec<u64> {
+        let shards = self.shards.read().await;
+        shards.keys().cloned().collect()
     }
 
     /// Get sharding configuration
@@ -319,13 +388,13 @@ impl ShardPerformanceMonitor {
         let mut global = self.global_metrics.write().await;
         global.total_transactions += transactions;
         global.total_blocks += blocks;
-        
+
         // Update TPS calculation
         let current_time = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        
+
         if current_time > 0 {
             global.average_tps = global.total_transactions as f64 / current_time as f64;
             if global.average_tps > global.peak_tps as f64 {
@@ -380,24 +449,28 @@ impl ShardLoadBalancer {
                     None
                 }
             }
-            LoadBalancingStrategy::LeastLoaded => {
-                shards.iter()
-                    .min_by_key(|(_, info)| info.performance.current_load.load(Ordering::Relaxed))
-                    .map(|(id, _)| *id)
-            }
-            LoadBalancingStrategy::PerformanceBased => {
-                shards.iter()
-                    .max_by_key(|(_, info)| {
-                        let tps = info.performance.transactions_processed.load(Ordering::Relaxed);
-                        let load = info.performance.current_load.load(Ordering::Relaxed);
-                        if load > 0 { tps / load } else { tps }
-                    })
-                    .map(|(id, _)| *id)
-            }
-            // TODO: Custom load balancing strategy - temporarily disabled
-            // LoadBalancingStrategy::Custom(func) => {
-            //     Some(func(shards))
-            // }
+            LoadBalancingStrategy::LeastLoaded => shards
+                .iter()
+                .min_by_key(|(_, info)| info.performance.current_load.load(Ordering::Relaxed))
+                .map(|(id, _)| *id),
+            LoadBalancingStrategy::PerformanceBased => shards
+                .iter()
+                .max_by_key(|(_, info)| {
+                    let tps = info
+                        .performance
+                        .transactions_processed
+                        .load(Ordering::Relaxed);
+                    let load = info.performance.current_load.load(Ordering::Relaxed);
+                    if load > 0 {
+                        tps / load
+                    } else {
+                        tps
+                    }
+                })
+                .map(|(id, _)| *id), // TODO: Custom load balancing strategy - temporarily disabled
+                                     // LoadBalancingStrategy::Custom(func) => {
+                                     //     Some(func(shards))
+                                     // }
         }
     }
 
@@ -405,7 +478,7 @@ impl ShardLoadBalancer {
     pub fn calculate_shard_load(&self, shard: &ShardInfo) -> f64 {
         let current_load = shard.performance.current_load.load(Ordering::Relaxed) as f64;
         let capacity = shard.parallel_capacity as f64;
-        
+
         if capacity > 0.0 {
             current_load / capacity
         } else {
@@ -415,12 +488,22 @@ impl ShardLoadBalancer {
 
     /// Calculate performance score for a shard
     pub fn calculate_performance_score(&self, shard: &ShardInfo) -> f64 {
-        let tps = shard.performance.transactions_processed.load(Ordering::Relaxed) as f64;
+        let tps = shard
+            .performance
+            .transactions_processed
+            .load(Ordering::Relaxed) as f64;
         let blocks = shard.performance.blocks_created.load(Ordering::Relaxed) as f64;
-        let avg_time = shard.performance.average_processing_time.load(Ordering::Relaxed) as f64;
-        
+        let avg_time = shard
+            .performance
+            .average_processing_time
+            .load(Ordering::Relaxed) as f64;
+
         // Higher score for higher TPS, more blocks, and lower processing time
-        let time_factor = if avg_time > 0.0 { 1000.0 / avg_time } else { 0.0 };
+        let time_factor = if avg_time > 0.0 {
+            1000.0 / avg_time
+        } else {
+            0.0
+        };
         (tps * 0.4) + (blocks * 0.3) + (time_factor * 0.3)
     }
 
@@ -431,15 +514,18 @@ impl ShardLoadBalancer {
 
     /// Rebalance shards based on current performance
     pub async fn rebalance_shards(&self, shards: &mut HashMap<u64, ShardInfo>) {
-        let mut shard_performance: Vec<(u64, f64)> = shards.iter()
+        let mut shard_performance: Vec<(u64, f64)> = shards
+            .iter()
             .map(|(id, info)| (*id, self.calculate_performance_score(info)))
             .collect();
-        
+
         // Sort by performance score
-        shard_performance.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-        
+        shard_performance
+            .sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+
         // Adjust parallel capacity based on performance
-        for (shard_id, _score) in shard_performance.iter().take(10) { // Top 10 performers
+        for (shard_id, _score) in shard_performance.iter().take(10) {
+            // Top 10 performers
             if let Some(shard) = shards.get_mut(shard_id) {
                 let current_capacity = shard.parallel_capacity;
                 let new_capacity = (current_capacity as f64 * 1.1) as u32; // Increase by 10%
@@ -459,6 +545,19 @@ pub struct TransactionData {
     pub data: Vec<u8>,
 }
 
+/// Shard statistics for monitoring
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShardStats {
+    pub shard_id: u64,
+    pub transaction_count: u64,
+    pub block_count: u64,
+    pub average_processing_time: u64,
+    pub current_load: u64,
+    pub last_activity: u64,
+    pub parallel_capacity: u32,
+    pub shard_type: ShardType,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -467,7 +566,7 @@ mod tests {
     fn test_shard_type_optimization_params() {
         let high_perf = ShardType::HighPerformance;
         let params = high_perf.get_optimization_params();
-        
+
         assert_eq!(params.max_transactions_per_block, 10000);
         assert_eq!(params.target_confirmation_time_ms, 50);
         assert_eq!(params.parallel_workers, 8);
@@ -477,7 +576,7 @@ mod tests {
     async fn test_shard_manager_creation() {
         let config = ShardingConfig::default();
         let manager = ShardManager::new(config);
-        
+
         assert_eq!(manager.get_config().total_shards, 16);
     }
 
@@ -485,9 +584,11 @@ mod tests {
     async fn test_shard_registration() {
         let config = ShardingConfig::default();
         let manager = ShardManager::new(config);
-        
-        let result = manager.register_shard(0, ShardType::HighPerformance, 16).await;
-        
+
+        let result = manager
+            .register_shard(0, ShardType::HighPerformance, 16)
+            .await;
+
         assert!(result.is_ok());
     }
 }

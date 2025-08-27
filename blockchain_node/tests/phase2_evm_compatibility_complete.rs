@@ -3,12 +3,12 @@
 //! This test demonstrates the full implementation of EVM compatibility
 //! including Ethereum transaction support, precompiled contracts, and Solidity execution.
 
-use blockchain_node::evm::{
-    EvmAddress, EvmExecutionConfig, EvmExecutionContext, EvmExecutionEngine, EvmTransaction,
-    EvmVersion, DEFAULT_GAS_LIMIT, DEFAULT_GAS_PRICE,
+use arthachain_node::evm::{
+    EvmAddress, EvmTransaction, DEFAULT_GAS_LIMIT, DEFAULT_GAS_PRICE,
 };
-use blockchain_node::storage::rocksdb_storage::RocksDbStorage;
-use ethereum_types::{H160, H256, U256};
+use arthachain_node::evm::execution_engine::{EvmExecutionConfig, EvmExecutionContext, EvmExecutionEngine, EvmVersion};
+use arthachain_node::storage::memory::MemoryStorage;
+use ethereum_types::{H256, U256};
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -23,7 +23,7 @@ async fn test_phase23_complete_evm_compatibility() {
     // Initialize EVM Execution Engine
     println!("🔧 Initializing EVM Execution Engine...");
 
-    let storage = Arc::new(RocksDbStorage::new(":memory:").unwrap());
+    let storage = Arc::new(MemoryStorage::new());
     let config = EvmExecutionConfig {
         chain_id: 201766, // ArthaChain testnet
         default_gas_price: DEFAULT_GAS_PRICE,
@@ -95,6 +95,8 @@ async fn test_phase23_complete_evm_compatibility() {
             gas_limit: U256::from(100_000),
             gas_price: U256::from(DEFAULT_GAS_PRICE),
             nonce: U256::zero(),
+            chain_id: Some(1),
+            signature: None,
         };
 
         let result = evm_engine.execute_transaction(&tx).await.unwrap();
@@ -133,6 +135,8 @@ async fn test_phase23_complete_evm_compatibility() {
             gas_limit: U256::from(100_000),
             gas_price: U256::from(DEFAULT_GAS_PRICE),
             nonce: U256::zero(),
+            chain_id: Some(1),
+            signature: None,
         };
 
         let result = evm_engine.execute_transaction(&tx).await.unwrap();
@@ -170,6 +174,8 @@ async fn test_phase23_complete_evm_compatibility() {
         gas_limit: U256::from(500_000),
         gas_price: U256::from(DEFAULT_GAS_PRICE),
         nonce: U256::zero(),
+        chain_id: Some(1),
+        signature: None,
     };
 
     let creation_result = evm_engine.execute_transaction(&creation_tx).await.unwrap();
@@ -202,6 +208,8 @@ async fn test_phase23_complete_evm_compatibility() {
         gas_limit: U256::from(21_000),
         gas_price: U256::from(DEFAULT_GAS_PRICE),
         nonce: U256::zero(),
+        chain_id: Some(1),
+        signature: None,
     };
 
     let transfer_result = evm_engine.execute_transaction(&transfer_tx).await.unwrap();
@@ -227,6 +235,8 @@ async fn test_phase23_complete_evm_compatibility() {
         gas_limit: U256::from(50_000),
         gas_price: U256::from(DEFAULT_GAS_PRICE),
         nonce: U256::zero(),
+        chain_id: Some(1),
+        signature: None,
     };
 
     let gas_result = evm_engine.execute_transaction(&high_gas_tx).await.unwrap();
@@ -358,8 +368,10 @@ async fn test_ethereum_transaction_compatibility() {
         value: U256::from_dec_str("1000000000000000000").unwrap(), // 1 ETH
         data: hex::decode("a9059cbb000000000000000000000000742d35cc6676c7a84dc4e0d4e3b4d15d0e86e0f80000000000000000000000000000000000000000000000000de0b6b3a7640000").unwrap(),
         gas_limit: U256::from(21000),
-        gas_price: U256::from(20_000_000_000), // 20 gwei
+        gas_price: U256::from(20_000_000_000u64), // 20 gwei
         nonce: U256::from(42),
+        chain_id: Some(1),
+        signature: None,
     };
 
     // Verify transaction properties
@@ -370,7 +382,7 @@ async fn test_ethereum_transaction_compatibility() {
         U256::from_dec_str("1000000000000000000").unwrap()
     );
     assert_eq!(eth_tx.gas_limit, U256::from(21000));
-    assert_eq!(eth_tx.gas_price, U256::from(20_000_000_000));
+    assert_eq!(eth_tx.gas_price, U256::from(20_000_000_000u64));
 
     println!("✅ Ethereum transaction structure: FULLY COMPATIBLE");
 }

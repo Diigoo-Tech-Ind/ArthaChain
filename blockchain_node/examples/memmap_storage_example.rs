@@ -4,8 +4,8 @@
 //! efficient data persistence and retrieval using the Storage trait.
 
 use anyhow::Result;
-use blockchain_node::storage::{MemMapOptions, MemMapStorage, Storage};
-use blockchain_node::types::Hash;
+use arthachain_node::storage::{MemMapOptions, MemMapStorage, Storage};
+use arthachain_node::types::Hash;
 use std::time::Instant;
 
 #[tokio::main]
@@ -52,11 +52,12 @@ async fn test_basic_operations(storage: &MemMapStorage) -> Result<()> {
     data.extend_from_slice(value);
 
     println!("1. Storing data...");
-    let hash = storage.store(&data).await?;
-    println!("   ✅ Data stored with hash: {}", hex::encode(&hash.0));
+    let key = b"test_key";
+    storage.put(key, &data).await?;
+    println!("   ✅ Data stored with key: {}", String::from_utf8_lossy(key));
 
     println!("2. Retrieving data...");
-    let retrieved = storage.retrieve(&hash).await?;
+    let retrieved = storage.get(key).await?;
 
     match retrieved {
         Some(retrieved_data) => {
@@ -99,19 +100,19 @@ async fn test_basic_operations(storage: &MemMapStorage) -> Result<()> {
     }
 
     println!("3. Checking if data exists...");
-    let exists = storage.exists(&hash).await?;
+    let exists = storage.exists(key).await?;
     assert!(exists, "Data should exist");
     println!("   ✅ Data exists: {}", exists);
 
     println!("4. Verifying data integrity...");
-    let is_valid = storage.verify(&hash, &data).await?;
+    let is_valid = storage.verify(key, &data).await?;
     assert!(is_valid, "Data should be valid");
     println!("   ✅ Data integrity verified: {}", is_valid);
 
     println!("5. Deleting data...");
-    storage.delete(&hash).await?;
+    storage.delete(key).await?;
 
-    let exists_after_delete = storage.exists(&hash).await?;
+    let exists_after_delete = storage.exists(key).await?;
     assert!(!exists_after_delete, "Data should not exist after deletion");
     println!("   ✅ Data deleted successfully");
 
@@ -138,8 +139,9 @@ async fn test_bulk_operations(storage: &MemMapStorage) -> Result<()> {
         data.extend_from_slice(key.as_bytes());
         data.extend_from_slice(value.as_bytes());
 
-        let hash = storage.store(&data).await?;
-        hashes.push(hash);
+        let key = format!("bulk_key_{:03}", i).into_bytes();
+        storage.put(&key, &data).await?;
+        hashes.push(key);
     }
 
     let store_time = start.elapsed();
@@ -150,8 +152,8 @@ async fn test_bulk_operations(storage: &MemMapStorage) -> Result<()> {
     let retrieve_start = Instant::now();
     let mut retrieved_count = 0;
 
-    for hash in &hashes {
-        if (storage.retrieve(hash).await?).is_some() {
+    for key in &hashes {
+        if (storage.get(key).await?).is_some() {
             retrieved_count += 1;
         }
     }
@@ -167,8 +169,8 @@ async fn test_bulk_operations(storage: &MemMapStorage) -> Result<()> {
     println!("3. Deleting all bulk items...");
     let delete_start = Instant::now();
 
-    for hash in &hashes {
-        storage.delete(hash).await?;
+    for key in &hashes {
+        storage.delete(key).await?;
     }
 
     let delete_time = delete_start.elapsed();
@@ -209,8 +211,9 @@ async fn test_performance(storage: &MemMapStorage) -> Result<()> {
         let mut data = test_data.clone();
         data.extend_from_slice(&(i as u32).to_le_bytes());
 
-        let hash = storage.store(&data).await?;
-        write_hashes.push(hash);
+        let key = format!("perf_key_{:04}", i).into_bytes();
+        storage.put(&key, &data).await?;
+        write_hashes.push(key);
     }
 
     let write_duration = write_start.elapsed();
@@ -228,8 +231,8 @@ async fn test_performance(storage: &MemMapStorage) -> Result<()> {
     );
     let read_start = Instant::now();
 
-    for hash in &write_hashes {
-        let _ = storage.retrieve(hash).await?;
+    for key in &write_hashes {
+        let _ = storage.get(key).await?;
     }
 
     let read_duration = read_start.elapsed();
@@ -249,15 +252,16 @@ async fn test_performance(storage: &MemMapStorage) -> Result<()> {
     for i in 0..mixed_operations {
         if i % 10 < 7 && !write_hashes.is_empty() {
             // Read operation
-            let hash_index = i % write_hashes.len();
-            let _ = storage.retrieve(&write_hashes[hash_index]).await?;
+            let key_index = i % write_hashes.len();
+            let _ = storage.get(&write_hashes[key_index]).await?;
         } else {
             // Write operation
             let mut data = test_data.clone();
             data.extend_from_slice(&(i as u32 + 10000).to_le_bytes());
 
-            let hash = storage.store(&data).await?;
-            mixed_hashes.push(hash);
+            let key = format!("mixed_key_{:04}", i).into_bytes();
+            storage.put(&key, &data).await?;
+            mixed_hashes.push(key);
         }
     }
 
@@ -271,12 +275,12 @@ async fn test_performance(storage: &MemMapStorage) -> Result<()> {
 
     // Cleanup performance test data
     println!("5. Cleaning up test data...");
-    for hash in &write_hashes {
-        storage.delete(hash).await.ok(); // Ignore errors for cleanup
+    for key in &write_hashes {
+        storage.delete(key).await.ok(); // Ignore errors for cleanup
     }
 
-    for hash in &mixed_hashes {
-        storage.delete(hash).await.ok(); // Ignore errors for cleanup
+    for key in &mixed_hashes {
+        storage.delete(key).await.ok(); // Ignore errors for cleanup
     }
 
     println!("   ✅ Cleanup completed");
@@ -300,22 +304,23 @@ mod tests {
 
         let test_data = b"test_data";
 
-        // Test store and retrieve
-        let hash = storage.store(test_data).await.unwrap();
-        let retrieved = storage.retrieve(&hash).await.unwrap().unwrap();
+        // Test put and get
+        let key = b"test_key";
+        storage.put(key, test_data).await.unwrap();
+        let retrieved = storage.get(key).await.unwrap().unwrap();
         assert_eq!(retrieved, test_data);
 
         // Test exists
-        let exists = storage.exists(&hash).await.unwrap();
+        let exists = storage.exists(key).await.unwrap();
         assert!(exists);
 
         // Test verify
-        let is_valid = storage.verify(&hash, test_data).await.unwrap();
+        let is_valid = storage.verify(key, test_data).await.unwrap();
         assert!(is_valid);
 
         // Test delete
-        storage.delete(&hash).await.unwrap();
-        let exists_after_delete = storage.exists(&hash).await.unwrap();
+        storage.delete(key).await.unwrap();
+        let exists_after_delete = storage.exists(key).await.unwrap();
         assert!(!exists_after_delete);
     }
 

@@ -1,0 +1,34 @@
+{
+  "dashboard": {
+    "title": "ArthaChain Blockchain Overview",
+    "panels": [
+      {
+        "title": "Block Height",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "arthachain_block_height"
+          }
+        ]
+      },
+      {
+        "title": "Transaction Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(arthachain_transactions_total[5m])"
+          }
+        ]
+      },
+      {
+        "title": "Active Validators",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "arthachain_active_validators"
+          }
+        ]
+      }
+    ]
+  }
+}

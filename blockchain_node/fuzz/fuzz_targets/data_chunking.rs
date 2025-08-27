@@ -1,6 +1,6 @@
 #![no_main]
-use blockchain_node::ai_engine::data_chunking::{CompressionType, DataChunkingAI};
-use blockchain_node::config::Config;
+use arthachain_node::ai_engine::data_chunking::{CompressionType, DataChunkingAI};
+use arthachain_node::config::Config;
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {

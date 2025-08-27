@@ -11,10 +11,10 @@ pub type NodeId = String;
 /// Message redundancy level for fault tolerance
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum RedundancyLevel {
-    None,          // Single path delivery
-    Basic,         // 2 path delivery
-    High,          // 3 path delivery
-    Maximum,       // 5+ path delivery
+    None,    // Single path delivery
+    Basic,   // 2 path delivery
+    High,    // 3 path delivery
+    Maximum, // 5+ path delivery
 }
 
 /// Channel route information for redundant delivery
@@ -30,10 +30,10 @@ pub struct ChannelRoute {
 /// Network route types
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum RouteType {
-    Direct,        // Direct peer connection
-    Relay,         // Through relay node
-    Mesh,          // Mesh network route
-    Backup,        // Emergency backup route
+    Direct, // Direct peer connection
+    Relay,  // Through relay node
+    Mesh,   // Mesh network route
+    Backup, // Emergency backup route
 }
 
 /// Delivery confirmation tracking
@@ -55,7 +55,7 @@ pub struct NetworkMessage {
     pub payload: MessagePayload,
     pub signature: Option<Vec<u8>>,
     pub sequence: u64,
-    
+
     // 🛡️ SPOF ELIMINATION: Redundant Network Messaging (SPOF FIX #6)
     pub redundancy_level: RedundancyLevel,
     pub channel_routes: Vec<ChannelRoute>,
@@ -80,14 +80,14 @@ pub enum MessageType {
     CrossShard,
     Diagnostic,
     Error,
-    
+
     // 🛡️ SPOF ELIMINATION: Redundant Network Message Types
-    RouteDiscovery,           // Discover alternative routes
-    RouteHealth,              // Report route health status  
-    ChannelFailover,          // Initiate channel failover
-    DeliveryConfirmation,     // Confirm message delivery
-    RedundantHeartbeat,       // Multi-path heartbeat
-    NetworkRedundancyCheck,   // Check network redundancy status
+    RouteDiscovery,         // Discover alternative routes
+    RouteHealth,            // Report route health status
+    ChannelFailover,        // Initiate channel failover
+    DeliveryConfirmation,   // Confirm message delivery
+    RedundantHeartbeat,     // Multi-path heartbeat
+    NetworkRedundancyCheck, // Check network redundancy status
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -272,7 +272,7 @@ impl NetworkMessage {
             payload,
             signature: None,
             sequence: 0,
-            
+
             // 🛡️ SPOF ELIMINATION: Initialize redundant messaging fields
             redundancy_level: RedundancyLevel::Basic, // Default to basic redundancy
             channel_routes: vec![ChannelRoute {
@@ -284,7 +284,7 @@ impl NetworkMessage {
             }],
             backup_routes: Vec::new(), // Initialize empty, will be populated by network layer
             delivery_confirmation: None, // Will be set when delivery is confirmed
-            message_hash: Some(id), // Use message ID as hash for now
+            message_hash: Some(id),    // Use message ID as hash for now
         }
     }
 

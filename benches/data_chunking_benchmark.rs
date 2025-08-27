@@ -1,6 +1,6 @@
 use blake3;
-use blockchain_node::ai_engine::data_chunking::{ChunkingConfig, CompressionType, DataChunkingAI};
-use blockchain_node::config::Config;
+use arthachain_node::ai_engine::data_chunking::{ChunkingConfig, CompressionType, DataChunkingAI};
+use arthachain_node::config::Config;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use hex;
 use std::time::Duration;

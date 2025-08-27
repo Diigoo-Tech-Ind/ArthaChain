@@ -1,14 +1,15 @@
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{mpsc, Mutex};
 
-use blockchain_node::consensus::cross_shard::protocol::CrossShardTxType;
-use blockchain_node::consensus::cross_shard::{
+use arthachain_node::consensus::cross_shard::protocol::CrossShardTxType;
+use arthachain_node::consensus::cross_shard::{
     coordinator::{CoordinatorMessage, CrossShardCoordinator, TxPhase},
     merkle_proof::{MerkleTree, ProofCache, ProvenTransaction},
-    CrossShardConfig,
 };
+use arthachain_node::network::cross_shard::CrossShardConfig;
 
 /// Test end-to-end cross-shard transaction with Merkle proof
 #[tokio::test]
@@ -31,8 +32,13 @@ async fn test_cross_shard_transaction_with_proof() {
     // Create test transactions for Merkle tree
     let tx_data_1 = b"transfer_100_from_alice_to_bob".to_vec();
     let tx_data_2 = b"transfer_50_from_bob_to_charlie".to_vec();
-    let tx_hash_1 = sha2::Sha256::digest(&tx_data_1).to_vec();
-    let tx_hash_2 = sha2::Sha256::digest(&tx_data_2).to_vec();
+    let mut hasher1 = Sha256::new();
+    hasher1.update(&tx_data_1);
+    let tx_hash_1 = hasher1.finalize().to_vec();
+
+    let mut hasher2 = Sha256::new();
+    hasher2.update(&tx_data_2);
+    let tx_hash_2 = hasher2.finalize().to_vec();
 
     // Build Merkle tree
     let merkle_tree = MerkleTree::build(vec![tx_hash_1.clone(), tx_hash_2.clone()]).unwrap();
@@ -85,7 +91,9 @@ async fn test_merkle_proof_caching() {
     let mut tx_hashes = Vec::new();
     for i in 0..10 {
         let tx_data = format!("transaction_{}", i);
-        let tx_hash = sha2::Sha256::digest(tx_data.as_bytes()).to_vec();
+        let mut hasher = Sha256::new();
+        hasher.update(tx_data.as_bytes());
+        let tx_hash = hasher.finalize().to_vec();
         tx_hashes.push(tx_hash);
     }
 
@@ -180,7 +188,7 @@ async fn test_atomic_transaction_rollback() {
     let message_count = rx.try_recv().is_ok() as usize;
     println!("Messages sent during test: {}", message_count);
 
-    coordinator.stop().await.unwrap();
+    coordinator.stop().unwrap();
     println!("✅ Atomic transaction rollback test passed");
 }
 
@@ -214,7 +222,7 @@ async fn test_concurrent_cross_shard_transactions() {
                 tx_data,
                 proof,
                 1,
-                (i % 3) + 2, // Distribute across shards 2, 3, 4
+                ((i % 3) + 2) as u32, // Distribute across shards 2, 3, 4
                 1234567890 + i as u64,
             );
 
@@ -233,7 +241,7 @@ async fn test_concurrent_cross_shard_transactions() {
         .count();
 
     assert_eq!(
-        successful_txs, num_concurrent_txs,
+        successful_txs, num_concurrent_txs as usize,
         "All concurrent transactions should succeed"
     );
 

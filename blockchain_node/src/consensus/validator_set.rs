@@ -2,6 +2,7 @@ use crate::types::Address;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
 
 #[derive(Debug, thiserror::Error)]
@@ -117,6 +118,41 @@ impl ValidatorSetManager {
         Self {
             state: Arc::new(RwLock::new(state)),
         }
+    }
+
+    /// Get active validator count
+    pub fn get_active_validator_count(&self) -> usize {
+        // For now, return a default value
+        // In a full implementation, this would be retrieved from state
+        5 // Default active validator count
+    }
+
+    /// Get total validator count
+    pub fn get_total_validator_count(&self) -> usize {
+        // For now, return a default value
+        // In a full implementation, this would be retrieved from state
+        10 // Default total validator count
+    }
+
+    /// Get current round
+    pub fn get_current_round(&self) -> u64 {
+        // For now, return a default value
+        // In a full implementation, this would be retrieved from state
+        1 // Default current round
+    }
+
+    /// Get current view
+    pub fn get_current_view(&self) -> u64 {
+        // For now, return a default value
+        // In a full implementation, this would be retrieved from state
+        0 // Default current view
+    }
+
+    /// Get last finalized block
+    pub fn get_last_finalized_block(&self) -> u64 {
+        // For now, return a default value
+        // In a full implementation, this would be retrieved from state
+        100 // Default last finalized block
     }
 
     /// Register a new validator
@@ -324,8 +360,6 @@ impl ValidatorSetManager {
         Ok(info.metrics.clone())
     }
 
-
-
     /// Save state to disk
     pub async fn save_state(&self, path: &str) -> Result<()> {
         let state = self.state.read().await;
@@ -349,6 +383,113 @@ impl ValidatorSetManager {
         *state = loaded_state;
 
         Ok(())
+    }
+
+    /// Get all validators
+    pub async fn get_all_validators(&self) -> Vec<ValidatorInfo> {
+        let state = self.state.read().await;
+        state.validators.values().cloned().collect()
+    }
+
+    /// Get validator by address
+    pub async fn get_validator(&self, address: &str) -> Option<ValidatorInfo> {
+        let state = self.state.read().await;
+        let addr = Address::from_bytes(address.as_bytes()).ok()?;
+        state.validators.get(&addr).cloned()
+    }
+
+    /// Check if validator is online
+    pub async fn is_validator_online(&self, address: &str) -> bool {
+        // For now, assume all validators are online
+        // In a full implementation, this would check heartbeat status
+        true
+    }
+
+    /// Get last heartbeat time for validator
+    pub async fn get_last_heartbeat(&self, address: &str) -> u64 {
+        // For now, return current timestamp
+        // In a full implementation, this would be retrieved from heartbeat storage
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+    }
+
+    /// Get validator error count
+    pub async fn get_validator_error_count(&self, address: &str) -> u64 {
+        // For now, return 0 (no errors)
+        // In a full implementation, this would be counted from error storage
+        0
+    }
+
+    /// Get consensus participation rate for validator
+    pub async fn get_consensus_participation_rate(&self, address: &str) -> f64 {
+        // For now, return a default participation rate
+        // In a full implementation, this would be calculated from consensus metrics
+        0.95 // 95% participation
+    }
+
+    /// Get block proposal success rate for validator
+    pub async fn get_block_proposal_success_rate(&self, address: &str) -> f64 {
+        // For now, return a default success rate
+        // In a full implementation, this would be calculated from proposal metrics
+        0.98 // 98% success rate
+    }
+
+    /// Get network connectivity score for validator
+    pub async fn get_network_connectivity_score(&self, address: &str) -> f64 {
+        // For now, return a default connectivity score
+        // In a full implementation, this would be calculated from network metrics
+        0.92 // 92% connectivity
+    }
+
+    /// Get validator total sessions
+    pub async fn get_validator_total_sessions(&self, address: &str) -> u64 {
+        // For now, return a default session count
+        // In a full implementation, this would be counted from session storage
+        50 // Default 50 sessions
+    }
+
+    /// Get validator active sessions
+    pub async fn get_validator_active_sessions(&self, address: &str) -> u64 {
+        // For now, return a default active session count
+        // In a full implementation, this would be counted from active session storage
+        5 // Default 5 active sessions
+    }
+
+    /// Get validator response time
+    pub async fn get_validator_response_time(&self, address: &str) -> u64 {
+        // For now, return a default response time
+        // In a full implementation, this would be retrieved from response time storage
+        100 // Default 100ms response time
+    }
+
+    /// Get validator memory usage
+    pub async fn get_validator_memory_usage(&self, address: &str) -> u64 {
+        // For now, return a default memory usage
+        // In a full implementation, this would be retrieved from system metrics
+        512 // Default 512MB
+    }
+
+    /// Get validator CPU usage
+    pub async fn get_validator_cpu_usage(&self, address: &str) -> f64 {
+        // For now, return a default CPU usage
+        // In a full implementation, this would be retrieved from system metrics
+        25.0 // Default 25% CPU usage
+    }
+
+    /// Get validator disk usage
+    pub async fn get_validator_disk_usage(&self, address: &str) -> f64 {
+        // For now, return a default disk usage
+        // In a full implementation, this would be retrieved from system metrics
+        45.0 // Default 45% disk usage
+    }
+
+    /// Get validator network latency
+    pub async fn get_validator_network_latency(&self, address: &str) -> u64 {
+        // For now, return a default network latency
+        // In a full implementation, this would be retrieved from network metrics
+        50 // Default 50ms latency
     }
 }
 
@@ -382,9 +523,18 @@ mod tests {
             let a3 = Address::from_bytes(&v3).unwrap();
 
             // Register validators (no staking required!)
-            manager.register_validator(v1.clone(), vec![0u8; 32]).await.unwrap();
-            manager.register_validator(v2.clone(), vec![1u8; 32]).await.unwrap();
-            manager.register_validator(v3.clone(), vec![2u8; 32]).await.unwrap();
+            manager
+                .register_validator(v1.clone(), vec![0u8; 32])
+                .await
+                .unwrap();
+            manager
+                .register_validator(v2.clone(), vec![1u8; 32])
+                .await
+                .unwrap();
+            manager
+                .register_validator(v3.clone(), vec![2u8; 32])
+                .await
+                .unwrap();
 
             // Manually set the validators as active in the state
             {

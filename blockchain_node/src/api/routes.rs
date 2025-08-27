@@ -101,7 +101,7 @@ use axum::{
     http::StatusCode,
     response::{Html, IntoResponse},
     routing::get,
-    Extension, Router,
+    Router,
 };
 use std::fs;
 use std::path::Path;
@@ -161,8 +161,8 @@ pub async fn create_monitoring_router(
         // Legacy status endpoints that work correctly
         .route("/api/status", get(status::get_status))
         .route("/api/network/peers", get(status::get_peers))
-        // Add state as extension for the basic handlers
-        .layer(Extension(state))
+        // Add state for the basic handlers
+        .with_state(state)
 }
 
 /// Root index handler

@@ -1,6 +1,7 @@
 use crate::node::Node;
 use anyhow::Result;
 use axum::{
+    extract::Extension,
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -14,13 +15,11 @@ use tower_http::cors::CorsLayer;
 
 use crate::api::metrics::MetricsService;
 use crate::config::Config;
-#[cfg(not(skip_problematic_modules))]
-use crate::consensus::svbft::SVBFTConsensus;
 use crate::ledger::state::State;
 use serde::Serialize;
 
 /// Calculate real TPS based on actual blockchain data
-async fn calculate_real_tps(state: &Arc<RwLock<State>>) -> f64 {
+pub async fn calculate_real_tps(state: &Arc<RwLock<State>>) -> f64 {
     let state = state.read().await;
     let current_height = state.get_height().unwrap_or(0);
 
@@ -62,6 +61,7 @@ pub mod routes;
 pub mod testnet_router;
 pub mod wallet_integration;
 pub mod websocket;
+pub mod websocket_service;
 // pub mod blockchain;
 // pub mod consensus;
 // pub mod node;
@@ -75,6 +75,50 @@ pub mod rpc;
 pub mod server;
 
 pub use server::*;
+
+/// Create the main API router with all endpoints
+pub async fn create_api_router(state: Arc<RwLock<State>>, _config: Arc<Config>) -> Router {
+    use axum::routing::{get, post};
+    use axum::Router;
+
+    Router::new()
+        .route("/api/status", get(handlers::status::get_status))
+        .route("/api/network/peers", get(handlers::status::get_peers))
+        .route("/api/consensus/test", get(handlers::consensus::test_simple))
+        .route(
+            "/api/consensus/test-extension",
+            get(handlers::consensus::test_extension),
+        )
+        .route(
+            "/api/consensus/test-json",
+            post(handlers::consensus::test_json),
+        )
+        .route(
+            "/api/consensus/vote",
+            post(handlers::consensus::submit_vote),
+        )
+        .route(
+            "/api/consensus/proposal",
+            post(handlers::consensus::submit_proposal),
+        )
+        .route(
+            "/api/consensus/validation",
+            post(handlers::consensus::submit_validation),
+        )
+        .route(
+            "/api/consensus/finalization",
+            post(handlers::consensus::submit_finalization),
+        )
+        .route(
+            "/api/consensus/commit",
+            post(handlers::consensus::submit_commit),
+        )
+        .route(
+            "/api/wallet/rpc",
+            post(handlers::wallet_rpc::handle_rpc_request),
+        )
+        .layer(Extension(state))
+}
 
 // pub use blockchain::BlockchainRoutes;
 // pub use consensus::ConsensusRoutes;
@@ -168,7 +212,10 @@ impl ApiServer {
             .route("/api/consensus/commit", post(commit))
             .route("/api/consensus/revert", post(revert))
             // Add missing validators routes
-            .route("/api/validators", get(handlers::validators::get_validators_list))
+            .route(
+                "/api/validators",
+                get(handlers::validators::get_validators_list),
+            )
             .route(
                 "/api/validators/:address",
                 get(handlers::validators::get_validator_by_address),
@@ -243,7 +290,7 @@ async fn metrics_handler() -> Json<serde_json::Value> {
             "active_nodes": 1, // Real count - this single testnet node
             "connected_peers": 0, // Real count - no peers connected yet
             "total_blocks": 0, // Real-time data from blockchain state
-            "total_transactions": 0, // Real-time data from blockchain state  
+            "total_transactions": 0, // Real-time data from blockchain state
             "current_tps": 0.0, // Real-time calculation
             "average_block_time": 5.0 // Real block time - 5 seconds
         },
@@ -251,7 +298,7 @@ async fn metrics_handler() -> Json<serde_json::Value> {
             "mechanism": "SVCP + SVBFT",
             "active_validators": 0, // Real validator count - currently no real validator nodes running
             "finalized_blocks": 0, // Real-time data from blockchain state
-            "pending_proposals": 0, // Real-time count of pending proposals  
+            "pending_proposals": 0, // Real-time count of pending proposals
             "quantum_protection": true
         },
         "performance": {

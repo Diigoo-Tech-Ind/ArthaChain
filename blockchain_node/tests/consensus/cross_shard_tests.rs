@@ -1,13 +1,13 @@
 use std::sync::Arc;
 use tokio::sync::mpsc;
-use blockchain_node::consensus::cross_shard::{
+use arthachain_node::consensus::cross_shard::{
     CrossShardManager,
     CrossShardMessage,
     CrossShardTransaction,
     CrossShardTxStatus,
     CrossShardStatus,
 };
-use blockchain_node::consensus::reputation::ReputationManager;
+use arthachain_node::consensus::reputation::ReputationManager;
 use std::time::Duration;
 
 async fn setup_test_environment() -> (CrossShardManager, mpsc::Sender<CrossShardMessage>) {

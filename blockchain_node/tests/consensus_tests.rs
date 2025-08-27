@@ -8,7 +8,7 @@ mod tests {
 
     /* Commented out problematic tests
     // Original imports with issues
-    use blockchain_node::consensus::{
+    use arthachain_node::consensus::{
         difficulty::DifficultyAdjuster,
         validator_set::ValidatorSet,
         verification::BlockVerifier,

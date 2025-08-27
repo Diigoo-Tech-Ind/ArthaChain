@@ -1,6 +1,6 @@
 use super::{Storage, StorageInit};
 use crate::config::Config;
-use crate::storage::rocksdb_storage::RocksDbStorage;
+use crate::storage::MemMapStorage;
 use crate::types::Hash;
 use async_trait::async_trait;
 use blake3;
@@ -22,7 +22,7 @@ pub struct BlockchainStorage {
 impl BlockchainStorage {
     /// Create a new blockchain storage instance
     pub fn new(_config: &Config) -> anyhow::Result<Self> {
-        let rocksdb = Box::new(RocksDbStorage::new());
+        let rocksdb = Box::new(MemMapStorage::default());
         let memory = Arc::new(Mutex::new(HashMap::new()));
 
         Ok(Self { rocksdb, memory })
@@ -143,8 +143,12 @@ impl Storage for BlockchainStorage {
     async fn close(&self) -> crate::storage::Result<()> {
         self.rocksdb.close().await
     }
-    
+
     fn as_any(&self) -> &dyn Any {
+        self
+    }
+    
+    fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
 }

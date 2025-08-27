@@ -380,11 +380,12 @@ impl WasmVm {
 
         // Temporary placeholder return
         Ok(WasmExecutionResult {
-            success: true,
-            return_data: Some(vec![]),
+            succeeded: true,
+            data: Some(vec![]),
             gas_used: 0,
             logs: vec![],
-            error_message: None,
+            contract_address: None,
+            error: None,
         })
     }
 }

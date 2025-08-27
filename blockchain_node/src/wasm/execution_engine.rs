@@ -532,8 +532,8 @@ impl WasmExecutionEngine {
         size: usize,
     ) -> Result<u32> {
         // Try to call an allocator function if it exists
-        if let Ok(alloc_func) = instance.get_typed_func::<u32, u32>(store, "alloc") {
-            let ptr = alloc_func.call(store, size as u32)?;
+        if let Ok(alloc_func) = instance.get_typed_func::<u32, u32>(&mut *store, "alloc") {
+            let ptr = alloc_func.call(&mut *store, size as u32)?;
             Ok(ptr)
         } else {
             // Simple bump allocator - in production you'd want a proper allocator

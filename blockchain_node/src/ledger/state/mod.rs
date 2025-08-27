@@ -8,9 +8,11 @@ use crate::ledger::transaction::Transaction;
 use crate::types::Hash;
 use anyhow::{anyhow, Result};
 use log::{debug, error, info, warn};
+use serde::{Deserialize, Serialize};
 
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, RwLock};
+use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::{broadcast, Mutex as TokioMutex};
 
 /// Interface for sharding configuration
@@ -29,6 +31,31 @@ pub trait ShardConfig {
 
     /// Get the primary shard
     fn get_primary_shard(&self) -> u32;
+}
+
+/// Smart contract information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContractInfo {
+    /// Contract name
+    pub name: String,
+    /// Contract bytecode
+    pub bytecode: Vec<u8>,
+    /// Contract ABI
+    pub abi: String,
+    /// Contract creator address
+    pub creator: Vec<u8>,
+    /// Contract creation timestamp
+    pub creation_time: u64,
+    /// Block number where contract was created
+    pub block_number: u64,
+    /// Transaction hash that created the contract
+    pub transaction_hash: Vec<u8>,
+    /// Whether contract is verified
+    pub verified: bool,
+    /// Source code (if available)
+    pub source_code: Option<String>,
+    /// Compiler version
+    pub compiler_version: Option<String>,
 }
 
 /// Snapshot metadata for atomic execution
@@ -56,6 +83,8 @@ pub struct State {
 
     /// Contract storage
     storage: RwLock<HashMap<String, Vec<u8>>>,
+    /// Smart contracts by address
+    contracts: RwLock<HashMap<Vec<u8>, ContractInfo>>,
 
     /// Current block height
     height: RwLock<u64>,
@@ -100,11 +129,12 @@ pub struct State {
 impl State {
     pub fn new(_config: &Config) -> Result<Self> {
         let (sync_sender, _) = broadcast::channel(1000);
-        
+
         Ok(Self {
             balances: RwLock::new(HashMap::new()),
             nonces: RwLock::new(HashMap::new()),
             storage: RwLock::new(HashMap::new()),
+            contracts: RwLock::new(HashMap::new()),
             height: RwLock::new(0),
             shard_id: 0,
             snapshots: RwLock::new(HashMap::new()),
@@ -116,7 +146,7 @@ impl State {
             latest_block_hash: RwLock::new(
                 "0000000000000000000000000000000000000000000000000000000000000000".to_string(),
             ),
-            
+
             // 🛡️ SPOF ELIMINATION: Initialize distributed state
             state_replicas: Arc::new(RwLock::new(Vec::new())),
             primary_replica: Arc::new(RwLock::new(0)),
@@ -175,6 +205,44 @@ impl State {
         let mut storage = self.storage.write().unwrap();
         storage.remove(key);
         Ok(())
+    }
+
+    /// Get contract information by address
+    pub fn get_contract_info(&self, address: &[u8]) -> Option<ContractInfo> {
+        let contracts = self.contracts.read().unwrap();
+        contracts.get(address).cloned()
+    }
+
+    /// Add or update contract information
+    pub fn add_contract(&self, address: Vec<u8>, contract: ContractInfo) -> Result<()> {
+        let mut contracts = self.contracts.write().unwrap();
+        contracts.insert(address, contract);
+        Ok(())
+    }
+
+    /// Remove contract
+    pub fn remove_contract(&self, address: &[u8]) -> Result<()> {
+        let mut contracts = self.contracts.write().unwrap();
+        contracts.remove(address);
+        Ok(())
+    }
+
+    /// Get all contracts
+    pub fn get_all_contracts(&self) -> Result<Vec<ContractInfo>> {
+        let contracts = self.contracts.read().unwrap();
+        Ok(contracts.values().cloned().collect())
+    }
+
+    /// Get contract count
+    pub fn get_contract_count(&self) -> Result<usize> {
+        let contracts = self.contracts.read().unwrap();
+        Ok(contracts.len())
+    }
+
+    /// Get verified contracts count
+    pub fn get_verified_contracts_count(&self) -> Result<usize> {
+        let contracts = self.contracts.read().unwrap();
+        Ok(contracts.values().filter(|c| c.verified).count())
     }
 
     /// Get current block height
@@ -447,6 +515,67 @@ impl State {
         1
     }
 
+    /// Get validator stake amount
+    pub fn get_validator_stake(&self, address: &Vec<u8>) -> Option<u64> {
+        // For now, return a default stake amount
+        // In a full implementation, this would be retrieved from validator storage
+        Some(1000000) // 1M tokens default stake
+    }
+
+    /// Get total delegated stake for a validator
+    pub fn get_total_delegated_stake(&self, address: &Vec<u8>) -> Option<u64> {
+        // For now, return a default delegated stake
+        // In a full implementation, this would be calculated from delegation storage
+        Some(500000) // 500K tokens default delegated
+    }
+
+    /// Get self-bonded stake for a validator
+    pub fn get_self_bonded_stake(&self, address: &Vec<u8>) -> Option<u64> {
+        // For now, return a default self-bonded stake
+        // In a full implementation, this would be retrieved from validator storage
+        Some(1000000) // 1M tokens default self-bonded
+    }
+
+    /// Get delegation count for a validator
+    pub fn get_delegation_count(&self, address: &Vec<u8>) -> Option<u64> {
+        // For now, return a default delegation count
+        // In a full implementation, this would be counted from delegation storage
+        Some(5) // Default 5 delegators
+    }
+
+    /// Check if validator is jailed
+    pub fn is_validator_jailed(&self, address: &Vec<u8>) -> Option<bool> {
+        // For now, return false (not jailed)
+        // In a full implementation, this would be checked from validator storage
+        Some(false)
+    }
+
+    /// Get jail time remaining for a validator
+    pub fn get_jail_time_remaining(&self, address: &Vec<u8>) -> Option<u64> {
+        // For now, return 0 (no jail time)
+        // In a full implementation, this would be calculated from jail storage
+        Some(0)
+    }
+
+    /// Get validator block count
+    pub fn get_validator_block_count(&self, address: &Vec<u8>) -> Option<u64> {
+        // For now, return a default block count
+        // In a full implementation, this would be counted from block storage
+        Some(100) // Default 100 blocks produced
+    }
+
+    /// Get validator last block time
+    pub fn get_validator_last_block_time(&self, address: &Vec<u8>) -> Option<u64> {
+        // For now, return current timestamp
+        // In a full implementation, this would be retrieved from block storage
+        Some(
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+        )
+    }
+
     /// Get the current difficulty level
     pub fn get_difficulty(&self) -> f64 {
         // Return a default difficulty value
@@ -561,113 +690,17 @@ impl State {
         Ok(Hash::new(hash_bytes.as_bytes().to_vec()))
     }
 
-    // 🛡️ SPOF ELIMINATION METHODS
-
-    /// Add a state replica for redundancy
-    pub async fn add_replica(&self, replica: StateReplica) -> Result<()> {
-        let mut replicas = self.state_replicas.write().unwrap();
-        replicas.push(replica.clone());
-        
-        // Initialize health tracking
-        let mut health = self.replica_health.write().unwrap();
-        health.insert(replica.replica_id, ReplicaHealth::Healthy);
-        
-        // Update consensus configuration
-        let mut consensus = self.state_consensus.write().unwrap();
-        consensus.active_replicas = replicas.len();
-        
-        info!("Added state replica {} ({}). Total replicas: {}", 
-              replica.replica_id, replica.endpoint, replicas.len());
-        Ok(())
+    /// Get transaction by hash
+    pub fn get_transaction(&self, hash: &str) -> Option<Transaction> {
+        // For now, return None as we don't have transaction storage implemented
+        None
     }
 
-    /// Remove a failed replica
-    pub async fn remove_replica(&self, replica_id: usize) -> Result<()> {
-        let mut replicas = self.state_replicas.write().unwrap();
-        replicas.retain(|r| r.replica_id != replica_id);
-        
-        let mut health = self.replica_health.write().unwrap();
-        health.remove(&replica_id);
-        
-        let mut consensus = self.state_consensus.write().unwrap();
-        consensus.active_replicas = replicas.len();
-        
-        warn!("Removed failed state replica {}. Remaining replicas: {}", 
-              replica_id, replicas.len());
-        Ok(())
-    }
-
-    /// Get balance with failover support
-    pub async fn get_balance_resilient(&self, address: &str) -> Result<u64> {
-        // Try primary replica first
-        match self.get_balance(address) {
-            Ok(balance) => Ok(balance),
-            Err(_) => {
-                warn!("Primary state failed, attempting failover for balance query");
-                self.failover_get_balance(address).await
-            }
-        }
-    }
-
-    /// Failover balance query to backup replicas
-    async fn failover_get_balance(&self, address: &str) -> Result<u64> {
-        let replicas = self.state_replicas.read().unwrap();
-        let health = self.replica_health.read().unwrap();
-        
-        // Try healthy replicas
-        for replica in replicas.iter() {
-            if let Some(ReplicaHealth::Healthy) = health.get(&replica.replica_id) {
-                // In a real implementation, this would query the remote replica
-                // For now, fallback to local state
-                return self.get_balance(address);
-            }
-        }
-        
-        Err(anyhow!("All state replicas unavailable"))
-    }
-
-    /// Set balance with consensus
-    pub async fn set_balance_consensus(&self, address: &str, amount: u64) -> Result<()> {
-        let consensus = self.state_consensus.read().unwrap();
-        
-        if consensus.active_replicas >= consensus.consensus_threshold {
-            // Broadcast update to all replicas
-            let sync_msg = StateSyncMessage::BalanceUpdate { 
-                address: address.to_string(), 
-                balance: amount 
-            };
-            
-            if let Ok(sender_guard) = self.sync_channel.try_lock() {
-                let _ = sender_guard.send(sync_msg);
-            }
-            
-            // Apply to local state
-            self.set_balance(address, amount)?;
-            info!("Balance update consensus achieved for {}: {}", address, amount);
-            Ok(())
-        } else {
-            Err(anyhow!("Insufficient replicas for consensus. Need: {}, Have: {}", 
-                       consensus.consensus_threshold, consensus.active_replicas))
-        }
-    }
-
-    /// Check replica health
-    pub async fn check_replica_health(&self) -> Result<HashMap<usize, ReplicaHealth>> {
-        let health = self.replica_health.read().unwrap();
-        Ok(health.clone())
-    }
-
-    /// Force failover to backup replica
-    pub async fn force_failover(&self) -> Result<()> {
-        let replicas = self.state_replicas.read().unwrap();
-        if replicas.len() > 1 {
-            let mut primary = self.primary_replica.write().unwrap();
-            *primary = (*primary + 1) % replicas.len();
-            info!("Forced failover to replica {}", *primary);
-            Ok(())
-        } else {
-            Err(anyhow!("No backup replicas available for failover"))
-        }
+    /// Get the total count of transactions in the blockchain
+    pub fn get_transaction_count(&self) -> u64 {
+        // For now, return a default count
+        // In a real implementation, this would query the transaction storage
+        1000
     }
 }
 

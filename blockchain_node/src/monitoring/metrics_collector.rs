@@ -164,6 +164,13 @@ impl MetricsCollector {
         info!("Metrics collector stopped");
     }
 
+    /// Get system uptime in seconds
+    pub async fn get_uptime(&self) -> u64 {
+        // For now, return a default uptime
+        // In a full implementation, this would be retrieved from system uptime
+        86400 // Default 24 hours uptime
+    }
+
     // Real system metric collection methods
     async fn get_cpu_usage() -> Result<f64> {
         use std::fs::File;

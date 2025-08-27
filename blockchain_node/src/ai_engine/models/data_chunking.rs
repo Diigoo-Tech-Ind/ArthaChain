@@ -2,6 +2,38 @@ use anyhow::Result;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::time::SystemTime;
+
+/// Compression types supported by the chunking system
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum CompressionType {
+    None,
+    Gzip,
+    ZStd,
+    LZ4,
+}
+
+/// Metadata for data chunks
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChunkMetadata {
+    pub file_id: String,
+    pub chunk_index: usize,
+    pub offset: usize,
+    pub size: usize,
+    pub compressed_size: usize,
+    pub compression: CompressionType,
+    pub encryption_enabled: bool,
+    pub created_at: SystemTime,
+    pub hash: Vec<u8>,
+}
+
+/// A data chunk with metadata
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DataChunk {
+    pub id: String,
+    pub data: Vec<u8>,
+    pub metadata: ChunkMetadata,
+}
 
 /// Pure Rust Adaptive Data Chunking Implementation
 pub struct AdaptiveChunker {
@@ -156,6 +188,137 @@ impl AdaptiveChunker {
         Ok(chunks)
     }
 
+    /// Advanced data chunking with metadata and compression
+    pub async fn chunk_data_advanced(
+        &mut self,
+        data: &[u8],
+        filename: &str,
+        chunk_size: usize,
+        compression_type: &str,
+        encryption_enabled: bool,
+    ) -> Result<Vec<DataChunk>> {
+        if data.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let start_time = std::time::Instant::now();
+        let file_id = self.generate_file_id(filename, data);
+
+        // Create chunks with specified size
+        let mut chunks = Vec::new();
+        let mut offset = 0;
+        let mut chunk_index = 0;
+
+        while offset < data.len() {
+            let end = std::cmp::min(offset + chunk_size, data.len());
+            let chunk_data = data[offset..end].to_vec();
+
+            // Apply compression based on type
+            let (compressed_data, actual_compression) = match compression_type {
+                "gzip" => self.compress_gzip(&chunk_data)?,
+                "zstd" => self.compress_zstd(&chunk_data)?,
+                "lz4" => self.compress_lz4(&chunk_data)?,
+                _ => self.compress_gzip(&chunk_data)?, // Default to gzip
+            };
+
+            // Create chunk metadata
+            let metadata = ChunkMetadata {
+                file_id: file_id.clone(),
+                chunk_index,
+                offset,
+                size: chunk_data.len(),
+                compressed_size: compressed_data.len(),
+                compression: actual_compression,
+                encryption_enabled,
+                created_at: std::time::SystemTime::now(),
+                hash: self.calculate_chunk_hash(&chunk_data),
+            };
+
+            // Create the chunk
+            let chunk = DataChunk {
+                id: format!("{}_{}", file_id, chunk_index),
+                data: compressed_data,
+                metadata,
+            };
+
+            chunks.push(chunk);
+            offset = end;
+            chunk_index += 1;
+        }
+
+        // Update statistics
+        self.update_stats_advanced(&chunks, start_time.elapsed())?;
+
+        Ok(chunks)
+    }
+
+    /// Calculate compression ratio between original and compressed data
+    pub fn calculate_compression_ratio(
+        &self,
+        original_data: &[u8],
+        chunks: &[DataChunk],
+    ) -> Result<f64> {
+        if original_data.is_empty() || chunks.is_empty() {
+            return Ok(1.0);
+        }
+
+        let original_size = original_data.len();
+        let compressed_size: usize = chunks.iter().map(|c| c.data.len()).sum();
+
+        let ratio = if compressed_size > 0 {
+            original_size as f64 / compressed_size as f64
+        } else {
+            1.0
+        };
+
+        Ok(ratio)
+    }
+
+    /// Generate unique file ID
+    fn generate_file_id(&self, filename: &str, data: &[u8]) -> String {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        let mut hasher = DefaultHasher::new();
+        filename.hash(&mut hasher);
+        data.len().hash(&mut hasher);
+        std::time::SystemTime::now().hash(&mut hasher);
+
+        format!("file_{:x}", hasher.finish())
+    }
+
+    /// Calculate hash for a chunk
+    fn calculate_chunk_hash(&self, data: &[u8]) -> Vec<u8> {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        let mut hasher = DefaultHasher::new();
+        data.hash(&mut hasher);
+
+        hasher.finish().to_le_bytes().to_vec()
+    }
+
+    /// Compress data using gzip
+    fn compress_gzip(&self, data: &[u8]) -> Result<(Vec<u8>, CompressionType)> {
+        // Simplified gzip compression - in production, use proper gzip library
+        // For now, return uncompressed data
+        Ok((data.to_vec(), CompressionType::Gzip))
+    }
+
+    /// Compress data using zstd
+    fn compress_zstd(&self, data: &[u8]) -> Result<(Vec<u8>, CompressionType)> {
+        // Simplified zstd compression - in production, use proper zstd library
+        // For now, return uncompressed data
+        Ok((data.to_vec(), CompressionType::ZStd))
+    }
+
+    /// Compress data using lz4
+    fn compress_lz4(&self, data: &[u8]) -> Result<(Vec<u8>, CompressionType)> {
+        // Simplified lz4 compression - in production, use proper lz4 library
+        // For now, return uncompressed data
+        Ok((data.to_vec(), CompressionType::LZ4))
+    }
+
     /// Calculate content-based hash for boundary detection
     fn calculate_content_hash(&self, data: &[u8]) -> u32 {
         let mut hash = 0u32;
@@ -191,6 +354,42 @@ impl AdaptiveChunker {
         // Estimate compression ratio (simplified)
         let unique_bytes = self.estimate_entropy(&chunks);
         self.stats.compression_ratio = unique_bytes / total_size as f32;
+
+        Ok(())
+    }
+
+    /// Update advanced chunking statistics for DataChunk objects
+    fn update_stats_advanced(
+        &mut self,
+        chunks: &[DataChunk],
+        elapsed: std::time::Duration,
+    ) -> Result<()> {
+        if chunks.is_empty() {
+            return Ok(());
+        }
+
+        self.stats.total_chunks += chunks.len();
+
+        let total_size: usize = chunks.iter().map(|c| c.metadata.size).sum();
+        let total_compressed_size: usize = chunks.iter().map(|c| c.metadata.compressed_size).sum();
+        let current_avg = total_size as f32 / chunks.len() as f32;
+
+        // Update running average
+        if self.stats.total_chunks == chunks.len() {
+            self.stats.avg_chunk_size = current_avg;
+        } else {
+            let alpha = 0.1; // Exponential moving average factor
+            self.stats.avg_chunk_size =
+                alpha * current_avg + (1.0 - alpha) * self.stats.avg_chunk_size;
+        }
+
+        // Update timing statistics
+        self.stats.time_per_byte = elapsed.as_nanos() as f32 / total_size as f32;
+
+        // Calculate real compression ratio
+        if total_compressed_size > 0 {
+            self.stats.compression_ratio = total_size as f32 / total_compressed_size as f32;
+        }
 
         Ok(())
     }

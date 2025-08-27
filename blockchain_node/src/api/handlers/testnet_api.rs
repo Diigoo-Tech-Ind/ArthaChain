@@ -99,7 +99,7 @@ pub async fn get_recent_blocks(
 
     let latest_height = state.get_height().unwrap_or(0);
     let limit = params.limit.min(50); // Cap at 50 blocks
-    
+
     if latest_height == 0 {
         // Blockchain is empty - return genesis block info
         let genesis_block = ExplorerBlockResponse {
@@ -111,7 +111,7 @@ pub async fn get_recent_blocks(
         };
         return Ok(Json(vec![genesis_block]));
     }
-    
+
     let start_height = latest_height.saturating_sub(limit as u64);
 
     let mut blocks = Vec::new();

@@ -1,11 +1,11 @@
 use anyhow::Result;
-use blockchain_node::consensus::reputation::{ReputationConfig, ReputationManager};
-use blockchain_node::execution::parallel::{
+use arthachain_node::consensus::reputation::{ReputationConfig, ReputationManager};
+use arthachain_node::execution::parallel::{
     ConflictStrategy, ParallelConfig, ParallelExecutionManager,
 };
-use blockchain_node::ledger::state::storage::StateStorage;
-use blockchain_node::ledger::state::State;
-use blockchain_node::transaction::Transaction;
+use arthachain_node::ledger::state::storage::StateStorage;
+use arthachain_node::ledger::state::State;
+use arthachain_node::transaction::Transaction;
 use criterion::{criterion_group, criterion_main, Criterion};
 use log::info;
 use std::sync::Arc;
@@ -38,7 +38,7 @@ impl PerformanceBenchmark {
             decay_interval_secs: 3600,
         };
         let reputation = Arc::new(ReputationManager::new(reputation_config));
-        let state_tree = Arc::new(State::new(&blockchain_node::config::Config::default()).unwrap());
+        let state_tree = Arc::new(State::new(&arthachain_node::config::Config::default()).unwrap());
         let storage = Arc::new(StateStorage::new());
 
         // Configure parallel execution
@@ -59,7 +59,7 @@ impl PerformanceBenchmark {
             parallel_config,
             state_tree.clone(),
             Arc::new(
-                blockchain_node::execution::executor::TransactionExecutor::new(
+                arthachain_node::execution::executor::TransactionExecutor::new(
                     None,      // wasm_executor: no WASM for benchmarks
                     1.0,       // gas_price_adjustment
                     1_000_000, // max_gas_limit

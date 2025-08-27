@@ -247,7 +247,7 @@ impl NetworkMonitoringService {
 
         // Use default configuration values (TODO: integrate with proper config system)
         let max_peers = 50; // Default max peers
-        let min_peers = 3;  // Default min peers
+        let min_peers = 3; // Default min peers
 
         let network_health = self.assess_network_health(peer_count, min_peers);
 
@@ -265,7 +265,7 @@ impl NetworkMonitoringService {
             let stats = mempool.get_stats().await;
             let transaction_count = stats.pending_count;
             let size_bytes = stats.total_size_bytes;
-            
+
             let utilization_percent = if stats.total_size_bytes > 0 {
                 (size_bytes as f64 / stats.total_size_bytes as f64) * 100.0
             } else {
@@ -458,7 +458,7 @@ impl NetworkMonitoringService {
             // For now, return empty list until P2P network provides real peer data API
             return Vec::new();
         }
-        
+
         // No P2P network available, return empty list
         Vec::new()
     }

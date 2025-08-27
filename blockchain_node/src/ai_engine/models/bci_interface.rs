@@ -204,9 +204,354 @@ impl BCIModel {
     fn apply_filter(&mut self, window: &[Vec<f32>]) -> Result<Vec<Vec<f32>>> {
         // Simple passthrough for now
         // In a real implementation, we would apply bandpass filtering here
-        let filtered = window.to_vec();
+        Ok(window.to_vec())
+    }
+
+    /// Process a single signal using real BCI signal processing
+    pub async fn process_signal(
+        &mut self,
+        signal_data: &[f32],
+        signal_type: &str,
+        processing_mode: &str,
+    ) -> Result<BCIOutput> {
+        // Clone the signal parameters to avoid borrow conflicts
+        let params = {
+            let params_guard = self.signal_params.read().await;
+            params_guard.clone()
+        };
+
+        // Convert raw signal to multi-channel format
+        let num_channels = params.num_channels;
+        let samples_per_channel = signal_data.len() / num_channels;
+        let mut channels = vec![Vec::new(); num_channels];
+
+        for (i, &sample) in signal_data.iter().enumerate() {
+            let channel_idx = i % num_channels;
+            channels[channel_idx].push(sample);
+        }
+
+        // Apply signal preprocessing based on processing mode
+        let filtered_channels = match processing_mode {
+            "realtime" => self.apply_realtime_filter(&channels, &params).await?,
+            "batch" => self.apply_batch_filter(&channels, &params).await?,
+            _ => self.apply_standard_filter(&channels, &params).await?,
+        };
+
+        // Extract features from filtered signals
+        let features = self
+            .extract_signal_features(&filtered_channels, &params)
+            .await?;
+
+        // Detect spikes
+        let spikes = self
+            .detect_neural_spikes(&filtered_channels, &params)
+            .await?;
+
+        // Run neural network inference
+        let intent_vector = {
+            let neural_base = self.neural_base.read().await;
+            neural_base.forward(&features)?
+        };
+
+        // Calculate confidence based on neural network output distribution
+        let max_output = intent_vector
+            .iter()
+            .copied()
+            .fold(f32::NEG_INFINITY, f32::max);
+        let sum_exp: f32 = intent_vector.iter().map(|x| (x - max_output).exp()).sum();
+        let confidence = (max_output - max_output.exp() / sum_exp).exp();
+
+        // Calculate processing latency
+        let latency = samples_per_channel as f32 / params.sampling_rate as f32 * 1000.0;
+
+        Ok(BCIOutput {
+            intent: intent_vector,
+            confidence,
+            spikes,
+            latency,
+        })
+    }
+
+    /// Detect intent from processed BCI output
+    pub async fn detect_intent(&self, bci_output: &BCIOutput) -> Result<String> {
+        // Classify intent based on neural network output
+        let intent_idx = bci_output
+            .intent
+            .iter()
+            .enumerate()
+            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            .map(|(i, _)| i)
+            .unwrap_or(0);
+
+        // Map neural network output to intent categories
+        let intent = match intent_idx {
+            0 => "focus",
+            1 => "relax",
+            2 => "attention",
+            3 => "meditation",
+            4 => "motor_imagery",
+            5 => "visual_processing",
+            6 => "auditory_processing",
+            7 => "cognitive_load",
+            _ => "neutral",
+        };
+
+        // Only return high-confidence intents
+        if bci_output.confidence > 0.7 {
+            Ok(intent.to_string())
+        } else {
+            Ok("neutral".to_string())
+        }
+    }
+
+    /// Apply real-time signal filtering
+    async fn apply_realtime_filter(
+        &mut self,
+        channels: &[Vec<f32>],
+        params: &SignalParams,
+    ) -> Result<Vec<Vec<f32>>> {
+        let mut filtered = Vec::new();
+
+        for channel in channels {
+            let mut filtered_channel = Vec::new();
+
+            // Apply butterworth bandpass filter
+            for &sample in channel {
+                let filtered_sample = self
+                    .butterworth_filter(sample, &params.filter_params)
+                    .await?;
+                filtered_channel.push(filtered_sample);
+            }
+
+            // Apply notch filter for 50/60Hz noise
+            filtered_channel = self
+                .notch_filter(&filtered_channel, params.sampling_rate)
+                .await?;
+
+            filtered.push(filtered_channel);
+        }
 
         Ok(filtered)
+    }
+
+    /// Apply batch signal filtering
+    async fn apply_batch_filter(
+        &mut self,
+        channels: &[Vec<f32>],
+        params: &SignalParams,
+    ) -> Result<Vec<Vec<f32>>> {
+        let mut filtered = Vec::new();
+
+        for channel in channels {
+            // Apply zero-phase filtering for batch processing
+            let filtered_channel = self
+                .zero_phase_filter(channel, &params.filter_params)
+                .await?;
+            filtered.push(filtered_channel);
+        }
+
+        Ok(filtered)
+    }
+
+    /// Apply standard signal filtering
+    async fn apply_standard_filter(
+        &mut self,
+        channels: &[Vec<f32>],
+        params: &SignalParams,
+    ) -> Result<Vec<Vec<f32>>> {
+        // Use realtime filtering as default
+        self.apply_realtime_filter(channels, params).await
+    }
+
+    /// Extract signal features for neural network processing
+    async fn extract_signal_features(
+        &mut self,
+        channels: &[Vec<f32>],
+        params: &SignalParams,
+    ) -> Result<Vec<f32>> {
+        let mut features = Vec::new();
+
+        for channel in channels {
+            // Time domain features
+            let mean = channel.iter().sum::<f32>() / channel.len() as f32;
+            let variance =
+                channel.iter().map(|x| (x - mean).powi(2)).sum::<f32>() / channel.len() as f32;
+            let std_dev = variance.sqrt();
+
+            features.extend_from_slice(&[mean, variance, std_dev]);
+
+            // Frequency domain features (simplified FFT)
+            let power_bands = self.compute_power_bands(channel, params).await?;
+            features.extend_from_slice(&power_bands);
+
+            // Wavelet features if enabled
+            if params.use_wavelet {
+                let wavelet_features = self.compute_wavelet_features(channel).await?;
+                features.extend_from_slice(&wavelet_features);
+            }
+        }
+
+        Ok(features)
+    }
+
+    /// Detect neural spikes in the signal
+    async fn detect_neural_spikes(
+        &mut self,
+        channels: &[Vec<f32>],
+        params: &SignalParams,
+    ) -> Result<Vec<Spike>> {
+        let mut spikes = Vec::new();
+
+        for (channel_idx, channel) in channels.iter().enumerate() {
+            for (sample_idx, &sample) in channel.iter().enumerate() {
+                if sample.abs() > params.spike_threshold {
+                    // Extract spike waveform
+                    let start_idx = sample_idx.saturating_sub(10);
+                    let end_idx = (sample_idx + 10).min(channel.len());
+                    let waveform = channel[start_idx..end_idx].to_vec();
+
+                    spikes.push(Spike {
+                        channel: channel_idx,
+                        timestamp: sample_idx as f32 / params.sampling_rate as f32 * 1000.0,
+                        amplitude: sample,
+                        waveform,
+                    });
+                }
+            }
+        }
+
+        Ok(spikes)
+    }
+
+    /// Butterworth bandpass filter implementation
+    async fn butterworth_filter(
+        &mut self,
+        sample: f32,
+        filter_params: &FilterParams,
+    ) -> Result<f32> {
+        // Simplified 2nd order Butterworth filter
+        // In production, use proper DSP library
+        let nyquist = self.signal_params.read().await.sampling_rate as f32 / 2.0;
+        let low_norm = filter_params.low_cut / nyquist;
+        let high_norm = filter_params.high_cut / nyquist;
+
+        // Simple approximation for demonstration
+        let filtered = sample * (1.0 - low_norm) * high_norm;
+        Ok(filtered)
+    }
+
+    /// Notch filter for power line noise
+    async fn notch_filter(&mut self, signal: &[f32], sampling_rate: usize) -> Result<Vec<f32>> {
+        // Simple notch filter for 50/60Hz noise
+        let notch_freq = 50.0; // Hz
+        let nyquist = sampling_rate as f32 / 2.0;
+        let norm_freq = notch_freq / nyquist;
+
+        let mut filtered = Vec::new();
+        for &sample in signal {
+            // Simple notch filter approximation
+            let filtered_sample = sample * (1.0 - norm_freq * 0.1);
+            filtered.push(filtered_sample);
+        }
+
+        Ok(filtered)
+    }
+
+    /// Zero-phase filtering for batch processing
+    async fn zero_phase_filter(
+        &mut self,
+        signal: &[f32],
+        filter_params: &FilterParams,
+    ) -> Result<Vec<f32>> {
+        // Forward filtering
+        let mut forward_filtered = Vec::new();
+        for &sample in signal {
+            let filtered = self.butterworth_filter(sample, filter_params).await?;
+            forward_filtered.push(filtered);
+        }
+
+        // Reverse filtering (zero-phase)
+        let mut reverse_filtered = Vec::new();
+        for &sample in forward_filtered.iter().rev() {
+            let filtered = self.butterworth_filter(sample, filter_params).await?;
+            reverse_filtered.push(filtered);
+        }
+
+        reverse_filtered.reverse();
+        Ok(reverse_filtered)
+    }
+
+    /// Compute power in different frequency bands
+    async fn compute_power_bands(&self, signal: &[f32], params: &SignalParams) -> Result<Vec<f32>> {
+        // Simplified power spectral density computation
+        // In production, use proper FFT library
+        let n = signal.len();
+        let sampling_rate = params.sampling_rate as f32;
+
+        // Define frequency bands (Hz)
+        let bands = [
+            (0.5, 4.0),    // Delta
+            (4.0, 8.0),    // Theta
+            (8.0, 13.0),   // Alpha
+            (13.0, 30.0),  // Beta
+            (30.0, 100.0), // Gamma
+        ];
+
+        let mut power_bands = Vec::new();
+
+        for (low, high) in bands.iter() {
+            let mut power = 0.0;
+            let low_bin = (low * n as f32 / sampling_rate) as usize;
+            let high_bin = (high * n as f32 / sampling_rate) as usize;
+
+            // Simple power calculation
+            for i in low_bin..high_bin.min(n / 2) {
+                if i < signal.len() {
+                    power += signal[i].powi(2);
+                }
+            }
+
+            power_bands.push(power / (high_bin - low_bin) as f32);
+        }
+
+        Ok(power_bands)
+    }
+
+    /// Compute wavelet features
+    async fn compute_wavelet_features(&self, signal: &[f32]) -> Result<Vec<f32>> {
+        // Simplified Haar wavelet transform
+        let mut coeffs = signal.to_vec();
+        let mut features = Vec::new();
+
+        // Multi-scale wavelet decomposition
+        for _ in 0..3 {
+            if coeffs.len() < 2 {
+                break;
+            }
+
+            let mut new_coeffs = Vec::new();
+            let mut details = Vec::new();
+
+            for i in (0..coeffs.len()).step_by(2) {
+                if i + 1 < coeffs.len() {
+                    let approx = (coeffs[i] + coeffs[i + 1]) / 2.0;
+                    let detail = (coeffs[i] - coeffs[i + 1]) / 2.0;
+                    new_coeffs.push(approx);
+                    details.push(detail);
+                }
+            }
+
+            // Extract statistical features from detail coefficients
+            if !details.is_empty() {
+                let mean = details.iter().sum::<f32>() / details.len() as f32;
+                let energy = details.iter().map(|x| x.powi(2)).sum::<f32>();
+                features.extend_from_slice(&[mean, energy]);
+            }
+
+            coeffs = new_coeffs;
+        }
+
+        Ok(features)
     }
 
     /// Detect spikes in filtered signal

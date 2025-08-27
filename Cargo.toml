@@ -1,6 +1,6 @@
-[workspace]
-members = ["blockchain_node"]
-resolver = "2"
+  [workspace]
+  members = ["blockchain_node"]
+  resolver = "2"
 
 [workspace.dependencies]
 # Async and runtime
@@ -20,7 +20,7 @@ libp2p = { version = "0.56.0", features = ["kad", "noise", "yamux", "tcp", "mdns
 hickory-resolver = "0.24.1"
 
 # Storage
-rocksdb = "0.22.0"
+# rocksdb = "0.23.0"  # Temporarily disabled due to macOS ARM64 linking issues
 
 # Cryptography and security
 ed25519-dalek = { version = "2.1.1", features = ["serde"] }

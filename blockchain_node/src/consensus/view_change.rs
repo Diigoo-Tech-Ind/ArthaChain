@@ -151,7 +151,7 @@ pub struct ViewChangeManager {
     messages: HashMap<u64, Vec<ViewChangeMessage>>,
     /// Quorum size
     quorum_size: usize,
-    state: Arc<RwLock<ViewState>>,
+    pub state: Arc<RwLock<ViewState>>,
     config: ViewChangeConfig,
     /// Message timeout
     message_timeout: StdDuration,
@@ -233,7 +233,7 @@ impl ViewChangeManager {
     }
 
     /// Validate view change message for Byzantine fault tolerance
-    async fn validate_view_change_message(
+    pub async fn validate_view_change_message(
         &self,
         message: &ViewChangeMessage,
         validator: &Address,
@@ -335,7 +335,7 @@ impl ViewChangeManager {
     }
 
     /// Elect leader for specific view using round-robin
-    async fn elect_leader_for_view(&self, view: u64) -> Result<()> {
+    pub async fn elect_leader_for_view(&self, view: u64) -> Result<()> {
         let mut state = self.state.write().await;
 
         if state.validators.is_empty() {

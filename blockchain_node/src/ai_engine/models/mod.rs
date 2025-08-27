@@ -34,7 +34,7 @@ pub use types::Experience;
 
 // Python models are available through PyO3 integration
 // - decoder.py: NeuralDecoder
-// - spike_detector.py: SpikeDetector  
+// - spike_detector.py: SpikeDetector
 // - adaptive_network.py: AdaptiveNetwork
 
 #[derive(Debug, Clone)]

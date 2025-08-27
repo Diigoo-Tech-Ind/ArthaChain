@@ -92,6 +92,28 @@ pub trait Storage: Send + Sync {
     
     /// Get a reference to the concrete type
     fn as_any(&self) -> &dyn Any;
+    
+    /// Get a mutable reference to the concrete type
+    fn as_any_mut(&mut self) -> &mut dyn Any;
+    
+    /// Alias for put method (for compatibility)
+    async fn store(&self, key: &[u8], value: &[u8]) -> Result<()> {
+        self.put(key, value).await
+    }
+    
+    /// Alias for get method (for compatibility)
+    async fn retrieve(&self, key: &[u8]) -> Result<Option<Vec<u8>>> {
+        self.get(key).await
+    }
+    
+    /// Verify data integrity (default implementation)
+    async fn verify(&self, key: &[u8], expected_value: &[u8]) -> Result<bool> {
+        if let Some(stored_value) = self.get(key).await? {
+            Ok(stored_value == expected_value)
+        } else {
+            Ok(false)
+        }
+    }
 }
 
 // Storage initialization trait
@@ -132,10 +154,11 @@ pub mod blockchain_storage;
 pub mod disaster_recovery;
 pub mod hybrid_storage;
 pub mod memmap_storage;
+pub mod memory;
 pub mod replicated_storage;
-pub mod rocksdb_storage;
+// pub mod rocksdb_storage;  // Temporarily disabled due to macOS ARM64 linking issues
 pub mod secure_storage;
-pub mod svdb_storage;
+// pub mod svdb_storage;      // Temporarily disabled due to macOS ARM64 linking issues
 pub mod transaction;
 
 // Re-export commonly used types and traits
@@ -143,8 +166,9 @@ pub use blockchain_storage::*;
 pub use disaster_recovery::*;
 pub use hybrid_storage::*;
 pub use memmap_storage::*;
+pub use memory::*;
 pub use replicated_storage::*;
-pub use rocksdb_storage::*;
+// pub use rocksdb_storage::*;  // Temporarily disabled due to macOS ARM64 linking issues
 pub use secure_storage::*;
-pub use svdb_storage::*;
+// pub use svdb_storage::*;      // Temporarily disabled due to macOS ARM64 linking issues
 pub use transaction::*;

@@ -3,7 +3,7 @@
 //! This example demonstrates the concept of the Diamond pattern with multiple
 //! facets and selector routing, implemented without requiring the WASM feature.
 
-use blockchain_node::types::Address;
+use arthachain_node::types::Address;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 

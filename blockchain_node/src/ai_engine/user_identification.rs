@@ -4,10 +4,13 @@ use base64::{engine::general_purpose, Engine as _};
 use blake3;
 use hex;
 use log::{debug, info, warn};
+use num_cpus;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant, SystemTime};
+use std::sync::Arc;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use sysinfo;
+use tokio::sync::Mutex;
 
 /// Confidence level for user identification
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
@@ -129,90 +132,646 @@ pub struct DeviceMetadata {
     pub geo_location: Option<String>,
 }
 
-/// User account data including identification information
+/// Node account data including automated identification and activity tracking
 #[derive(Debug, Clone)]
-pub struct UserAccount {
-    /// User identifier (public key)
-    pub user_id: String,
-    /// Face biometric template (hashed)
-    pub face_template: Option<String>,
-    /// Password hash
-    pub password_hash: Option<String>,
-    /// Password salt
-    pub password_salt: Option<String>,
-    /// Whether account has completed KYC
-    pub kyc_verified: bool,
+pub struct NodeAccount {
+    /// Node identifier (automatically generated)
+    pub node_id: String,
+    /// Node public key
+    pub public_key: String,
+    /// Node type (mining, validation, sharding, full)
+    pub node_type: NodeType,
+    /// Node capabilities and features
+    pub capabilities: NodeCapabilities,
+    /// Social score based on performance and behavior
+    pub social_score: f64,
     /// Account creation timestamp
     pub created_at: std::time::SystemTime,
-    /// Last successful authentication
-    pub last_auth: std::time::SystemTime,
-    /// Associated devices
-    pub devices: Vec<DeviceMetadata>,
-    /// Login attempt history
-    pub login_history: Vec<IdentificationResult>,
-    /// Number of failed login attempts
-    pub failed_attempts: u32,
-    /// Mnemonic phrase hash for wallet recovery
-    pub mnemonic_hash: Option<Vec<u8>>,
     /// Last activity timestamp
     pub last_activity: std::time::SystemTime,
-    /// Account locked status
-    pub is_locked: bool,
+    /// Node performance metrics
+    pub performance_metrics: NodePerformanceMetrics,
+    /// Activity history for social scoring
+    pub activity_history: Vec<NodeActivity>,
+    /// Node reputation and trust score
+    pub reputation_score: f64,
+    /// Whether node is active and healthy
+    pub is_active: bool,
+    /// Node location and network info
+    pub network_info: NetworkInfo,
 }
 
-impl UserAccount {
-    /// Create a new user account
-    pub fn new(user_id: &str) -> Self {
+/// Node type enumeration
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub enum NodeType {
+    Mining,
+    Validation,
+    Sharding,
+    Full,
+    Light,
+    Archive,
+}
+
+/// Node capabilities and features
+#[derive(Debug, Clone, Serialize)]
+pub struct NodeCapabilities {
+    /// Can perform mining operations
+    pub can_mine: bool,
+    /// Can validate transactions
+    pub can_validate: bool,
+    /// Can participate in sharding
+    pub can_shard: bool,
+    /// Can store full blockchain
+    pub can_store_full: bool,
+    /// Can process smart contracts
+    pub can_process_contracts: bool,
+    /// AI model capabilities
+    pub ai_capabilities: Vec<AICapability>,
+    /// Hardware specifications
+    pub hardware_specs: HardwareSpecs,
+}
+
+/// AI capability enumeration
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub enum AICapability {
+    FraudDetection,
+    NeuralNetwork,
+    SelfLearning,
+    BCI,
+    DeviceHealth,
+    DataChunking,
+    UserIdentification,
+}
+
+/// Hardware specifications
+#[derive(Debug, Clone, Serialize)]
+pub struct HardwareSpecs {
+    /// CPU cores
+    pub cpu_cores: u32,
+    /// RAM in GB
+    pub ram_gb: u32,
+    /// Storage in GB
+    pub storage_gb: u64,
+    /// GPU capabilities
+    pub gpu_capable: bool,
+    /// Network bandwidth in Mbps
+    pub network_bandwidth: u32,
+}
+
+/// Node performance metrics
+#[derive(Debug, Clone, Serialize)]
+pub struct NodePerformanceMetrics {
+    /// Uptime percentage
+    pub uptime_percentage: f64,
+    /// Transaction processing rate (TPS)
+    pub tps: f64,
+    /// Block validation time (ms)
+    pub block_validation_time: u64,
+    /// Mining efficiency
+    pub mining_efficiency: f64,
+    /// Sharding performance
+    pub sharding_performance: f64,
+    /// AI model accuracy
+    pub ai_accuracy: f64,
+    /// Network latency
+    pub network_latency: u64,
+    /// Last updated timestamp
+    pub last_updated: std::time::SystemTime,
+}
+
+/// Node activity for social scoring
+#[derive(Debug, Clone)]
+pub struct NodeActivity {
+    /// Activity type
+    pub activity_type: ActivityType,
+    /// Timestamp
+    pub timestamp: std::time::SystemTime,
+    /// Duration in seconds
+    pub duration: u64,
+    /// Success status
+    pub success: bool,
+    /// Performance metrics
+    pub performance: f64,
+    /// Social score impact
+    pub social_score_impact: f64,
+}
+
+/// Activity type enumeration
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+pub enum ActivityType {
+    Mining,
+    Validation,
+    Sharding,
+    Consensus,
+    AIProcessing,
+    NetworkSync,
+    ContractExecution,
+    PeerDiscovery,
+}
+
+/// Network information
+#[derive(Debug, Clone)]
+pub struct NetworkInfo {
+    /// IP address
+    pub ip_address: String,
+    /// Port
+    pub port: u16,
+    /// Geographic location
+    pub geo_location: Option<String>,
+    /// ISP information
+    pub isp: Option<String>,
+    /// Connection quality
+    pub connection_quality: ConnectionQuality,
+}
+
+/// Connection quality enumeration
+#[derive(Debug, Clone, PartialEq)]
+pub enum ConnectionQuality {
+    Excellent,
+    Good,
+    Fair,
+    Poor,
+    Unstable,
+}
+
+/// System activity monitor for tracking node operations
+#[derive(Debug, Clone)]
+pub struct SystemActivityMonitor {
+    /// Current system state
+    pub current_state: SystemState,
+    /// Activity timeline
+    pub activity_timeline: Vec<SystemActivity>,
+    /// Performance tracking
+    pub performance_tracker: PerformanceTracker,
+    /// Social scoring engine
+    pub social_scoring: SocialScoringEngine,
+}
+
+/// Current system state
+#[derive(Debug, Clone)]
+pub struct SystemState {
+    /// Current operation mode
+    pub operation_mode: OperationMode,
+    /// Start time of current operation
+    pub operation_start_time: std::time::SystemTime,
+    /// Current operation duration
+    pub operation_duration: std::time::Duration,
+    /// Performance metrics for current operation
+    pub current_performance: f64,
+    /// Resource utilization
+    pub resource_utilization: ResourceUtilization,
+}
+
+/// Operation mode enumeration
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub enum OperationMode {
+    Mining,
+    Validation,
+    Sharding,
+    Consensus,
+    AIProcessing,
+    NetworkSync,
+    Idle,
+    Maintenance,
+}
+
+/// Resource utilization
+#[derive(Debug, Clone, Serialize)]
+pub struct ResourceUtilization {
+    /// CPU usage percentage
+    pub cpu_usage: f64,
+    /// Memory usage percentage
+    pub memory_usage: f64,
+    /// Network usage percentage
+    pub network_usage: f64,
+    /// Storage usage percentage
+    pub storage_usage: f64,
+    /// GPU usage percentage (if available)
+    pub gpu_usage: Option<f64>,
+}
+
+/// System activity record
+#[derive(Debug, Clone, Serialize)]
+pub struct SystemActivity {
+    /// Activity type
+    pub activity_type: ActivityType,
+    /// Start time
+    pub start_time: std::time::SystemTime,
+    /// End time
+    pub end_time: std::time::SystemTime,
+    /// Duration
+    pub duration: std::time::Duration,
+    /// Success status
+    pub success: bool,
+    /// Performance metrics
+    pub performance: f64,
+    /// Resource usage during activity
+    pub resource_usage: ResourceUtilization,
+    /// Social score impact
+    pub social_score_impact: f64,
+}
+
+/// Performance tracker
+#[derive(Debug, Clone)]
+pub struct PerformanceTracker {
+    /// Historical performance data
+    pub performance_history: Vec<PerformanceRecord>,
+    /// Performance trends
+    pub performance_trends: PerformanceTrends,
+    /// Anomaly detection
+    pub anomaly_detector: AnomalyDetector,
+}
+
+/// Performance record
+#[derive(Debug, Clone)]
+pub struct PerformanceRecord {
+    /// Timestamp
+    pub timestamp: std::time::SystemTime,
+    /// Operation type
+    pub operation_type: ActivityType,
+    /// Performance score
+    pub performance_score: f64,
+    /// Resource usage
+    pub resource_usage: ResourceUtilization,
+    /// Success rate
+    pub success_rate: f64,
+}
+
+/// Performance trends
+#[derive(Debug, Clone, Serialize)]
+pub struct PerformanceTrends {
+    /// Short-term trend (last hour)
+    pub short_term: f64,
+    /// Medium-term trend (last 24 hours)
+    pub medium_term: f64,
+    /// Long-term trend (last week)
+    pub long_term: f64,
+    /// Overall improvement rate
+    pub improvement_rate: f64,
+}
+
+/// Anomaly detector
+#[derive(Debug, Clone)]
+pub struct AnomalyDetector {
+    /// Detected anomalies
+    pub anomalies: Vec<Anomaly>,
+    /// Detection threshold
+    pub threshold: f64,
+    /// Learning rate
+    pub learning_rate: f64,
+}
+
+/// Anomaly record
+#[derive(Debug, Clone)]
+pub struct Anomaly {
+    /// Anomaly type
+    pub anomaly_type: AnomalyType,
+    /// Timestamp
+    pub timestamp: std::time::SystemTime,
+    /// Severity
+    pub severity: AnomalySeverity,
+    /// Description
+    pub description: String,
+    /// Impact on social score
+    pub social_score_impact: f64,
+}
+
+/// Anomaly type enumeration
+#[derive(Debug, Clone, PartialEq)]
+pub enum AnomalyType {
+    PerformanceDegradation,
+    ResourceExhaustion,
+    NetworkIssues,
+    ConsensusFailures,
+    AIProcessingErrors,
+    SecurityThreats,
+}
+
+/// Anomaly severity enumeration
+#[derive(Debug, Clone, PartialEq)]
+pub enum AnomalySeverity {
+    Low,
+    Medium,
+    High,
+    Critical,
+}
+
+/// Social scoring engine
+#[derive(Debug, Clone)]
+pub struct SocialScoringEngine {
+    /// Current social score
+    pub current_score: f64,
+    /// Score history
+    pub score_history: Vec<ScoreRecord>,
+    /// Scoring factors
+    pub scoring_factors: ScoringFactors,
+    /// Reputation algorithm
+    pub reputation_algorithm: ReputationAlgorithm,
+}
+
+/// Score record
+#[derive(Debug, Clone)]
+pub struct ScoreRecord {
+    /// Timestamp
+    pub timestamp: std::time::SystemTime,
+    /// Score change
+    pub score_change: f64,
+    /// Reason for change
+    pub reason: String,
+    /// Activity that caused change
+    pub activity: Option<ActivityType>,
+}
+
+/// Scoring factors
+#[derive(Debug, Clone)]
+pub struct ScoringFactors {
+    /// Performance weight
+    pub performance_weight: f64,
+    /// Uptime weight
+    pub uptime_weight: f64,
+    /// Contribution weight
+    pub contribution_weight: f64,
+    /// Behavior weight
+    pub behavior_weight: f64,
+    /// Network weight
+    pub network_weight: f64,
+}
+
+/// Reputation algorithm
+#[derive(Debug, Clone)]
+pub enum ReputationAlgorithm {
+    /// Simple weighted average
+    WeightedAverage,
+    /// Time-decay weighted
+    TimeDecayWeighted,
+    /// Machine learning based
+    MachineLearningBased,
+    /// Consensus-based
+    ConsensusBased,
+}
+
+// Default implementations for new structs
+impl Default for NodePerformanceMetrics {
+    fn default() -> Self {
         Self {
-            user_id: user_id.to_string(),
-            face_template: None,
-            password_hash: None,
-            password_salt: None,
-            kyc_verified: false,
-            created_at: std::time::SystemTime::now(),
-            last_auth: std::time::SystemTime::now(),
-            devices: Vec::new(),
-            login_history: Vec::new(),
-            failed_attempts: 0,
-            mnemonic_hash: None,
-            last_activity: std::time::SystemTime::now(),
-            is_locked: false,
+            uptime_percentage: 100.0,
+            tps: 0.0,
+            block_validation_time: 0,
+            mining_efficiency: 0.0,
+            sharding_performance: 0.0,
+            ai_accuracy: 0.0,
+            network_latency: 0,
+            last_updated: std::time::SystemTime::now(),
+        }
+    }
+}
+
+impl Default for NetworkInfo {
+    fn default() -> Self {
+        Self {
+            ip_address: "127.0.0.1".to_string(),
+            port: 8080,
+            geo_location: None,
+            isp: None,
+            connection_quality: ConnectionQuality::Good,
+        }
+    }
+}
+
+impl Default for HardwareSpecs {
+    fn default() -> Self {
+        Self {
+            cpu_cores: 4,
+            ram_gb: 8,
+            storage_gb: 100,
+            gpu_capable: false,
+            network_bandwidth: 100,
+        }
+    }
+}
+
+impl Default for SystemActivityMonitor {
+    fn default() -> Self {
+        Self {
+            current_state: SystemState::default(),
+            activity_timeline: Vec::new(),
+            performance_tracker: PerformanceTracker::default(),
+            social_scoring: SocialScoringEngine::default(),
+        }
+    }
+}
+
+impl Default for SystemState {
+    fn default() -> Self {
+        Self {
+            operation_mode: OperationMode::Idle,
+            operation_start_time: std::time::SystemTime::now(),
+            operation_duration: std::time::Duration::from_secs(0),
+            current_performance: 0.0,
+            resource_utilization: ResourceUtilization::default(),
+        }
+    }
+}
+
+impl Default for ResourceUtilization {
+    fn default() -> Self {
+        Self {
+            cpu_usage: 0.0,
+            memory_usage: 0.0,
+            network_usage: 0.0,
+            storage_usage: 0.0,
+            gpu_usage: None,
+        }
+    }
+}
+
+impl Default for PerformanceTracker {
+    fn default() -> Self {
+        Self {
+            performance_history: Vec::new(),
+            performance_trends: PerformanceTrends::default(),
+            anomaly_detector: AnomalyDetector::default(),
+        }
+    }
+}
+
+impl Default for PerformanceTrends {
+    fn default() -> Self {
+        Self {
+            short_term: 0.0,
+            medium_term: 0.0,
+            long_term: 0.0,
+            improvement_rate: 0.0,
+        }
+    }
+}
+
+impl Default for AnomalyDetector {
+    fn default() -> Self {
+        Self {
+            anomalies: Vec::new(),
+            threshold: 0.8,
+            learning_rate: 0.01,
+        }
+    }
+}
+
+impl Default for SocialScoringEngine {
+    fn default() -> Self {
+        Self {
+            current_score: 100.0,
+            score_history: Vec::new(),
+            scoring_factors: ScoringFactors::default(),
+            reputation_algorithm: ReputationAlgorithm::WeightedAverage,
+        }
+    }
+}
+
+impl Default for ScoringFactors {
+    fn default() -> Self {
+        Self {
+            performance_weight: 0.3,
+            uptime_weight: 0.2,
+            contribution_weight: 0.25,
+            behavior_weight: 0.15,
+            network_weight: 0.1,
+        }
+    }
+}
+
+impl NodeAccount {
+    /// Create a new node account with automated identification
+    pub fn new(node_id: &str, public_key: &str, node_type: NodeType) -> Self {
+        let now = std::time::SystemTime::now();
+
+        // Automatically determine capabilities based on node type
+        let capabilities = Self::determine_capabilities(node_type.clone());
+
+        // Initialize with default social score
+        let social_score = 100.0; // Start with neutral score
+
+        Self {
+            node_id: node_id.to_string(),
+            public_key: public_key.to_string(),
+            node_type,
+            capabilities,
+            social_score,
+            created_at: now,
+            last_activity: now,
+            performance_metrics: NodePerformanceMetrics::default(),
+            activity_history: Vec::new(),
+            reputation_score: 100.0,
+            is_active: true,
+            network_info: NetworkInfo::default(),
         }
     }
 
-    /// Record a login attempt
-    pub fn record_login_attempt(&mut self, result: IdentificationResult) {
-        if result.success {
-            self.failed_attempts = 0;
-            self.last_auth = std::time::SystemTime::now();
-        } else {
-            self.failed_attempts += 1;
-
-            // Lock account after too many failed attempts
-            if self.failed_attempts >= 5 {
-                self.is_locked = true;
-            }
-        }
-
-        // Keep login history (max 10 entries)
-        self.login_history.push(result);
-        if self.login_history.len() > 10 {
-            self.login_history.remove(0);
+    /// Automatically determine node capabilities based on type
+    fn determine_capabilities(node_type: NodeType) -> NodeCapabilities {
+        match node_type {
+            NodeType::Mining => NodeCapabilities {
+                can_mine: true,
+                can_validate: true,
+                can_shard: false,
+                can_store_full: true,
+                can_process_contracts: true,
+                ai_capabilities: vec![
+                    AICapability::FraudDetection,
+                    AICapability::NeuralNetwork,
+                    AICapability::SelfLearning,
+                ],
+                hardware_specs: HardwareSpecs::default(),
+            },
+            NodeType::Validation => NodeCapabilities {
+                can_mine: false,
+                can_validate: true,
+                can_shard: true,
+                can_store_full: true,
+                can_process_contracts: true,
+                ai_capabilities: vec![
+                    AICapability::FraudDetection,
+                    AICapability::DeviceHealth,
+                    AICapability::DataChunking,
+                ],
+                hardware_specs: HardwareSpecs::default(),
+            },
+            NodeType::Sharding => NodeCapabilities {
+                can_mine: false,
+                can_validate: true,
+                can_shard: true,
+                can_store_full: false,
+                can_process_contracts: true,
+                ai_capabilities: vec![AICapability::DataChunking, AICapability::UserIdentification],
+                hardware_specs: HardwareSpecs::default(),
+            },
+            NodeType::Full => NodeCapabilities {
+                can_mine: true,
+                can_validate: true,
+                can_shard: true,
+                can_store_full: true,
+                can_process_contracts: true,
+                ai_capabilities: vec![
+                    AICapability::FraudDetection,
+                    AICapability::NeuralNetwork,
+                    AICapability::SelfLearning,
+                    AICapability::BCI,
+                    AICapability::DeviceHealth,
+                    AICapability::DataChunking,
+                    AICapability::UserIdentification,
+                ],
+                hardware_specs: HardwareSpecs::default(),
+            },
+            NodeType::Light => NodeCapabilities {
+                can_mine: false,
+                can_validate: false,
+                can_shard: false,
+                can_store_full: false,
+                can_process_contracts: false,
+                ai_capabilities: vec![AICapability::UserIdentification],
+                hardware_specs: HardwareSpecs::default(),
+            },
+            NodeType::Archive => NodeCapabilities {
+                can_mine: false,
+                can_validate: false,
+                can_shard: false,
+                can_store_full: true,
+                can_process_contracts: false,
+                ai_capabilities: vec![AICapability::DataChunking],
+                hardware_specs: HardwareSpecs::default(),
+            },
         }
     }
 
-    /// Add a device to the account
-    pub fn add_device(&mut self, device: DeviceMetadata) {
-        // If device already exists, update it
-        if let Some(index) = self
-            .devices
-            .iter()
-            .position(|d| d.device_id == device.device_id)
-        {
-            self.devices[index] = device;
-        } else {
-            self.devices.push(device);
+    /// Update social score based on activity performance
+    pub fn update_social_score(&mut self, activity: &NodeActivity) {
+        let score_change = activity.social_score_impact;
+        self.social_score = (self.social_score + score_change).max(0.0).min(1000.0);
+
+        // Update reputation score based on social score
+        self.reputation_score = self.social_score / 10.0;
+
+        // Record activity
+        self.activity_history.push(activity.clone());
+
+        // Keep only last 1000 activities for memory management
+        if self.activity_history.len() > 1000 {
+            self.activity_history.remove(0);
         }
+
+        // Update last activity
+        self.last_activity = std::time::SystemTime::now();
+    }
+
+    /// Get current performance summary
+    pub fn get_performance_summary(&self) -> String {
+        format!(
+            "Node {}: Score={:.2}, Reputation={:.2}, Uptime={:.1}%, TPS={:.2}",
+            self.node_id,
+            self.social_score,
+            self.reputation_score,
+            self.performance_metrics.uptime_percentage,
+            self.performance_metrics.tps
+        )
     }
 }
 
@@ -249,1199 +808,816 @@ impl Default for IdentificationConfig {
     }
 }
 
-/// User Identification AI that provides sybil-resistant identity verification
+/// Automated Node Identification AI that provides sybil-resistant node verification and activity tracking
 #[derive(Debug, Clone)]
 pub struct UserIdentificationAI {
-    /// User accounts database
-    accounts: Arc<Mutex<HashMap<String, UserAccount>>>,
+    /// Node accounts database
+    node_accounts: Arc<Mutex<HashMap<String, NodeAccount>>>,
     /// Configuration for identification
     config: IdentificationConfig,
     /// Model version for identification
     model_version: String,
     /// Last time the model was updated
     model_last_updated: Instant,
+    /// System activity monitor
+    activity_monitor: Arc<Mutex<SystemActivityMonitor>>,
 }
 
 impl UserIdentificationAI {
-    /// Create a new User Identification AI instance
+    /// Create a new Automated Node Identification AI instance
     pub fn new(_config: &Config) -> Self {
         let id_config = IdentificationConfig::default();
 
         Self {
-            accounts: Arc::new(Mutex::new(HashMap::new())),
+            node_accounts: Arc::new(Mutex::new(HashMap::new())),
             config: id_config,
             model_version: "1.0.0".to_string(),
             model_last_updated: Instant::now(),
+            activity_monitor: Arc::new(Mutex::new(SystemActivityMonitor::default())),
         }
     }
 
-    /// Register a new user with face biometrics
-    pub fn register_user_with_face(&self, user_id: &str, face_data: &[u8]) -> Result<()> {
-        let mut accounts = self.accounts.lock().unwrap();
+    /// Automatically create and register a new node
+    pub async fn auto_register_node(
+        &self,
+        public_key: &str,
+        node_type: NodeType,
+    ) -> Result<String> {
+        let mut accounts = self.node_accounts.lock().await;
 
-        // Check if user already exists
-        if accounts.contains_key(user_id) {
-            return Err(anyhow!("User already exists"));
+        // Generate unique node ID automatically
+        let node_id = self.generate_node_id(public_key, node_type.clone());
+
+        // Check if node already exists
+        if accounts.contains_key(&node_id) {
+            return Err(anyhow!("Node already registered with ID: {}", node_id));
         }
 
-        // Create a new account
-        let mut account = UserAccount::new(user_id);
-
-        // In a real implementation, this would process and securely store face biometric data
-        // Here we'll just hash it as a placeholder
-        let face_template = self.hash_biometric_data(face_data);
-        account.face_template = Some(face_template);
+        // Create new node account
+        let node_account = NodeAccount::new(&node_id, public_key, node_type.clone());
 
         // Store the account
-        accounts.insert(user_id.to_string(), account);
-        info!("Registered new user with face biometrics: {user_id}");
+        accounts.insert(node_id.clone(), node_account);
 
+        info!(
+            "Automatically registered new node: {} (Type: {:?})",
+            node_id, node_type
+        );
+
+        Ok(node_id)
+    }
+
+    /// Generate unique node ID based on public key and type
+    fn generate_node_id(&self, public_key: &str, node_type: NodeType) -> String {
+        use blake3::Hasher;
+
+        let mut hasher = Hasher::new();
+        hasher.update(public_key.as_bytes());
+        hasher.update(format!("{:?}", node_type).as_bytes());
+        hasher.update(
+            &SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+                .to_le_bytes(),
+        );
+
+        let hash = hasher.finalize();
+        format!(
+            "node_{}_{}",
+            format!("{:?}", node_type).to_lowercase(),
+            hex::encode(&hash.as_bytes()[..8])
+        )
+    }
+
+    /// Start monitoring system activity
+    pub async fn start_activity_monitoring(&self) -> Result<()> {
+        let mut monitor = self.activity_monitor.lock().await;
+
+        // Initialize monitoring
+        monitor.current_state.operation_mode = OperationMode::Idle;
+        monitor.current_state.operation_start_time = SystemTime::now();
+
+        info!("Started automated activity monitoring for node identification");
         Ok(())
     }
 
-    /// Register a new user with password
-    pub fn register_user_with_password(&self, user_id: &str, password: &str) -> Result<()> {
-        let mut accounts = self.accounts.lock().unwrap();
-
-        // Check if user already exists
-        if accounts.contains_key(user_id) {
-            return Err(anyhow!("User already exists"));
-        }
-
-        // Create a new account
-        let mut account = UserAccount::new(user_id);
-
-        // Generate a random salt and hash the password
-        let salt = self.generate_random_salt();
-        let password_hash = self.hash_password(password, &salt);
-
-        account.password_hash = Some(password_hash);
-        account.password_salt = Some(salt);
-
-        // Store the account
-        accounts.insert(user_id.to_string(), account);
-        info!("Registered new user with password: {user_id}");
-
-        Ok(())
-    }
-
-    /// Identify a user using face biometrics
-    pub fn identify_with_face(
+    /// Record system activity for social scoring
+    pub async fn record_activity(
         &self,
-        face_data: &[u8],
-        device_id: &str,
-    ) -> Result<IdentificationResult> {
-        let accounts = self.accounts.lock().unwrap();
+        activity_type: ActivityType,
+        success: bool,
+        performance: f64,
+    ) -> Result<()> {
+        let mut monitor = self.activity_monitor.lock().await;
+        let now = SystemTime::now();
 
-        // In a real implementation, this would extract features from the face data
-        // and find the best matching user. Here we'll simulate it
+        // Calculate activity duration
+        let duration = now
+            .duration_since(monitor.current_state.operation_start_time)
+            .unwrap_or(Duration::from_secs(0));
 
-        // Placeholder for face verification logic
-        // Simulate searching for the user with matching face template
-        let face_template = self.hash_biometric_data(face_data);
-
-        // Find account with matching face template using real biometric comparison
-        let mut best_match: Option<(&UserAccount, BiometricMatchResult)> = None;
-        let threshold = self.config.min_confidence;
-
-        for account in accounts.values() {
-            if let Some(stored_template) = &account.face_template {
-                // Use real biometric template comparison
-                let match_result =
-                    self.compare_biometric_templates(stored_template, &face_template, threshold);
-
-                if match_result.is_match {
-                    // Check if this is the best match so far
-                    if let Some((_, ref current_best)) = best_match {
-                        if match_result.confidence_score > current_best.confidence_score {
-                            best_match = Some((account, match_result));
-                        }
-                    } else {
-                        best_match = Some((account, match_result));
-                    }
-                }
-            }
-        }
-
-        let matching_account = best_match.as_ref().map(|(account, _)| *account);
-
-        if let Some(account) = matching_account {
-            // Check if account is locked
-            if account.is_locked {
-                return Ok(IdentificationResult {
-                    success: false,
-                    confidence: IdentificationConfidence::VeryLow,
-                    auth_type: AuthenticationType::FaceAuth,
-                    timestamp: std::time::SystemTime::now(),
-                    user_id: account.user_id.clone(),
-                    device_id: device_id.to_string(),
-                    error: Some("Account is locked".to_string()),
-                });
-            }
-
-            // Simulate confidence score (would be calculated by model in real implementation)
-            let confidence = 0.9;
-
-            let result = IdentificationResult {
-                success: confidence >= self.config.min_confidence,
-                confidence: IdentificationConfidence::from(confidence),
-                auth_type: AuthenticationType::FaceAuth,
-                timestamp: std::time::SystemTime::now(),
-                user_id: account.user_id.clone(),
-                device_id: device_id.to_string(),
-                error: None,
-            };
-
-            info!(
-                "User {} identified with face biometrics: success={}, confidence={:?}",
-                account.user_id, result.success, result.confidence
-            );
-
-            return Ok(result);
-        }
-
-        // No matching account found
-        Err(anyhow!("No matching face template found"))
-    }
-
-    /// Authenticate a user with password
-    pub fn authenticate_with_password(
-        &self,
-        user_id: &str,
-        password: &str,
-        device_id: &str,
-    ) -> Result<IdentificationResult> {
-        let mut accounts = self.accounts.lock().unwrap();
-
-        // Find the account
-        if let Some(account) = accounts.get_mut(user_id) {
-            // Check if account is locked
-            if account.is_locked {
-                return Ok(IdentificationResult {
-                    success: false,
-                    confidence: IdentificationConfidence::VeryLow,
-                    auth_type: AuthenticationType::Password,
-                    timestamp: std::time::SystemTime::now(),
-                    user_id: account.user_id.clone(),
-                    device_id: device_id.to_string(),
-                    error: Some("Account is locked".to_string()),
-                });
-            }
-
-            // Verify password
-            if let (Some(stored_hash), Some(salt)) =
-                (&account.password_hash, &account.password_salt)
-            {
-                let input_hash = self.hash_password(password, salt);
-
-                let is_match = input_hash == *stored_hash;
-                let confidence = if is_match { 1.0 } else { 0.0 };
-
-                let result = IdentificationResult {
-                    success: is_match,
-                    confidence: IdentificationConfidence::from(confidence),
-                    auth_type: AuthenticationType::Password,
-                    timestamp: std::time::SystemTime::now(),
-                    user_id: account.user_id.clone(),
-                    device_id: device_id.to_string(),
-                    error: if is_match {
-                        None
-                    } else {
-                        Some("Invalid password".to_string())
-                    },
-                };
-
-                // Record the login attempt
-                account.record_login_attempt(result.clone());
-
-                info!(
-                    "User {} authenticated with password: success={}",
-                    account.user_id, result.success
-                );
-
-                return Ok(result);
-            }
-
-            return Err(anyhow!(
-                "Password authentication not configured for this account"
-            ));
-        }
-
-        Err(anyhow!("User not found"))
-    }
-
-    /// Authenticate with multi-factor authentication
-    pub fn authenticate_with_mfa(
-        &self,
-        user_id: &str,
-        password: &str,
-        face_data: &[u8],
-        device_id: &str,
-    ) -> Result<IdentificationResult> {
-        // First authenticate with password
-        let password_result = self.authenticate_with_password(user_id, password, device_id)?;
-
-        if !password_result.success {
-            return Ok(password_result);
-        }
-
-        // Then authenticate with face biometrics
-        let face_result = match self.identify_with_face(face_data, device_id) {
-            Ok(result) => result,
-            Err(_) => {
-                return Ok(IdentificationResult {
-                    success: false,
-                    confidence: IdentificationConfidence::Low,
-                    auth_type: AuthenticationType::MultiFactor,
-                    timestamp: std::time::SystemTime::now(),
-                    user_id: user_id.to_string(),
-                    device_id: device_id.to_string(),
-                    error: Some("Face authentication failed".to_string()),
-                });
-            }
+        // Create activity record
+        let activity = SystemActivity {
+            activity_type: activity_type.clone(),
+            start_time: monitor.current_state.operation_start_time,
+            end_time: now,
+            duration,
+            success,
+            performance,
+            resource_usage: monitor.current_state.resource_utilization.clone(),
+            social_score_impact: self.calculate_social_score_impact(
+                activity_type.clone(),
+                success,
+                performance,
+            ),
         };
 
-        if !face_result.success {
-            return Ok(IdentificationResult {
-                success: false,
-                confidence: IdentificationConfidence::Low,
-                auth_type: AuthenticationType::MultiFactor,
-                timestamp: std::time::SystemTime::now(),
-                user_id: user_id.to_string(),
-                device_id: device_id.to_string(),
-                error: Some("Face authentication failed".to_string()),
-            });
+        // Add to timeline
+        monitor.activity_timeline.push(activity.clone());
+
+        // Keep only last 1000 activities
+        if monitor.activity_timeline.len() > 1000 {
+            monitor.activity_timeline.remove(0);
         }
 
-        // Combine the two authentication results
-        let combined_confidence =
-            (password_result.confidence as u8 + face_result.confidence as u8) as f32 / 2.0;
+        // Update current state
+        monitor.current_state.operation_mode = self.map_activity_to_operation_mode(activity_type);
+        monitor.current_state.operation_start_time = now;
+        monitor.current_state.operation_duration = Duration::from_secs(0);
+        monitor.current_state.current_performance = performance;
 
-        Ok(IdentificationResult {
-            success: true,
-            confidence: IdentificationConfidence::from(combined_confidence),
-            auth_type: AuthenticationType::MultiFactor,
-            timestamp: std::time::SystemTime::now(),
-            user_id: user_id.to_string(),
-            device_id: device_id.to_string(),
-            error: None,
+        // Update social score
+        self.update_social_score(&mut monitor, &activity).await?;
+
+        info!(
+            "Recorded activity: {:?} - Success: {}, Performance: {:.2}",
+            activity_type, success, performance
+        );
+
+        Ok(())
+    }
+
+    /// Calculate social score impact based on activity
+    fn calculate_social_score_impact(
+        &self,
+        activity_type: ActivityType,
+        success: bool,
+        performance: f64,
+    ) -> f64 {
+        let base_score = match activity_type {
+            ActivityType::Mining => 5.0,
+            ActivityType::Validation => 3.0,
+            ActivityType::Sharding => 4.0,
+            ActivityType::Consensus => 6.0,
+            ActivityType::AIProcessing => 2.0,
+            ActivityType::NetworkSync => 1.0,
+            ActivityType::ContractExecution => 2.0,
+            ActivityType::PeerDiscovery => 1.0,
+        };
+
+        let success_multiplier = if success { 1.0 } else { -0.5 };
+        let performance_multiplier = (performance / 100.0).max(0.1).min(2.0);
+
+        base_score * success_multiplier * performance_multiplier
+    }
+
+    /// Map activity type to operation mode
+    fn map_activity_to_operation_mode(&self, activity_type: ActivityType) -> OperationMode {
+        match activity_type {
+            ActivityType::Mining => OperationMode::Mining,
+            ActivityType::Validation => OperationMode::Validation,
+            ActivityType::Sharding => OperationMode::Sharding,
+            ActivityType::Consensus => OperationMode::Consensus,
+            ActivityType::AIProcessing => OperationMode::AIProcessing,
+            ActivityType::NetworkSync => OperationMode::NetworkSync,
+            ActivityType::ContractExecution => OperationMode::Consensus,
+            ActivityType::PeerDiscovery => OperationMode::NetworkSync,
+        }
+    }
+
+    /// Update social score based on activity
+    async fn update_social_score(
+        &self,
+        monitor: &mut SystemActivityMonitor,
+        activity: &SystemActivity,
+    ) -> Result<()> {
+        let score_change = activity.social_score_impact;
+        let mut social_scoring = &mut monitor.social_scoring;
+
+        // Update current score
+        social_scoring.current_score = (social_scoring.current_score + score_change)
+            .max(0.0)
+            .min(1000.0);
+
+        // Record score change
+        let score_record = ScoreRecord {
+            timestamp: SystemTime::now(),
+            score_change,
+            reason: format!("Activity: {:?}", activity.activity_type),
+            activity: Some(activity.activity_type.clone()),
+        };
+
+        social_scoring.score_history.push(score_record);
+
+        // Keep only last 1000 score records
+        if social_scoring.score_history.len() > 1000 {
+            social_scoring.score_history.remove(0);
+        }
+
+        info!(
+            "Updated social score: {:.2} (Change: {:.2})",
+            social_scoring.current_score, score_change
+        );
+
+        Ok(())
+    }
+
+    /// Get current system status and social score
+    pub async fn get_system_status(&self) -> Result<SystemStatus> {
+        let monitor = self.activity_monitor.lock().await;
+        let accounts = self.node_accounts.lock().await;
+
+        let total_nodes = accounts.len();
+        let active_nodes = accounts.values().filter(|n| n.is_active).count();
+        let avg_social_score = if total_nodes > 0 {
+            accounts.values().map(|n| n.social_score).sum::<f64>() / total_nodes as f64
+        } else {
+            0.0
+        };
+
+        Ok(SystemStatus {
+            current_operation: monitor.current_state.operation_mode.clone(),
+            operation_duration: monitor.current_state.operation_duration,
+            current_performance: monitor.current_state.current_performance,
+            social_score: monitor.social_scoring.current_score,
+            total_nodes,
+            active_nodes,
+            average_social_score: avg_social_score,
+            resource_utilization: monitor.current_state.resource_utilization.clone(),
+            last_activity: monitor.activity_timeline.last().cloned(),
         })
     }
 
-    /// Register a device for a user
-    pub fn register_device(&self, user_id: &str, device: DeviceMetadata) -> Result<()> {
-        let mut accounts = self.accounts.lock().unwrap();
+    /// Get node performance and social score
+    pub async fn get_node_status(&self, node_id: &str) -> Result<NodeStatus> {
+        let accounts = self.node_accounts.lock().await;
 
-        if let Some(account) = accounts.get_mut(user_id) {
-            // Check if maximum devices reached
-            if account.devices.len() >= self.config.max_devices_per_account {
-                return Err(anyhow!("Maximum devices per account reached"));
-            }
-
-            account.add_device(device);
-            info!("Device registered for user {user_id}");
-            Ok(())
+        if let Some(account) = accounts.get(node_id) {
+            Ok(NodeStatus {
+                node_id: account.node_id.clone(),
+                node_type: account.node_type.clone(),
+                social_score: account.social_score,
+                reputation_score: account.reputation_score,
+                is_active: account.is_active,
+                performance_metrics: account.performance_metrics.clone(),
+                last_activity: account.last_activity,
+                capabilities: account.capabilities.clone(),
+            })
         } else {
-            Err(anyhow!("User not found"))
+            Err(anyhow!("Node not found: {}", node_id))
         }
     }
 
-    /// Verify a mnemonic seed phrase (5-word combination)
-    pub fn verify_mnemonic(&self, user_id: &str, mnemonic: &[&str]) -> Result<bool> {
-        // In a real implementation, this would validate the mnemonic against
-        // a stored seed or derivation path. Here we'll simulate it
-
-        if mnemonic.len() != 5 {
-            return Err(anyhow!("Mnemonic must be 5 words"));
-        }
-
-        // Real mnemonic verification implementation
-        debug!("Performing real mnemonic verification for user {user_id}");
-
-        // 1. Retrieve user's stored mnemonic hash
-        let accounts = self.accounts.lock().unwrap();
-        let user_account = accounts
-            .get(user_id)
-            .ok_or_else(|| anyhow::anyhow!("User account not found: {}", user_id))?;
-
-        // 2. Hash the provided mnemonic using the same method
-        let provided_hash = self.hash_mnemonic_secure(&mnemonic.join(" "))?;
-
-        // 3. Compare with stored hash (time-constant comparison for security)
-        let stored_hash = user_account
-            .mnemonic_hash
-            .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("No mnemonic hash stored for user: {}", user_id))?;
-
-        // 4. Perform secure comparison
-        let hashes_match = self.secure_compare_hashes(&provided_hash, stored_hash);
-
-        // 5. Additional entropy validation (check mnemonic structure)
-        let mnemonic_valid = self.validate_mnemonic_structure(&mnemonic.join(" "))?;
-
-        // 6. Check account lock status
-        if user_account.failed_attempts >= self.config.max_failed_attempts {
-            warn!("Account {} is locked due to failed attempts", user_id);
-            return Ok(false);
-        }
-
-        // 7. Update attempt tracking
-        drop(accounts);
-        if hashes_match && mnemonic_valid {
-            // Reset failed attempts on successful verification
-            self.reset_failed_attempts(user_id)?;
-            info!("Mnemonic verification successful for user: {}", user_id);
-            Ok(true)
-        } else {
-            // Increment failed attempts
-            self.increment_failed_attempts(user_id)?;
-            warn!("Mnemonic verification failed for user: {}", user_id);
-            Ok(false)
-        }
-    }
-
-    /// Hash mnemonic using secure method
-    fn hash_mnemonic_secure(&self, mnemonic: &str) -> Result<Vec<u8>> {
-        use blake3::hash;
-
-        // 1. Normalize mnemonic (remove extra spaces, convert to lowercase)
-        let normalized = mnemonic
-            .trim()
-            .to_lowercase()
-            .split_whitespace()
-            .collect::<Vec<&str>>()
-            .join(" ");
-
-        // 2. Add salt for additional security
-        let salt = format!("arthachain_mnemonic_salt_{}", self.config.salt);
-        let salted_mnemonic = format!("{}{}", normalized, salt);
-
-        // 3. Multiple hash iterations for security
-        let mut hash_result = hash(salted_mnemonic.as_bytes()).as_bytes().to_vec();
-        for _ in 0..10000 {
-            // 10k iterations
-            hash_result = hash(&hash_result).as_bytes().to_vec();
-        }
-
-        Ok(hash_result)
-    }
-
-    /// Secure hash comparison (constant-time to prevent timing attacks)
-    fn secure_compare_hashes(&self, hash1: &[u8], hash2: &[u8]) -> bool {
-        if hash1.len() != hash2.len() {
-            return false;
-        }
-
-        let mut result = 0u8;
-        for (a, b) in hash1.iter().zip(hash2.iter()) {
-            result |= a ^ b;
-        }
-        result == 0
-    }
-
-    /// Validate mnemonic structure and entropy
-    fn validate_mnemonic_structure(&self, mnemonic: &str) -> Result<bool> {
-        let words: Vec<&str> = mnemonic.trim().split_whitespace().collect();
-
-        // 1. Check word count (12, 15, 18, 21, or 24 words for BIP39)
-        if ![12, 15, 18, 21, 24].contains(&words.len()) {
-            debug!("Invalid mnemonic word count: {}", words.len());
-            return Ok(false);
-        }
-
-        // 2. Check for duplicate words (should be unique)
-        let mut unique_words = std::collections::HashSet::new();
-        for word in &words {
-            if !unique_words.insert(word.to_lowercase()) {
-                debug!("Duplicate word found in mnemonic: {}", word);
-                return Ok(false);
-            }
-        }
-
-        // 3. Check minimum entropy (each word should have reasonable length)
-        for word in &words {
-            if word.len() < 3 || word.len() > 8 {
-                debug!("Invalid word length in mnemonic: {}", word);
-                return Ok(false);
-            }
-        }
-
-        // 4. Basic pattern validation (no obvious patterns)
-        let mnemonic_str = words.join(" ");
-        if mnemonic_str.contains("111")
-            || mnemonic_str.contains("000")
-            || mnemonic_str.contains("aaa")
-            || mnemonic_str.contains("password")
-        {
-            debug!("Weak mnemonic pattern detected");
-            return Ok(false);
-        }
-
-        // 5. Calculate entropy score
-        let entropy_score = self.calculate_mnemonic_entropy(&words);
-        if entropy_score < 50.0 {
-            // Minimum entropy threshold
-            debug!("Insufficient mnemonic entropy: {:.2}", entropy_score);
-            return Ok(false);
-        }
-
-        debug!(
-            "Mnemonic structure validation passed (entropy: {:.2})",
-            entropy_score
-        );
-        Ok(true)
-    }
-
-    /// Calculate mnemonic entropy score
-    fn calculate_mnemonic_entropy(&self, words: &[&str]) -> f64 {
-        let mut char_frequencies = std::collections::HashMap::new();
-        let total_chars: usize = words.iter().map(|w| w.len()).sum();
-
-        // Count character frequencies
-        for word in words {
-            for c in word.chars() {
-                *char_frequencies.entry(c).or_insert(0) += 1;
-            }
-        }
-
-        // Calculate Shannon entropy
-        let mut entropy = 0.0;
-        for &count in char_frequencies.values() {
-            let probability = count as f64 / total_chars as f64;
-            if probability > 0.0 {
-                entropy -= probability * probability.log2();
-            }
-        }
-
-        // Normalize by number of words and return percentage
-        (entropy / words.len() as f64) * 100.0
-    }
-
-    /// Reset failed attempts for user
-    fn reset_failed_attempts(&self, user_id: &str) -> Result<()> {
-        let mut accounts = self.accounts.lock().unwrap();
-        if let Some(account) = accounts.get_mut(user_id) {
-            account.failed_attempts = 0;
-            account.last_activity = std::time::SystemTime::now();
-        }
-        Ok(())
-    }
-
-    /// Increment failed attempts for user
-    fn increment_failed_attempts(&self, user_id: &str) -> Result<()> {
-        let mut accounts = self.accounts.lock().unwrap();
-        if let Some(account) = accounts.get_mut(user_id) {
-            account.failed_attempts += 1;
-            account.last_activity = std::time::SystemTime::now();
-
-            if account.failed_attempts >= self.config.max_failed_attempts {
-                warn!(
-                    "Account {} locked due to {} failed attempts",
-                    user_id, account.failed_attempts
-                );
-            }
-        }
-        Ok(())
-    }
-
-    /// Unlock a locked account after manual verification
-    pub fn unlock_account(&self, user_id: &str) -> Result<()> {
-        let mut accounts = self.accounts.lock().unwrap();
-
-        if let Some(account) = accounts.get_mut(user_id) {
-            if account.is_locked {
-                account.is_locked = false;
-                account.failed_attempts = 0;
-                info!("Account unlocked for user {user_id}");
-                Ok(())
-            } else {
-                Err(anyhow!("Account is not locked"))
-            }
-        } else {
-            Err(anyhow!("User not found"))
-        }
-    }
-
-    /// Complete KYC verification for a user
-    pub fn complete_kyc(&self, user_id: &str) -> Result<()> {
-        let mut accounts = self.accounts.lock().unwrap();
-
-        if let Some(account) = accounts.get_mut(user_id) {
-            account.kyc_verified = true;
-            info!("KYC verification completed for user {user_id}");
-            Ok(())
-        } else {
-            Err(anyhow!("User not found"))
-        }
-    }
-
-    /// Check if KYC is required for operation
-    pub fn is_kyc_required(&self) -> bool {
-        self.config.enforce_kyc
-    }
-
-    /// Update the AI model with new version
-    pub async fn update_model(&mut self, model_path: &str) -> Result<()> {
-        // In a real implementation, this would load a new model from storage
-        info!("Updating User Identification AI model from: {model_path}");
-
-        // Simulate model update
-        self.model_version = "1.1.0".to_string();
-        self.model_last_updated = Instant::now();
-
-        info!(
-            "User Identification AI model updated to version: {}",
-            self.model_version
-        );
-        Ok(())
-    }
-
-    /// Update user identities and verify their status
-    pub async fn update_identities(&self) -> Result<()> {
-        let mut accounts = self.accounts.lock().unwrap();
-
-        // Iterate through all accounts and update their status
-        for account in accounts.values_mut() {
-            // Check for expired KYC
-            if account.kyc_verified {
-                if let Ok(duration) = std::time::SystemTime::now().duration_since(account.last_auth)
-                {
-                    // If no authentication for 90 days, require KYC reverification
-                    if duration.as_secs() > 90 * 24 * 60 * 60 {
-                        account.kyc_verified = false;
-                        debug!("KYC expired for user {}", account.user_id);
-                    }
-                }
-            }
-
-            // Remove old devices (not used in 30 days)
-            account.devices.retain(|device| {
-                if let Ok(duration) = std::time::SystemTime::now().duration_since(device.last_login)
-                {
-                    duration.as_secs() <= 30 * 24 * 60 * 60
-                } else {
-                    true
-                }
-            });
-
-            // Reset failed attempts after 24 hours
-            if let Ok(duration) = std::time::SystemTime::now().duration_since(account.last_auth) {
-                if duration.as_secs() > 24 * 60 * 60 {
-                    account.failed_attempts = 0;
-                    account.is_locked = false;
-                }
-            }
-        }
-
-        info!("Updated {} user identities", accounts.len());
-        Ok(())
-    }
-
-    // Helper methods
-
-    /// Extract and process biometric features from raw biometric data
-    fn hash_biometric_data(&self, data: &[u8]) -> String {
-        // Real biometric feature extraction and secure template generation
-        let features = self.extract_biometric_features(data);
-        let template = self.generate_secure_template(&features);
-        self.encrypt_biometric_template(&template)
-    }
-
-    /// Extract biometric features from raw data (face, fingerprint, etc.)
-    fn extract_biometric_features(&self, data: &[u8]) -> BiometricFeatures {
-        // Simulate biometric feature extraction using computer vision algorithms
-        // In production, this would use libraries like OpenCV, dlib, or custom ML models
-
-        // 1. Detect biometric data quality
-        let quality_score = self.assess_biometric_quality(data);
-
-        // 2. Extract distinctive features
-        let features = if data.len() >= 1024 {
-            // Assume this is image data (face/iris)
-            self.extract_image_features(data)
-        } else if data.len() >= 512 {
-            // Assume this is audio data (voice)
-            self.extract_audio_features(data)
-        } else {
-            // Assume this is sensor data (fingerprint/palmprint)
-            self.extract_sensor_features(data)
-        };
-
-        BiometricFeatures {
-            feature_vector: features,
-            quality_score,
-            extraction_timestamp: std::time::SystemTime::now(),
-            feature_type: self.determine_biometric_type(data),
-            liveness_score: self.assess_liveness(data),
-        }
-    }
-
-    /// Extract features from image-based biometrics (face, iris)
-    fn extract_image_features(&self, image_data: &[u8]) -> Vec<f32> {
-        let mut features = Vec::new();
-
-        // Simulate advanced computer vision feature extraction
-        // 1. Facial landmark detection (68 key points)
-        for i in 0..68 {
-            let x = (image_data[i % image_data.len()] as f32) / 255.0;
-            let y = (image_data[(i + 1) % image_data.len()] as f32) / 255.0;
-            features.push(x * 2.0 - 1.0); // Normalize to [-1, 1]
-            features.push(y * 2.0 - 1.0);
-        }
-
-        // 2. Deep learning embeddings (simulate 512-dimensional face embedding)
-        for i in 0..512 {
-            let idx = (i * 7 + 13) % image_data.len(); // Deterministic but complex pattern
-            let raw_val = image_data[idx] as f32;
-            let normalized = (raw_val - 127.5) / 127.5; // Normalize to [-1, 1]
-
-            // Apply non-linear transformations to simulate neural network processing
-            let transformed = normalized.tanh() * (1.0 + (i as f32 * 0.01).sin());
-            features.push(transformed);
-        }
-
-        // 3. Geometric ratios and distances
-        let geometry_features = self.calculate_facial_geometry(image_data);
-        features.extend(geometry_features);
-
-        // 4. Real texture analysis using Local Binary Patterns (LBP)
-        let texture_features = self.extract_texture_features(image_data);
-        features.extend(texture_features);
-
-        info!(
-            "Extracted {} image-based biometric features",
-            features.len()
-        );
-        features
-    }
-
-    /// Extract features from audio-based biometrics (voice)
-    fn extract_audio_features(&self, audio_data: &[u8]) -> Vec<f32> {
-        let mut features = Vec::new();
-
-        // Simulate voice biometric feature extraction
-        // 1. Mel-frequency cepstral coefficients (MFCCs)
-        for i in 0..13 {
-            let idx = (i * 3) % audio_data.len();
-            let mfcc = (audio_data[idx] as f32 - 128.0) / 128.0;
-            features.push(mfcc);
-        }
-
-        // 2. Pitch and formant analysis
-        let pitch = self.extract_pitch_features(audio_data);
-        features.extend(pitch);
-
-        // 3. Prosodic features (rhythm, stress patterns)
-        let prosodic = self.extract_prosodic_features(audio_data);
-        features.extend(prosodic);
-
-        // 4. Spectral features
-        let spectral = self.extract_spectral_features(audio_data);
-        features.extend(spectral);
-
-        info!("Extracted {} voice biometric features", features.len());
-        features
-    }
-
-    /// Extract features from sensor-based biometrics (fingerprint, palmprint)
-    fn extract_sensor_features(&self, sensor_data: &[u8]) -> Vec<f32> {
-        let mut features = Vec::new();
-
-        // Simulate fingerprint minutiae extraction
-        // 1. Ridge endings and bifurcations
-        let minutiae = self.extract_minutiae_points(sensor_data);
-        features.extend(minutiae);
-
-        // 2. Ridge flow patterns
-        let flow_patterns = self.extract_ridge_flow(sensor_data);
-        features.extend(flow_patterns);
-
-        // 3. Core and delta points
-        let singular_points = self.extract_singular_points(sensor_data);
-        features.extend(singular_points);
-
-        info!(
-            "Extracted {} sensor-based biometric features",
-            features.len()
-        );
-        features
-    }
-
-    /// Assess biometric data quality
-    fn assess_biometric_quality(&self, data: &[u8]) -> f32 {
-        // Simulate quality assessment based on multiple factors
-        let mut quality_score = 0.5;
-
-        // 1. Data size check
-        if data.len() >= 1024 {
-            quality_score += 0.2;
-        }
-
-        // 2. Contrast and clarity (simulate histogram analysis)
-        let contrast = self.calculate_contrast(data);
-        quality_score += contrast * 0.2;
-
-        // 3. Noise assessment
-        let noise_level = self.assess_noise_level(data);
-        quality_score += (1.0 - noise_level) * 0.1;
-
-        // 4. Completeness check
-        let completeness = self.assess_completeness(data);
-        quality_score += completeness * 0.2;
-
-        quality_score.min(1.0).max(0.0)
-    }
-
-    /// Assess liveness to prevent spoofing attacks
-    fn assess_liveness(&self, data: &[u8]) -> f32 {
-        let mut liveness_score = 0.5;
-
-        // 1. Texture analysis for 3D vs 2D detection
-        let texture_variance = self.calculate_texture_variance(data);
-        if texture_variance > 0.3 {
-            liveness_score += 0.2;
-        }
-
-        // 2. Real micro-movement detection using temporal analysis
-        let movement_detected = self.detect_micro_movements(data);
-        if movement_detected {
-            liveness_score += 0.2;
-        }
-
-        // 3. Depth information analysis
-        let depth_consistency = self.analyze_depth_consistency(data);
-        liveness_score += depth_consistency * 0.1;
-
-        liveness_score.min(1.0).max(0.0)
-    }
-
-    /// Generate secure biometric template
-    fn generate_secure_template(&self, features: &BiometricFeatures) -> SecureBiometricTemplate {
-        // Apply irreversible transformations to protect privacy
-        let mut protected_features = Vec::new();
-
-        // 1. Apply random projection for privacy protection
-        let projection_matrix = self.generate_projection_matrix(features.feature_vector.len());
-        for i in 0..256 {
-            // Reduce to 256 dimensions
-            let mut projected_value = 0.0;
-            for (j, &feature) in features.feature_vector.iter().enumerate() {
-                projected_value += feature * projection_matrix[i][j % projection_matrix[i].len()];
-            }
-            protected_features.push(projected_value);
-        }
-
-        // 2. Apply cryptographic hashing for additional security
-        let feature_hash = self.hash_feature_vector(&protected_features);
-
-        // 3. Generate template with error correction codes
-        let error_correction = self.generate_error_correction(&protected_features);
-
-        SecureBiometricTemplate {
-            protected_features,
-            feature_hash,
-            error_correction,
-            quality_score: features.quality_score,
-            liveness_score: features.liveness_score,
-            template_version: 1,
-            creation_timestamp: std::time::SystemTime::now(),
-        }
-    }
-
-    /// Encrypt biometric template for storage
-    fn encrypt_biometric_template(&self, template: &SecureBiometricTemplate) -> String {
-        use blake3;
-
-        // Serialize the template
-        let template_bytes = bincode::serialize(template).unwrap_or_default();
-
-        // Apply additional encryption (simplified - in production use AES-GCM)
-        let mut encrypted_data = Vec::new();
-        for (i, &byte) in template_bytes.iter().enumerate() {
-            let key_byte = self.config.salt.as_bytes()[i % self.config.salt.len()];
-            encrypted_data.push(byte ^ key_byte);
-        }
-
-        // Hash the encrypted data for storage
-        let hash = blake3::hash(&encrypted_data);
-        hex::encode(hash.as_bytes())
-    }
-
-    /// Compare two biometric templates with fuzzy matching
-    fn compare_biometric_templates(
-        &self,
-        template1: &str,
-        template2: &str,
-        threshold: f32,
-    ) -> BiometricMatchResult {
-        // Decrypt and deserialize templates
-        let decrypted1 = self.decrypt_biometric_template(template1);
-        let decrypted2 = self.decrypt_biometric_template(template2);
-
-        if decrypted1.is_none() || decrypted2.is_none() {
-            return BiometricMatchResult {
-                is_match: false,
-                confidence_score: 0.0,
-                similarity_distance: 1.0,
-                match_quality: 0.0,
-                processing_time: std::time::Duration::from_millis(1),
+    /// Automatically detect and register node capabilities
+    pub async fn auto_detect_capabilities(&self, node_id: &str) -> Result<NodeCapabilities> {
+        let accounts = self.node_accounts.lock().await;
+
+        if let Some(account) = accounts.get(node_id) {
+            // Auto-detect hardware capabilities
+            let hardware_specs = self.detect_hardware_specs().await?;
+
+            // Auto-detect AI capabilities based on available models
+            let ai_capabilities = self.detect_ai_capabilities().await?;
+
+            let capabilities = NodeCapabilities {
+                can_mine: account.node_type == NodeType::Mining
+                    || account.node_type == NodeType::Full,
+                can_validate: account.node_type != NodeType::Light,
+                can_shard: account.node_type == NodeType::Validation
+                    || account.node_type == NodeType::Sharding
+                    || account.node_type == NodeType::Full,
+                can_store_full: account.node_type != NodeType::Light
+                    && account.node_type != NodeType::Sharding,
+                can_process_contracts: account.node_type != NodeType::Light
+                    && account.node_type != NodeType::Archive,
+                ai_capabilities,
+                hardware_specs,
             };
-        }
 
-        let temp1 = decrypted1.unwrap();
-        let temp2 = decrypted2.unwrap();
-
-        let start_time = std::time::Instant::now();
-
-        // 1. Calculate similarity using multiple metrics
-        let euclidean_distance =
-            self.calculate_euclidean_distance(&temp1.protected_features, &temp2.protected_features);
-        let cosine_similarity =
-            self.calculate_cosine_similarity(&temp1.protected_features, &temp2.protected_features);
-        let hamming_distance =
-            self.calculate_hamming_distance(&temp1.feature_hash, &temp2.feature_hash);
-
-        // 2. Weighted combination of similarity metrics
-        let similarity_score = (cosine_similarity * 0.5)
-            + ((1.0 - euclidean_distance) * 0.3)
-            + ((1.0 - hamming_distance) * 0.2);
-
-        // 3. Adjust for quality and liveness scores
-        let quality_factor = (temp1.quality_score + temp2.quality_score) / 2.0;
-        let liveness_factor = (temp1.liveness_score + temp2.liveness_score) / 2.0;
-        let adjusted_score = similarity_score * quality_factor * liveness_factor;
-
-        // 4. Apply adaptive threshold based on template quality
-        let adaptive_threshold = threshold * (0.8 + quality_factor * 0.2);
-
-        let processing_time = start_time.elapsed();
-
-        BiometricMatchResult {
-            is_match: adjusted_score >= adaptive_threshold,
-            confidence_score: adjusted_score,
-            similarity_distance: 1.0 - similarity_score,
-            match_quality: quality_factor,
-            processing_time,
+            Ok(capabilities)
+        } else {
+            Err(anyhow!("Node not found: {}", node_id))
         }
     }
 
-    // Helper methods for biometric processing
-    fn determine_biometric_type(&self, data: &[u8]) -> BiometricType {
-        match data.len() {
-            len if len >= 1024 => BiometricType::Face,
-            len if len >= 512 => BiometricType::Voice,
-            _ => BiometricType::Fingerprint,
+    /// Automatically detect hardware specifications
+    async fn detect_hardware_specs(&self) -> Result<HardwareSpecs> {
+        // In a real implementation, this would use system calls to detect hardware
+        // For now, we'll use reasonable defaults
+        Ok(HardwareSpecs {
+            cpu_cores: num_cpus::get() as u32,
+            ram_gb: (sysinfo::System::new_all().total_memory() / 1024 / 1024 / 1024) as u32,
+            storage_gb: 100,        // Default assumption
+            gpu_capable: false,     // Would detect actual GPU capabilities
+            network_bandwidth: 100, // Default assumption
+        })
+    }
+
+    /// Automatically detect available AI capabilities
+    async fn detect_ai_capabilities(&self) -> Result<Vec<AICapability>> {
+        let mut capabilities = Vec::new();
+
+        // Check if fraud detection models are available
+        if self.check_ai_model_availability("fraud_detection").await? {
+            capabilities.push(AICapability::FraudDetection);
+        }
+
+        // Check if neural network models are available
+        if self.check_ai_model_availability("neural_network").await? {
+            capabilities.push(AICapability::NeuralNetwork);
+        }
+
+        // Check if self-learning models are available
+        if self.check_ai_model_availability("self_learning").await? {
+            capabilities.push(AICapability::SelfLearning);
+        }
+
+        // Check if BCI models are available
+        if self.check_ai_model_availability("bci").await? {
+            capabilities.push(AICapability::BCI);
+        }
+
+        // Check if device health models are available
+        if self.check_ai_model_availability("device_health").await? {
+            capabilities.push(AICapability::DeviceHealth);
+        }
+
+        // Check if data chunking models are available
+        if self.check_ai_model_availability("data_chunking").await? {
+            capabilities.push(AICapability::DataChunking);
+        }
+
+        // User identification is always available (this system)
+        capabilities.push(AICapability::UserIdentification);
+
+        Ok(capabilities)
+    }
+
+    /// Check if a specific AI model is available
+    async fn check_ai_model_availability(&self, model_name: &str) -> Result<bool> {
+        // In a real implementation, this would check if the model files exist
+        // and if the required dependencies are available
+        match model_name {
+            "fraud_detection" => Ok(true), // Assume available
+            "neural_network" => Ok(true),  // Assume available
+            "self_learning" => Ok(true),   // Assume available
+            "bci" => Ok(true),             // Assume available
+            "device_health" => Ok(true),   // Assume available
+            "data_chunking" => Ok(true),   // Assume available
+            _ => Ok(false),
         }
     }
 
-    fn calculate_facial_geometry(&self, data: &[u8]) -> Vec<f32> {
-        // Simulate geometric feature extraction
-        (0..20)
-            .map(|i| {
-                let idx = (i * 11) % data.len();
-                (data[idx] as f32 / 255.0) * 2.0 - 1.0
-            })
-            .collect()
-    }
+    /// Start continuous monitoring of system resources
+    pub async fn start_resource_monitoring(&self) -> Result<()> {
+        let monitor = self.activity_monitor.clone();
 
-    fn extract_texture_features(&self, data: &[u8]) -> Vec<f32> {
-        // Simulate Local Binary Pattern extraction
-        (0..32)
-            .map(|i| {
-                let idx = (i * 13) % data.len();
-                (data[idx] as f32 / 255.0).sin()
-            })
-            .collect()
-    }
+        // Start monitoring CPU, memory, network, and storage usage
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_secs(5));
 
-    fn extract_pitch_features(&self, data: &[u8]) -> Vec<f32> {
-        // Simulate pitch and fundamental frequency extraction
-        (0..8)
-            .map(|i| {
-                let idx = (i * 7) % data.len();
-                ((data[idx] as f32 / 255.0) * std::f32::consts::PI).sin()
-            })
-            .collect()
-    }
+            loop {
+                interval.tick().await;
 
-    fn extract_prosodic_features(&self, data: &[u8]) -> Vec<f32> {
-        // Simulate prosodic pattern extraction
-        (0..12)
-            .map(|i| {
-                let idx = (i * 5) % data.len();
-                (data[idx] as f32 / 255.0).powf(0.5)
-            })
-            .collect()
-    }
+                // Update resource utilization
+                let mut monitor_guard = monitor.lock().await;
+                monitor_guard.current_state.resource_utilization =
+                    Self::get_current_resource_usage().await;
 
-    fn extract_spectral_features(&self, data: &[u8]) -> Vec<f32> {
-        // Simulate spectral analysis
-        (0..16)
-            .map(|i| {
-                let idx = (i * 9) % data.len();
-                ((data[idx] as f32 / 255.0) * 2.0 * std::f32::consts::PI).cos()
-            })
-            .collect()
-    }
-
-    fn extract_minutiae_points(&self, data: &[u8]) -> Vec<f32> {
-        // Simulate minutiae extraction for fingerprints
-        (0..40)
-            .map(|i| {
-                let idx = (i * 3) % data.len();
-                let angle = (data[idx] as f32 / 255.0) * 2.0 * std::f32::consts::PI;
-                angle.tan().tanh()
-            })
-            .collect()
-    }
-
-    fn extract_ridge_flow(&self, data: &[u8]) -> Vec<f32> {
-        // Simulate ridge flow pattern extraction
-        (0..24)
-            .map(|i| {
-                let idx = (i * 7) % data.len();
-                ((data[idx] as f32 / 255.0) - 0.5) * 2.0
-            })
-            .collect()
-    }
-
-    fn extract_singular_points(&self, data: &[u8]) -> Vec<f32> {
-        // Simulate core and delta point extraction
-        (0..8)
-            .map(|i| {
-                let idx = (i * 11) % data.len();
-                (data[idx] as f32 / 255.0).sqrt()
-            })
-            .collect()
-    }
-
-    fn calculate_contrast(&self, data: &[u8]) -> f32 {
-        if data.is_empty() {
-            return 0.0;
-        }
-        let max = *data.iter().max().unwrap() as f32;
-        let min = *data.iter().min().unwrap() as f32;
-        (max - min) / 255.0
-    }
-
-    fn assess_noise_level(&self, data: &[u8]) -> f32 {
-        if data.len() < 2 {
-            return 0.0;
-        }
-        let mut variance = 0.0;
-        let mean = data.iter().map(|&x| x as f32).sum::<f32>() / data.len() as f32;
-        for &value in data {
-            variance += (value as f32 - mean).powi(2);
-        }
-        (variance / data.len() as f32).sqrt() / 255.0
-    }
-
-    fn assess_completeness(&self, data: &[u8]) -> f32 {
-        let non_zero_count = data.iter().filter(|&&x| x != 0).count();
-        non_zero_count as f32 / data.len() as f32
-    }
-
-    fn calculate_texture_variance(&self, data: &[u8]) -> f32 {
-        self.assess_noise_level(data) // Reuse noise calculation for texture variance
-    }
-
-    fn analyze_depth_consistency(&self, data: &[u8]) -> f32 {
-        // Real depth analysis using gradient changes
-        let depth_changes = data
-            .windows(2)
-            .filter(|w| (w[0] as i16 - w[1] as i16).abs() > 10)
-            .count();
-        (depth_changes as f32 / data.len() as f32).min(1.0)
-    }
-
-    fn detect_micro_movements(&self, data: &[u8]) -> bool {
-        if data.len() < 64 {
-            return false;
-        }
-
-        // Real temporal analysis for micro-movement detection
-        // Compare consecutive frame regions for pixel intensity changes
-        let mut movement_detected = false;
-        let chunk_size = 8;
-        let threshold = 15.0; // Minimum change threshold
-
-        for i in 0..(data.len() - chunk_size) {
-            if i + chunk_size * 2 < data.len() {
-                // Compare two consecutive chunks
-                let chunk1_sum: u32 = data[i..i + chunk_size].iter().map(|&x| x as u32).sum();
-                let chunk2_sum: u32 = data[i + chunk_size..i + chunk_size * 2]
-                    .iter()
-                    .map(|&x| x as u32)
-                    .sum();
-
-                let avg1 = chunk1_sum as f32 / chunk_size as f32;
-                let avg2 = chunk2_sum as f32 / chunk_size as f32;
-
-                // Check for significant intensity change (indicating movement)
-                if (avg1 - avg2).abs() > threshold {
-                    movement_detected = true;
-                    break;
-                }
+                // Check for anomalies
+                Self::detect_resource_anomalies(&mut monitor_guard).await;
             }
-        }
+        });
 
-        // Additional check: look for edge changes that indicate real movement
-        if !movement_detected && data.len() >= 128 {
-            let mut edge_changes = 0;
-
-            for i in 1..(data.len() - 1) {
-                let gradient = (data[i + 1] as i16 - data[i - 1] as i16).abs();
-                if gradient > 20 {
-                    edge_changes += 1;
-                }
-            }
-
-            // If we have significant edge activity, it indicates movement
-            movement_detected = edge_changes > data.len() / 20;
-        }
-
-        movement_detected
+        info!("Started continuous resource monitoring");
+        Ok(())
     }
 
-    fn generate_projection_matrix(&self, input_size: usize) -> Vec<Vec<f32>> {
-        // Generate deterministic projection matrix for privacy protection
-        let mut matrix = Vec::new();
-        for i in 0..256 {
-            let mut row = Vec::new();
-            for j in 0..input_size {
-                let value = ((i * 7 + j * 11) as f32).sin();
-                row.push(value);
-            }
-            matrix.push(row);
+    /// Get current resource usage
+    async fn get_current_resource_usage() -> ResourceUtilization {
+        let mut sys = sysinfo::System::new_all();
+        sys.refresh_all();
+
+        ResourceUtilization {
+            cpu_usage: sys.global_cpu_usage() as f64,
+            memory_usage: (sys.used_memory() as f64 / sys.total_memory() as f64) * 100.0,
+            network_usage: 0.0, // Would calculate actual network usage
+            storage_usage: 0.0, // Would calculate actual storage usage
+            gpu_usage: None,    // Would detect GPU if available
         }
-        matrix
     }
 
-    fn hash_feature_vector(&self, features: &[f32]) -> Vec<u8> {
-        let mut hasher = blake3::Hasher::new();
-        for &feature in features {
-            hasher.update(&feature.to_le_bytes());
+    /// Detect resource usage anomalies
+    async fn detect_resource_anomalies(monitor: &mut SystemActivityMonitor) {
+        let resources = &monitor.current_state.resource_utilization;
+
+        // Check for high CPU usage
+        if resources.cpu_usage > 90.0 {
+            let anomaly = Anomaly {
+                anomaly_type: AnomalyType::ResourceExhaustion,
+                timestamp: SystemTime::now(),
+                severity: AnomalySeverity::Medium,
+                description: "High CPU usage detected".to_string(),
+                social_score_impact: -2.0,
+            };
+            monitor
+                .performance_tracker
+                .anomaly_detector
+                .anomalies
+                .push(anomaly);
         }
-        hasher.finalize().as_bytes().to_vec()
+
+        // Check for high memory usage
+        if resources.memory_usage > 90.0 {
+            let anomaly = Anomaly {
+                anomaly_type: AnomalyType::ResourceExhaustion,
+                timestamp: SystemTime::now(),
+                severity: AnomalySeverity::High,
+                description: "High memory usage detected".to_string(),
+                social_score_impact: -3.0,
+            };
+            monitor
+                .performance_tracker
+                .anomaly_detector
+                .anomalies
+                .push(anomaly);
+        }
     }
 
-    fn generate_error_correction(&self, features: &[f32]) -> Vec<u8> {
-        // Simple error correction code generation
-        features
-            .iter()
-            .map(|&f| ((f * 127.0 + 128.0) as u8))
-            .collect()
-    }
-
-    fn decrypt_biometric_template(
+    /// Generic user identification method (for backward compatibility)
+    pub async fn identify_user(
         &self,
-        encrypted_template: &str,
-    ) -> Option<SecureBiometricTemplate> {
-        // Real AES-256 decryption of biometric template
-        use blake3::Hasher;
+        node_id: &str,
+        _authentication_type: &str,
+        _credentials: &str,
+        _biometric_data: Option<&[u8]>,
+    ) -> Result<IdentificationResult> {
+        // For automated node identification, we just check if the node exists
+        let accounts = self.node_accounts.lock().await;
 
-        // Decode from base64
-        let encrypted_data = match general_purpose::STANDARD.decode(encrypted_template) {
-            Ok(data) => data,
-            Err(_) => return None,
+        if let Some(account) = accounts.get(node_id) {
+            Ok(IdentificationResult {
+                success: true,
+                confidence: IdentificationConfidence::VeryHigh,
+                auth_type: AuthenticationType::MultiFactor,
+                timestamp: SystemTime::now(),
+                user_id: account.node_id.clone(),
+                device_id: "auto_node".to_string(),
+                error: None,
+            })
+        } else {
+            Ok(IdentificationResult {
+                success: false,
+                confidence: IdentificationConfidence::VeryLow,
+                auth_type: AuthenticationType::MultiFactor,
+                timestamp: SystemTime::now(),
+                user_id: node_id.to_string(),
+                device_id: "auto_node".to_string(),
+                error: Some("Node not found".to_string()),
+            })
+        }
+    }
+
+    /// Automatically track mining activity and update social score
+    pub async fn track_mining_activity(
+        &self,
+        success: bool,
+        block_hash: &str,
+        _difficulty: f64,
+    ) -> Result<()> {
+        let performance = if success { 100.0 } else { 0.0 };
+
+        // Record mining activity
+        self.record_activity(ActivityType::Mining, success, performance)
+            .await?;
+
+        // Update mining-specific metrics
+        if success {
+            info!(
+                "Mining activity tracked: Block {} mined successfully",
+                block_hash
+            );
+        } else {
+            warn!("Mining activity tracked: Failed to mine block");
+        }
+
+        Ok(())
+    }
+
+    /// Automatically track validation activity and update social score
+    pub async fn track_validation_activity(
+        &self,
+        success: bool,
+        block_height: u64,
+        validation_time: u64,
+    ) -> Result<()> {
+        let performance = if success { 100.0 } else { 0.0 };
+
+        // Record validation activity
+        self.record_activity(ActivityType::Validation, success, performance)
+            .await?;
+
+        // Update validation-specific metrics
+        if success {
+            info!(
+                "Validation activity tracked: Block {} validated in {}ms",
+                block_height, validation_time
+            );
+        } else {
+            warn!(
+                "Validation activity tracked: Failed to validate block {}",
+                block_height
+            );
+        }
+
+        Ok(())
+    }
+
+    /// Automatically track sharding activity and update social score
+    pub async fn track_sharding_activity(
+        &self,
+        success: bool,
+        shard_id: u32,
+        cross_shard_txs: usize,
+    ) -> Result<()> {
+        let performance = if success { 100.0 } else { 0.0 };
+
+        // Record sharding activity
+        self.record_activity(ActivityType::Sharding, success, performance)
+            .await?;
+
+        // Update sharding-specific metrics
+        if success {
+            info!(
+                "Sharding activity tracked: Shard {} processed {} cross-shard transactions",
+                shard_id, cross_shard_txs
+            );
+        } else {
+            warn!(
+                "Sharding activity tracked: Failed to process shard {}",
+                shard_id
+            );
+        }
+
+        Ok(())
+    }
+
+    /// Automatically track consensus activity and update social score
+    pub async fn track_consensus_activity(
+        &self,
+        success: bool,
+        round: u64,
+        participants: usize,
+    ) -> Result<()> {
+        let performance = if success { 100.0 } else { 0.0 };
+
+        // Record consensus activity
+        self.record_activity(ActivityType::Consensus, success, performance)
+            .await?;
+
+        // Update consensus-specific metrics
+        if success {
+            info!(
+                "Consensus activity tracked: Round {} completed with {} participants",
+                round, participants
+            );
+        } else {
+            warn!(
+                "Consensus activity tracked: Failed to reach consensus in round {}",
+                round
+            );
+        }
+
+        Ok(())
+    }
+
+    /// Automatically track AI processing activity and update social score
+    pub async fn track_ai_processing_activity(
+        &self,
+        success: bool,
+        model_name: &str,
+        accuracy: f64,
+    ) -> Result<()> {
+        let performance = if success { accuracy } else { 0.0 };
+
+        // Record AI processing activity
+        self.record_activity(ActivityType::AIProcessing, success, performance)
+            .await?;
+
+        // Update AI-specific metrics
+        if success {
+            info!(
+                "AI processing activity tracked: Model {} completed with {:.2}% accuracy",
+                model_name, accuracy
+            );
+        } else {
+            warn!(
+                "AI processing activity tracked: Model {} failed",
+                model_name
+            );
+        }
+
+        Ok(())
+    }
+
+    /// Automatically track network synchronization activity and update social score
+    pub async fn track_network_sync_activity(
+        &self,
+        success: bool,
+        peers_synced: usize,
+        sync_time: u64,
+    ) -> Result<()> {
+        let performance = if success { 100.0 } else { 0.0 };
+
+        // Record network sync activity
+        self.record_activity(ActivityType::NetworkSync, success, performance)
+            .await?;
+
+        // Update network sync metrics
+        if success {
+            info!(
+                "Network sync activity tracked: Synced with {} peers in {}ms",
+                peers_synced, sync_time
+            );
+        } else {
+            warn!("Network sync activity tracked: Failed to sync with peers");
+        }
+
+        Ok(())
+    }
+
+    /// Automatically track smart contract execution and update social score
+    pub async fn track_contract_execution(
+        &self,
+        success: bool,
+        contract_address: &str,
+        gas_used: u64,
+    ) -> Result<()> {
+        let performance = if success { 100.0 } else { 0.0 };
+
+        // Record contract execution activity
+        self.record_activity(ActivityType::ContractExecution, success, performance)
+            .await?;
+
+        // Update contract execution metrics
+        if success {
+            info!(
+                "Contract execution tracked: {} executed successfully using {} gas",
+                contract_address, gas_used
+            );
+        } else {
+            warn!(
+                "Contract execution tracked: {} failed to execute",
+                contract_address
+            );
+        }
+
+        Ok(())
+    }
+
+    /// Get comprehensive social scoring report
+    pub async fn get_social_scoring_report(&self) -> Result<SocialScoringReport> {
+        let monitor = self.activity_monitor.lock().await;
+        let accounts = self.node_accounts.lock().await;
+
+        let total_nodes = accounts.len();
+        let active_nodes = accounts.values().filter(|n| n.is_active).count();
+        let avg_social_score = if total_nodes > 0 {
+            accounts.values().map(|n| n.social_score).sum::<f64>() / total_nodes as f64
+        } else {
+            0.0
         };
 
-        if encrypted_data.len() < 32 {
-            return None;
-        }
+        let top_performers: Vec<_> = accounts
+            .values()
+            .filter(|n| n.is_active)
+            .map(|n| (n.node_id.clone(), n.social_score))
+            .collect();
 
-        // Extract IV and encrypted content
-        let (iv, encrypted_content) = encrypted_data.split_at(16);
+        let mut top_performers = top_performers;
+        top_performers.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        let top_performers = top_performers.into_iter().take(10).collect();
 
-        // Generate decryption key from fixed secret (in production, use secure key management)
-        let mut hasher = Hasher::new();
-        hasher.update(b"ArthaChain_Biometric_Key_2024");
-        hasher.update(iv);
-        let key_hash = hasher.finalize();
+        Ok(SocialScoringReport {
+            total_nodes,
+            active_nodes,
+            average_social_score: avg_social_score,
+            top_performers,
+            current_system_score: monitor.social_scoring.current_score,
+            recent_activities: monitor.activity_timeline.len(),
+            anomalies_detected: monitor.performance_tracker.anomaly_detector.anomalies.len(),
+            performance_trends: monitor.performance_tracker.performance_trends.clone(),
+        })
+    }
 
-        // Simple XOR decryption (in production, use proper AES-256)
-        let key_bytes = key_hash.as_bytes();
-        let mut decrypted = Vec::new();
+    /// Update node performance metrics
+    pub async fn update_node_performance(
+        &self,
+        node_id: &str,
+        metrics: NodePerformanceMetrics,
+    ) -> Result<()> {
+        let mut accounts = self.node_accounts.lock().await;
 
-        for (i, &byte) in encrypted_content.iter().enumerate() {
-            let key_byte = key_bytes[i % key_bytes.len()];
-            decrypted.push(byte ^ key_byte);
-        }
+        if let Some(account) = accounts.get_mut(node_id) {
+            account.performance_metrics = metrics;
+            account.last_activity = SystemTime::now();
 
-        // Parse decrypted data back to template structure
-        if decrypted.len() >= 1024 {
-            // Extract components from decrypted data
-            let protected_features = decrypted[0..256]
-                .iter()
-                .map(|&b| (b as f32) / 255.0)
-                .collect();
+            // Update social score based on performance
+            let performance_score = self.calculate_performance_score(&account.performance_metrics);
+            let activity = NodeActivity {
+                activity_type: ActivityType::AIProcessing,
+                timestamp: SystemTime::now(),
+                duration: 0,
+                success: true,
+                performance: performance_score,
+                social_score_impact: performance_score / 100.0,
+            };
 
-            let feature_hash = decrypted[256..288].to_vec();
-            let error_correction = decrypted[288..544].to_vec();
+            account.update_social_score(&activity);
 
-            // Extract metadata
-            let quality_score = (decrypted[544] as f32) / 255.0;
-            let liveness_score = (decrypted[545] as f32) / 255.0;
-            let template_version = decrypted[546] as u32;
-
-            Some(SecureBiometricTemplate {
-                protected_features,
-                feature_hash,
-                error_correction,
-                quality_score,
-                liveness_score,
-                template_version,
-                creation_timestamp: std::time::SystemTime::now(),
-            })
+            info!(
+                "Updated performance metrics for node {}: Score={:.2}",
+                node_id, performance_score
+            );
+            Ok(())
         } else {
-            None
+            Err(anyhow!("Node not found: {}", node_id))
         }
     }
 
-    fn calculate_euclidean_distance(&self, vec1: &[f32], vec2: &[f32]) -> f32 {
-        let sum_squares: f32 = vec1
-            .iter()
-            .zip(vec2.iter())
-            .map(|(a, b)| (a - b).powi(2))
-            .sum();
-        (sum_squares.sqrt() / vec1.len() as f32).min(1.0)
-    }
+    /// Calculate performance score from metrics
+    fn calculate_performance_score(&self, metrics: &NodePerformanceMetrics) -> f64 {
+        let uptime_weight = 0.3;
+        let tps_weight = 0.25;
+        let validation_weight = 0.2;
+        let mining_weight = 0.15;
+        let sharding_weight = 0.1;
 
-    fn calculate_cosine_similarity(&self, vec1: &[f32], vec2: &[f32]) -> f32 {
-        let dot_product: f32 = vec1.iter().zip(vec2.iter()).map(|(a, b)| a * b).sum();
-        let norm1: f32 = vec1.iter().map(|x| x.powi(2)).sum::<f32>().sqrt();
-        let norm2: f32 = vec2.iter().map(|x| x.powi(2)).sum::<f32>().sqrt();
-
-        if norm1 == 0.0 || norm2 == 0.0 {
+        let uptime_score = metrics.uptime_percentage;
+        let tps_score = (metrics.tps / 1000.0).min(100.0) * 100.0; // Normalize TPS to 0-100
+        let validation_score = if metrics.block_validation_time > 0 {
+            (1000.0 / metrics.block_validation_time as f64).min(100.0) * 100.0
+        } else {
             0.0
-        } else {
-            (dot_product / (norm1 * norm2)).max(0.0).min(1.0)
-        }
-    }
+        };
+        let mining_score = metrics.mining_efficiency * 100.0;
+        let sharding_score = metrics.sharding_performance * 100.0;
 
-    fn calculate_hamming_distance(&self, hash1: &[u8], hash2: &[u8]) -> f32 {
-        let differences = hash1
-            .iter()
-            .zip(hash2.iter())
-            .map(|(a, b)| (a ^ b).count_ones())
-            .sum::<u32>();
-        (differences as f32) / (hash1.len() * 8) as f32
+        (uptime_score * uptime_weight)
+            + (tps_score * tps_weight)
+            + (validation_score * validation_weight)
+            + (mining_score * mining_weight)
+            + (sharding_score * sharding_weight)
     }
+}
 
-    /// Generate a random salt
-    fn generate_random_salt(&self) -> String {
-        use rand::{thread_rng, Rng};
-        let mut rng = thread_rng();
-        let salt: [u8; 16] = rng.gen();
-        hex::encode(salt)
-    }
+/// System status response
+#[derive(Debug, Clone, Serialize)]
+pub struct SystemStatus {
+    pub current_operation: OperationMode,
+    pub operation_duration: Duration,
+    pub current_performance: f64,
+    pub social_score: f64,
+    pub total_nodes: usize,
+    pub active_nodes: usize,
+    pub average_social_score: f64,
+    pub resource_utilization: ResourceUtilization,
+    pub last_activity: Option<SystemActivity>,
+}
 
-    /// Hash a password with salt
-    fn hash_password(&self, password: &str, salt: &str) -> String {
-        let mut hasher = blake3::Hasher::new();
-        hasher.update(password.as_bytes());
-        hasher.update(salt.as_bytes());
-        let hash = hasher.finalize();
-        hex::encode(hash.as_bytes())
-    }
+/// Node status response
+#[derive(Debug, Clone, Serialize)]
+pub struct NodeStatus {
+    pub node_id: String,
+    pub node_type: NodeType,
+    pub social_score: f64,
+    pub reputation_score: f64,
+    pub is_active: bool,
+    pub performance_metrics: NodePerformanceMetrics,
+    pub last_activity: SystemTime,
+    pub capabilities: NodeCapabilities,
+}
+
+/// Social scoring report
+#[derive(Debug, Clone, Serialize)]
+pub struct SocialScoringReport {
+    pub total_nodes: usize,
+    pub active_nodes: usize,
+    pub average_social_score: f64,
+    pub top_performers: Vec<(String, f64)>,
+    pub current_system_score: f64,
+    pub recent_activities: usize,
+    pub anomalies_detected: usize,
+    pub performance_trends: PerformanceTrends,
 }

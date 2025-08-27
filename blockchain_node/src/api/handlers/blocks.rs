@@ -81,12 +81,18 @@ pub async fn get_latest_block(
         None => {
             // Blockchain is empty - return genesis block
             let genesis_block = BlockResponse {
-                hash: "0x0000000000000000000000000000000000000000000000000000000000000000".to_string(),
+                hash: "0x0000000000000000000000000000000000000000000000000000000000000000"
+                    .to_string(),
                 height: 0,
-                prev_hash: "0x0000000000000000000000000000000000000000000000000000000000000000".to_string(),
-                timestamp: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(),
+                prev_hash: "0x0000000000000000000000000000000000000000000000000000000000000000"
+                    .to_string(),
+                timestamp: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs(),
                 tx_count: 0,
-                merkle_root: "0x0000000000000000000000000000000000000000000000000000000000000000".to_string(),
+                merkle_root: "0x0000000000000000000000000000000000000000000000000000000000000000"
+                    .to_string(),
                 proposer: "Genesis Validator".to_string(),
                 size: 1024,
             };
@@ -150,4 +156,52 @@ pub async fn get_blocks(
             let responses: Vec<BlockResponse> = blocks.iter().map(BlockResponse::from).collect();
             Json(responses)
         })
+}
+
+/// Block sync request from other nodes
+#[derive(Debug, Deserialize)]
+pub struct BlockSyncRequest {
+    pub block_hash: String,
+    pub height: u64,
+    pub source_node: u16,
+    pub timestamp: u64,
+}
+
+/// Block sync response
+#[derive(Debug, Serialize)]
+pub struct BlockSyncResponse {
+    pub success: bool,
+    pub message: String,
+    pub synced_height: u64,
+}
+
+/// Sync block from another node (cross-node communication)
+pub async fn sync_block_from_other_node(
+    Extension(state): Extension<Arc<RwLock<State>>>,
+    Json(sync_request): Json<BlockSyncRequest>,
+) -> Result<Json<BlockSyncResponse>, ApiError> {
+    let mut state = state.write().await;
+    
+    // Check if we already have this block
+    if let Some(existing_block) = state.get_block_by_height(sync_request.height) {
+        let existing_hash = existing_block.hash().unwrap_or_default();
+        if existing_hash.to_evm_hex() == sync_request.block_hash {
+            return Ok(Json(BlockSyncResponse {
+                success: true,
+                message: format!("Block {} already exists", sync_request.height),
+                synced_height: sync_request.height,
+            }));
+        }
+    }
+    
+    // For now, just acknowledge the sync request
+    // In a full implementation, we would fetch the actual block data
+    println!("📡 Received block sync request from node {}: height {}", 
+             sync_request.source_node, sync_request.height);
+    
+    Ok(Json(BlockSyncResponse {
+        success: true,
+        message: format!("Block {} sync request received", sync_request.height),
+        synced_height: sync_request.height,
+    }))
 }

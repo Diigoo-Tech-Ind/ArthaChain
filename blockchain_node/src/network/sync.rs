@@ -1056,8 +1056,12 @@ impl Storage for MockStorage {
     async fn close(&self) -> Result<(), crate::storage::StorageError> {
         Ok(())
     }
-    
+
     fn as_any(&self) -> &dyn Any {
+        self
+    }
+    
+    fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
 }

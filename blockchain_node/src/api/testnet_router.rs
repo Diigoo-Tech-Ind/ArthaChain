@@ -1,7 +1,5 @@
-use anyhow::Result;
 use axum::{
-    extract::{Extension, Path, Query},
-    http::StatusCode,
+    extract::Extension,
     response::{Html, IntoResponse, Json},
     routing::{get, post},
     Router,
@@ -12,10 +10,9 @@ use tokio::sync::RwLock;
 use tower_http::cors::CorsLayer;
 
 use crate::api::{
-    create_fraud_monitoring_router, fraud_monitoring::FraudMonitoringService,
     handlers::{
-        accounts, blocks, consensus, faucet, gas_free, metrics, network_monitoring, status,
-        transactions, transaction_submission, validators,
+        accounts, ai, blocks, consensus, faucet, gas_free, metrics, transaction_submission,
+        transactions, validators,
     },
     routes::create_monitoring_router,
     wallet_integration,
@@ -55,30 +52,32 @@ pub async fn create_testnet_router(
 ) -> Router {
     // Create a simple router without complex AI dependencies for now
     // TODO: Re-enable fraud detection once AI models are properly configured
-    
+
     // Create monitoring router
     let monitoring_router = create_monitoring_router(
-        state.clone(), 
-        None, 
-        None  // TODO: Fix mempool integration when monitoring router is updated
-    ).await;
+        state.clone(),
+        None,
+        None, // TODO: Fix mempool integration when monitoring router is updated
+    )
+    .await;
 
     // Create WebSocket event manager for real-time updates
     let event_manager = Arc::new(EventManager::new());
 
     // Create faucet service
-    let faucet_service = match faucet::Faucet::new(&crate::config::Config::default(), state.clone(), None).await {
-        Ok(faucet) => Arc::new(faucet),
-        Err(e) => {
-            eprintln!("⚠️ Warning: Could not create faucet service: {}", e);
-            // Create a dummy faucet for now
-            Arc::new(faucet::Faucet::new_dummy().await)
-        }
-    };
+    let faucet_service =
+        match faucet::Faucet::new(&crate::config::Config::default(), state.clone(), None).await {
+            Ok(faucet) => Arc::new(faucet),
+            Err(e) => {
+                eprintln!("⚠️ Warning: Could not create faucet service: {}", e);
+                // Create a dummy faucet for now
+                Arc::new(faucet::Faucet::new_dummy().await)
+            }
+        };
 
     // Create gas-free manager
     let gas_free_manager = Arc::new(crate::gas_free::GasFreeManager::new());
-    
+
     // Initialize demo gas-free applications
     if let Err(e) = gas_free_manager.create_demo_apps().await {
         eprintln!("⚠️ Warning: Could not create demo gas-free apps: {}", e);
@@ -98,17 +97,40 @@ pub async fn create_testnet_router(
         .route("/api/v1/network/stats", get(network_stats))
         .route("/api/v1/network/peers", get(network_peers))
         .route("/api/v1/network/status", get(network_status))
-        .route("/api/v1/consensus/validators", get(validators::get_validators_list))
-        .route("/api/v1/consensus/status", get(consensus::get_consensus_status))
+        .route(
+            "/api/v1/consensus/validators",
+            get(validators::get_validators_list),
+        )
+        .route(
+            "/api/v1/consensus/status",
+            get(consensus::get_consensus_status),
+        )
         .route("/api/v1/blocks/latest", get(blocks::get_latest_block))
         .route("/api/v1/blocks/:hash", get(blocks::get_block_by_hash))
-        .route("/api/v1/blocks/height/:height", get(blocks::get_block_by_height))
+        .route(
+            "/api/v1/blocks/height/:height",
+            get(blocks::get_block_by_height),
+        )
+        .route("/api/v1/blocks/sync", post(blocks::sync_block_from_other_node))
         .route("/api/v1/blocks", get(blocks::get_blocks))
-        .route("/api/v1/transactions/:hash", get(transactions::get_transaction))
-        .route("/api/v1/transactions", post(transaction_submission::submit_transaction))
+        .route(
+            "/api/v1/transactions/:hash",
+            get(transactions::get_transaction),
+        )
+        .route(
+            "/api/v1/transactions",
+            post(transaction_submission::submit_transaction),
+        )
+        .route("/api/v1/mempool/transactions", get(get_mempool_transactions))
         .route("/api/v1/accounts/:address", get(accounts::get_account))
-        .route("/api/v1/accounts/:address/transactions", get(accounts::get_account_transactions))
-        .route("/api/v1/accounts/:address/balance", get(accounts::get_account_balance))
+        .route(
+            "/api/v1/accounts/:address/transactions",
+            get(accounts::get_account_transactions),
+        )
+        .route(
+            "/api/v1/accounts/:address/balance",
+            get(accounts::get_account_balance),
+        )
         // Contract endpoints - to be implemented
         // .route("/api/v1/contracts/:address", get(contracts::get_contract))
         // .route("/api/v1/contracts/:address/code", get(contracts::get_contract_code))
@@ -118,22 +140,71 @@ pub async fn create_testnet_router(
         // Security endpoints - to be implemented
         // .route("/api/v1/security/alerts", get(security::get_security_alerts))
         // .route("/api/v1/security/status", get(security::get_security_status))
-        .route("/api/v1/testnet/faucet/request", post(faucet::request_tokens))
-        .route("/api/v1/testnet/faucet/status", get(faucet::get_faucet_status))
-        .route("/api/v1/testnet/faucet/history", get(faucet::get_faucet_history))
+        .route(
+            "/api/v1/testnet/faucet/request",
+            post(faucet::request_tokens),
+        )
+        .route(
+            "/api/v1/testnet/faucet/status",
+            get(faucet::get_faucet_status),
+        )
+        .route(
+            "/api/v1/testnet/faucet/history",
+            get(faucet::get_faucet_history),
+        )
         // Gas-free application endpoints
         .route("/gas-free", get(gas_free::gas_free_dashboard))
-        .route("/api/v1/testnet/gas-free/register", post(gas_free::register_gas_free_app))
-        .route("/api/v1/testnet/gas-free/check", post(gas_free::check_gas_free_eligibility))
-        .route("/api/v1/testnet/gas-free/apps", get(gas_free::get_active_gas_free_apps))
-        .route("/api/v1/testnet/gas-free/stats", get(gas_free::get_gas_free_stats))
-        .route("/api/v1/testnet/gas-free/process", post(gas_free::process_gas_free_transaction))
-        .route("/api/v1/wallet/supported", get(wallet_integration::get_supported_wallets))
-        .route("/api/v1/wallet/ides", get(wallet_integration::get_supported_ides))
-        .route("/api/v1/wallet/connect", get(wallet_integration::wallet_connect_page))
-        .route("/api/v1/wallet/setup", get(wallet_integration::ide_setup_page))
+        .route(
+            "/api/v1/testnet/gas-free/register",
+            post(gas_free::register_gas_free_app),
+        )
+        .route(
+            "/api/v1/testnet/gas-free/check",
+            post(gas_free::check_gas_free_eligibility),
+        )
+        .route(
+            "/api/v1/testnet/gas-free/apps",
+            get(gas_free::get_active_gas_free_apps),
+        )
+        .route(
+            "/api/v1/testnet/gas-free/stats",
+            get(gas_free::get_gas_free_stats),
+        )
+        .route(
+            "/api/v1/testnet/gas-free/process",
+            post(gas_free::process_gas_free_transaction),
+        )
+        .route(
+            "/api/v1/wallet/supported",
+            get(wallet_integration::get_supported_wallets),
+        )
+        .route(
+            "/api/v1/wallet/ides",
+            get(wallet_integration::get_supported_ides),
+        )
+        .route(
+            "/api/v1/wallet/connect",
+            get(wallet_integration::wallet_connect_page),
+        )
+        .route(
+            "/api/v1/wallet/setup",
+            get(wallet_integration::ide_setup_page),
+        )
         .route("/api/v1/rpc", post(handle_rpc_request))
         .route("/api/v1/ws", get(websocket_handler))
+        // AI-powered endpoints
+        .route("/api/v1/ai/status", get(ai::get_ai_status))
+        .route("/api/v1/ai/models", get(ai::get_ai_models))
+        .route("/api/v1/ai/device-health", post(ai::get_device_health))
+        .route("/api/v1/ai/identify-user", post(ai::identify_user))
+        .route("/api/v1/ai/chunk-data", post(ai::chunk_data))
+        .route("/api/v1/ai/detect-fraud", post(ai::detect_fraud))
+        .route("/api/v1/ai/train-neural", post(ai::train_neural_network))
+        .route(
+            "/api/v1/ai/self-learning",
+            post(ai::adapt_self_learning_system),
+        )
+        .route("/api/v1/ai/bci-signal", post(ai::process_bci_signal))
         // .nest("/fraud", fraud_router)  // TODO: Re-enable when fraud detection is ready
         // .merge(transaction_router)      // TODO: Re-enable when transaction router is ready
         .merge(monitoring_router)
@@ -144,6 +215,7 @@ pub async fn create_testnet_router(
         .layer(Extension(event_manager))
         .layer(Extension(faucet_service))
         .layer(Extension(gas_free_manager))
+        .layer(Extension(Arc::new(ai::AIService::new())))
 }
 
 /// Testnet index page
@@ -246,6 +318,46 @@ async fn testnet_index() -> impl IntoResponse {
                 <div class="endpoint">
                     <span class="method">GET</span> <span class="url">/api/v1/testnet/gas-free/stats</span>
                     <div class="description">Gas-free application statistics</div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>🧠 AI-Powered Features</h2>
+                <div class="endpoint">
+                    <span class="method">GET</span> <span class="url">/api/v1/ai/status</span>
+                    <div class="description">AI system health and status</div>
+                </div>
+                <div class="endpoint">
+                    <span class="method">GET</span> <span class="url">/api/v1/ai/models</span>
+                    <div class="description">List all AI models and systems</div>
+                </div>
+                <div class="endpoint">
+                    <span class="method">POST</span> <span class="url">/api/v1/ai/device-health</span>
+                    <div class="description">AI-powered device health assessment</div>
+                </div>
+                <div class="endpoint">
+                    <span class="method">POST</span> <span class="url">/api/v1/ai/identify-user</span>
+                    <div class="description">AI-powered user identification and authentication</div>
+                </div>
+                <div class="endpoint">
+                    <span class="method">POST</span> <span class="url">/api/v1/ai/chunk-data</span>
+                    <div class="description">AI-powered data chunking and compression</div>
+                </div>
+                <div class="endpoint">
+                    <span class="method">POST</span> <span class="url">/api/v1/ai/detect-fraud</span>
+                    <div class="description">AI-powered fraud detection and risk assessment</div>
+                </div>
+                <div class="endpoint">
+                    <span class="method">POST</span> <span class="url">/api/v1/ai/train-neural</span>
+                    <div class="description">Train neural networks with custom data</div>
+                </div>
+                <div class="endpoint">
+                    <span class="method">POST</span> <span class="url">/api/v1/ai/self-learning</span>
+                    <div class="description">Self-learning and evolving AI systems</div>
+                </div>
+                <div class="endpoint">
+                    <span class="method">POST</span> <span class="url">/api/v1/ai/bci-signal</span>
+                    <div class="description">Brain-Computer Interface signal processing</div>
                 </div>
             </div>
 
@@ -458,6 +570,17 @@ async fn handle_rpc_request() -> impl IntoResponse {
         },
         "id": null
     }))
+}
+
+/// Get mempool transactions for cross-node communication
+pub async fn get_mempool_transactions(
+    Extension(state): Extension<Arc<RwLock<State>>>,
+    Extension(mempool): Extension<Arc<RwLock<Mempool>>>,
+) -> Result<Json<Vec<serde_json::Value>>, crate::api::ApiError> {
+    let mempool = mempool.read().await;
+    let transactions = mempool.get_mempool_transactions_for_api().await;
+    
+    Ok(Json(transactions))
 }
 
 // WebSocket handler is now imported from websocket module

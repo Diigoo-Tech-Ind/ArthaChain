@@ -4,7 +4,7 @@ use std::time::Duration;
 /// Quick test of Merkle proof system - CORE FUNCTIONALITY
 #[tokio::test]
 async fn test_merkle_proof_core() {
-    use blockchain_node::consensus::cross_shard::merkle_proof::{
+    use arthachain_node::consensus::cross_shard::merkle_proof::{
         MerkleTree, ProofCache, ProvenTransaction,
     };
 
@@ -51,9 +51,10 @@ async fn test_merkle_proof_core() {
 /// Quick test of cross-shard coordinator - CORE FUNCTIONALITY  
 #[tokio::test]
 async fn test_cross_shard_core() {
-    use blockchain_node::consensus::cross_shard::{
-        coordinator::CrossShardCoordinator, CrossShardConfig,
+    use arthachain_node::consensus::cross_shard::{
+        coordinator::CrossShardCoordinator,
     };
+    use arthachain_node::network::cross_shard::CrossShardConfig;
     use tokio::sync::mpsc;
 
     println!("🔍 Testing Cross-Shard Coordinator...");
@@ -83,7 +84,7 @@ async fn test_cross_shard_core() {
 /// Performance validation for critical components
 #[tokio::test]
 async fn test_performance_validation() {
-    use blockchain_node::consensus::cross_shard::merkle_proof::MerkleTree;
+    use arthachain_node::consensus::cross_shard::merkle_proof::MerkleTree;
     use std::time::Instant;
 
     println!("🔍 Testing Performance Benchmarks...");
@@ -133,7 +134,7 @@ async fn test_performance_validation() {
 /// Test consensus protocol types and structures
 #[tokio::test]
 async fn test_consensus_structures() {
-    use blockchain_node::consensus::cross_shard::protocol::{CrossShardStatus, CrossShardTxType};
+    use arthachain_node::consensus::cross_shard::protocol::{CrossShardStatus, CrossShardTxType};
 
     println!("🔍 Testing Consensus Protocol Structures...");
 
@@ -167,7 +168,7 @@ async fn phase1_final_validation() {
     let start_time = std::time::Instant::now();
 
     // Test all core components working together
-    use blockchain_node::consensus::cross_shard::merkle_proof::{MerkleTree, ProvenTransaction};
+    use arthachain_node::consensus::cross_shard::merkle_proof::{MerkleTree, ProvenTransaction};
 
     // 1. Create and verify transaction with proof
     let tx_data = b"phase1_final_test_transaction".to_vec();

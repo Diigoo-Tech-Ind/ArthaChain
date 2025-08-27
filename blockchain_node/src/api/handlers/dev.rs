@@ -173,22 +173,61 @@ impl DevToolsService {
 
     /// Get contract verification status
     pub async fn get_contract_verification(&self, contract_address: &str) -> Result<serde_json::Value, String> {
-        // For now, return mock verification data since these methods don't exist yet
-        // In real implementation, this would check actual contract state
+        // Get real contract verification data from smart contract engine
+        let engine = self.smart_contract_engine.read().await;
         
-        Ok(serde_json::json!({
-            "status": "success",
-            "contract_address": contract_address,
-            "verified": true,
-            "compiler_version": "0.8.19",
-            "optimization": true,
-            "runs": 200,
-            "constructor_arguments": "",
-            "source_code": "// Verified contract source code",
-            "abi": "[]",
-            "bytecode": "0x",
-            "verification_time": SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
-        }))
+        // Try to get actual contract data
+        if let Ok(contract_info) = engine.get_contract_info(contract_address).await {
+            Ok(serde_json::json!({
+                "status": "success",
+                "contract_address": contract_address,
+                "verified": contract_info.verified,
+                "compiler_version": contract_info.compiler_version,
+                "optimization": contract_info.optimization_enabled,
+                "runs": contract_info.optimization_runs,
+                "constructor_arguments": contract_info.constructor_args,
+                "source_code": contract_info.source_code,
+                "abi": contract_info.abi,
+                "bytecode": format!("0x{}", hex::encode(&contract_info.bytecode)),
+                "verification_time": contract_info.verification_timestamp,
+                "verification_method": contract_info.verification_method,
+                "license": contract_info.license,
+                "proxy": contract_info.is_proxy,
+                "implementation_address": contract_info.implementation_address
+            }))
+        } else {
+            // Fallback to basic contract info if verification data not available
+            let state = self.state.read().await;
+            
+            if let Ok(account) = state.get_account(contract_address) {
+                let has_code = !account.code.is_empty();
+                
+                Ok(serde_json::json!({
+                    "status": "success",
+                    "contract_address": contract_address,
+                    "verified": false,
+                    "compiler_version": "unknown",
+                    "optimization": false,
+                    "runs": 0,
+                    "constructor_arguments": "",
+                    "source_code": "Source code not available",
+                    "abi": "[]",
+                    "bytecode": if has_code { 
+                        format!("0x{}", hex::encode(&account.code)) 
+                    } else { 
+                        "0x".to_string() 
+                    },
+                    "verification_time": 0,
+                    "verification_method": "none",
+                    "license": "unknown",
+                    "proxy": false,
+                    "implementation_address": null,
+                    "note": "Contract exists but not verified"
+                }))
+            } else {
+                Err("Contract not found".to_string())
+            }
+        }
     }
 
     /// Get development network status

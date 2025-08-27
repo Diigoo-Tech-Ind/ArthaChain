@@ -3,6 +3,6 @@
 pub mod production_infrastructure;
 
 pub use production_infrastructure::{
-    CiCdConfig, DeploymentEnvironment, DeploymentResult, DockerConfig, KubernetesConfig,
+    CiCdConfig, DeploymentEnvironment, DeploymentResult, DockerConfig,
     MonitoringConfig, ProductionInfrastructureConfig, ProductionInfrastructureManager,
 };

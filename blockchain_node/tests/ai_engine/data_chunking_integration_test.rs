@@ -1,5 +1,5 @@
-use blockchain_node::ai_engine::data_chunking::{DataChunkingAI, DataChunk, ChunkingConfig, CompressionType};
-use blockchain_node::config::Config;
+use arthachain_node::ai_engine::data_chunking::{DataChunkingAI, DataChunk, ChunkingConfig, CompressionType};
+use arthachain_node::config::Config;
 use anyhow::Result;
 use std::time::Instant;
 use std::sync::{Arc, Mutex};

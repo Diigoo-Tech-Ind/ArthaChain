@@ -1,14 +1,14 @@
+use num_traits::ToPrimitive;
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, RwLock};
 use tokio::task::JoinHandle;
-use std::time::{Duration, Instant};
-use num_traits::ToPrimitive;
 
-use crate::types::{Transaction, Address, Hash};
 use crate::ledger::block::Block;
-use crate::sharding::{ShardManager, ShardInfo, ShardType};
+use crate::sharding::{ShardInfo, ShardManager, ShardType};
+use crate::types::{Address, Hash, Transaction};
 
 /// Performance metrics for the parallel processor
 #[derive(Debug, Clone)]
@@ -93,7 +93,8 @@ impl ParallelProcessor {
                     performance_metrics_clone,
                     shard_distribution_clone,
                     shard_manager_clone,
-                ).await;
+                )
+                .await;
             });
 
             worker_pools.push(handle);
@@ -124,11 +125,11 @@ impl ParallelProcessor {
                 let receiver_guard = task_receiver.read().await;
                 receiver_guard.is_some()
             };
-            
+
             if !has_receiver {
                 break;
             }
-            
+
             // Try to receive a task without holding the lock
             let task = {
                 let mut receiver_guard = task_receiver.write().await;
@@ -151,21 +152,30 @@ impl ParallelProcessor {
                     break;
                 }
             };
-            
+
             if let Some(task) = task {
                 let start_time = Instant::now();
-                
+
                 match task {
-                    ProcessingTask::TransactionProcessing { transaction, shard_id } => {
+                    ProcessingTask::TransactionProcessing {
+                        transaction,
+                        shard_id,
+                    } => {
                         Self::execute_transaction_processing(
                             transaction,
                             shard_id,
                             &performance_metrics,
                             &shard_distribution,
                             &shard_manager,
-                        ).await;
+                        )
+                        .await;
                     }
-                    ProcessingTask::BlockCreation { shard_id, transactions, previous_hash, height } => {
+                    ProcessingTask::BlockCreation {
+                        shard_id,
+                        transactions,
+                        previous_hash,
+                        height,
+                    } => {
                         Self::execute_block_creation(
                             shard_id,
                             transactions,
@@ -174,7 +184,8 @@ impl ParallelProcessor {
                             &performance_metrics,
                             &shard_distribution,
                             &shard_manager,
-                        ).await;
+                        )
+                        .await;
                     }
                     ProcessingTask::BlockValidation { block, shard_id } => {
                         Self::execute_block_validation(
@@ -183,7 +194,8 @@ impl ParallelProcessor {
                             &performance_metrics,
                             &shard_distribution,
                             &shard_manager,
-                        ).await;
+                        )
+                        .await;
                     }
                     ProcessingTask::UpdateMetrics { shard_id, .. } => {
                         // TODO: Update shard metrics when ShardMetrics can be cloned
@@ -192,12 +204,13 @@ impl ParallelProcessor {
                 }
 
                 let processing_time = start_time.elapsed();
-                
+
                 // Update performance metrics
                 let mut metrics = performance_metrics.write().await;
                 metrics.total_transactions_processed += 1;
                 metrics.average_processing_time = Duration::from_nanos(
-                    ((metrics.average_processing_time.as_nanos() + processing_time.as_nanos()) / 2) as u64
+                    ((metrics.average_processing_time.as_nanos() + processing_time.as_nanos()) / 2)
+                        as u64,
                 );
             }
         }
@@ -212,13 +225,16 @@ impl ParallelProcessor {
         shard_manager: &Arc<ShardManager>,
     ) {
         // Process transaction in the assigned shard
-        let result = Self::process_transaction_in_shard(&transaction, shard_id, shard_manager).await;
-        
+        let result =
+            Self::process_transaction_in_shard(&transaction, shard_id, shard_manager).await;
+
         if let Ok(_) = result {
             // Update shard metrics
             let mut shards = shard_distribution.write().await;
             if let Some(shard_metrics) = shards.get_mut(&shard_id) {
-                shard_metrics.transactions_processed.fetch_add(1, Ordering::Relaxed);
+                shard_metrics
+                    .transactions_processed
+                    .fetch_add(1, Ordering::Relaxed);
             }
 
             // Update performance metrics
@@ -242,13 +258,9 @@ impl ParallelProcessor {
         shard_manager: &Arc<ShardManager>,
     ) {
         // Create block in the assigned shard
-        let result = Self::create_shard_block(
-            shard_id,
-            transactions,
-            previous_hash,
-            height,
-            shard_manager,
-        ).await;
+        let result =
+            Self::create_shard_block(shard_id, transactions, previous_hash, height, shard_manager)
+                .await;
 
         if let Ok(_) = result {
             // Update shard metrics
@@ -273,7 +285,7 @@ impl ParallelProcessor {
     ) {
         // Validate block consensus
         let result = Self::validate_block_consensus().await;
-        
+
         if let Ok(_) = result {
             // Update shard metrics
             let mut shards = shard_distribution.write().await;
@@ -307,14 +319,17 @@ impl ParallelProcessor {
     fn hash_address(address: &Address) -> u64 {
         use std::collections::hash_map::DefaultHasher;
         use std::hash::{Hash, Hasher};
-        
+
         let mut hasher = DefaultHasher::new();
         address.hash(&mut hasher);
         hasher.finish()
     }
 
     /// Submit a task to the worker pool
-    pub async fn submit_task(&self, task: ProcessingTask) -> Result<(), mpsc::error::SendError<ProcessingTask>> {
+    pub async fn submit_task(
+        &self,
+        task: ProcessingTask,
+    ) -> Result<(), mpsc::error::SendError<ProcessingTask>> {
         self.task_sender.send(task).await
     }
 
@@ -346,11 +361,11 @@ impl ParallelProcessor {
     ) -> Result<(), String> {
         // Simulate transaction processing
         tokio::time::sleep(Duration::from_micros(100)).await;
-        
+
         if shard_id % 100 == 0 {
             println!("Processing transaction in shard {}", shard_id);
         }
-        
+
         Ok(())
     }
 
@@ -364,15 +379,20 @@ impl ParallelProcessor {
     ) -> Result<Block, String> {
         // Simulate block creation
         tokio::time::sleep(Duration::from_micros(500)).await;
-        
+
         if shard_id % 100 == 0 {
-            println!("Creating block {} in shard {} with {} transactions", height, shard_id, transactions.len());
+            println!(
+                "Creating block {} in shard {} with {} transactions",
+                height,
+                shard_id,
+                transactions.len()
+            );
         }
 
         // Return a mock block (in real implementation, this would create an actual block)
-        use crate::ledger::block::{BlockHeader, Block};
         use crate::ledger::block::BlsPublicKey;
-        
+        use crate::ledger::block::{Block, BlockHeader};
+
         let header = BlockHeader {
             previous_hash: Hash::default(),
             merkle_root: Hash::default(),
@@ -397,7 +417,7 @@ impl ParallelProcessor {
     async fn validate_block_consensus() -> Result<(), String> {
         // Simulate consensus validation
         tokio::time::sleep(Duration::from_micros(200)).await;
-        
+
         // Simulate 99.9% success rate
         if rand::random::<f64>() < 0.999 {
             Ok(())

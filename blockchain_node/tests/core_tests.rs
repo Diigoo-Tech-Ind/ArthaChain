@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
-    use blockchain_node::types::*;
-    use blockchain_node::utils::crypto::Hash as CryptoHash;
+    use arthachain_node::types::*;
+    use arthachain_node::utils::crypto::Hash as CryptoHash;
 
     fn create_test_address() -> Address {
         Address::new([1u8; 20])

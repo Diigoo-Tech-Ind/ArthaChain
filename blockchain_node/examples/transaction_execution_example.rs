@@ -3,10 +3,10 @@
 //! This example demonstrates how to use the transaction execution engine
 //! to process transactions and update state.
 
-use blockchain_node::config::Config;
-use blockchain_node::execution::{transaction_engine::TransactionEngineConfig, TransactionEngine};
-use blockchain_node::ledger::state::State;
-use blockchain_node::ledger::transaction::{Transaction, TransactionType};
+use arthachain_node::config::Config;
+use arthachain_node::execution::{transaction_engine::TransactionEngineConfig, TransactionEngine};
+use arthachain_node::ledger::state::State;
+use arthachain_node::ledger::transaction::{Transaction, TransactionType};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

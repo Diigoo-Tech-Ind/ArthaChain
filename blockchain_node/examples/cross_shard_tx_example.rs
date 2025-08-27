@@ -1,7 +1,6 @@
 use anyhow::Result;
-use blockchain_node::consensus::cross_shard::{
-    CrossShardConfig, CrossShardTransaction, EnhancedCrossShardManager,
-};
+use arthachain_node::network::cross_shard::{CrossShardConfig, CrossShardTransaction};
+use arthachain_node::consensus::cross_shard::integration::EnhancedCrossShardManager;
 use std::sync::Arc;
 use tokio::time::Duration;
 
@@ -17,9 +16,14 @@ async fn main() -> Result<()> {
 
     // Create configuration with shorter timeouts for demo purposes
     let config = CrossShardConfig {
+        max_retries: 3,
+        retry_interval: Duration::from_secs(5),
+        message_timeout: Duration::from_secs(30),
+        batch_size: 10,
+        max_queue_size: 1000,
+        sync_interval: Duration::from_secs(10),
         validation_threshold: 0.67, // 2/3 majority
         transaction_timeout: Duration::from_secs(5),
-        batch_size: 10,
         retry_count: 3,
         pending_timeout: Duration::from_secs(30),
         timeout_check_interval: Duration::from_secs(1),

@@ -1,0 +1,31 @@
+{
+  "pending_transactions": [
+    {
+      "hash": "0x1234567890abcdef1234567890abcdef12345678",
+      "from": "0x742d35cc6634c0532925a3b844bc454e4438f44e",
+      "to": "0xabcdef1234567890abcdef1234567890abcdef12",
+      "value": "1000000000000000000",
+      "gas": 21000,
+      "gas_price": "20000000000",
+      "nonce": 1,
+      "data": "0x",
+      "timestamp": 1755958829
+    },
+    {
+      "hash": "0xabcdef1234567890abcdef1234567890abcdef12",
+      "from": "0x742d35cc6634c0532925a3b844bc454e4438f44e",
+      "to": "0x1234567890abcdef1234567890abcdef12345678",
+      "value": "500000000000000000",
+      "gas": 21000,
+      "gas_price": "25000000000",
+      "nonce": 2,
+      "data": "0x",
+      "timestamp": 1755958829
+    }
+  ],
+  "stats": {
+    "pending_count": 2,
+    "total_value": "1500000000000000000",
+    "avg_gas_price": "22500000000"
+  }
+}

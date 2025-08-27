@@ -3,8 +3,8 @@
 //! This example demonstrates the concept of WASM smart contracts
 //! with a simplified implementation that doesn't require the full WASM VM.
 
-use blockchain_node::storage::{MemMapOptions, MemMapStorage};
-use blockchain_node::types::Address;
+use arthachain_node::storage::{MemMapOptions, MemMapStorage};
+use arthachain_node::types::Address;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};

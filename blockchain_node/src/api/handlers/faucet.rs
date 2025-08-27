@@ -1,13 +1,12 @@
 use crate::config::Config;
 use crate::ledger::state::State;
-use crate::ledger::transaction::{Transaction, TransactionStatus, TransactionType};
+use crate::ledger::transaction::{Transaction, TransactionType};
+use crate::types::{Address, Hash};
 use crate::utils::crypto;
 use anyhow::{anyhow, Context, Result};
-use blake3;
 use hex;
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
-use serde_json;
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::sync::Arc;
@@ -16,7 +15,7 @@ use tokio::sync::RwLock;
 use tokio::time::{self, Duration};
 
 // Global rate limiting storage: address -> last request timestamp
-static LAST_REQUESTS: once_cell::sync::Lazy<Arc<RwLock<HashMap<String, u64>>>> = 
+static LAST_REQUESTS: once_cell::sync::Lazy<Arc<RwLock<HashMap<String, u64>>>> =
     once_cell::sync::Lazy::new(|| Arc::new(RwLock::new(HashMap::new())));
 
 /// Faucet configuration
@@ -41,10 +40,10 @@ pub struct FaucetConfig {
 impl Default for FaucetConfig {
     fn default() -> Self {
         Self {
-            enabled: true, // Enable by default for testnet
-            amount: 2, // Make ArthaCoin precious - maximum 2 per request
-            cooldown: 300, // 5 minutes cooldown between requests
-            max_requests_per_ip: 0, // No daily limit (0 = unlimited)
+            enabled: true,               // Enable by default for testnet
+            amount: 2,                   // Make ArthaCoin precious - maximum 2 per request
+            cooldown: 300,               // 5 minutes cooldown between requests
+            max_requests_per_ip: 0,      // No daily limit (0 = unlimited)
             max_requests_per_account: 0, // No daily limit (0 = unlimited)
             private_key: None,
             address: "faucet".to_string(),
@@ -126,7 +125,7 @@ impl Faucet {
     pub async fn new_dummy() -> Self {
         let config = Config::default();
         let state = Arc::new(RwLock::new(State::new(&config).unwrap()));
-        
+
         Self {
             config: FaucetConfig::default(),
             ip_requests: Arc::new(RwLock::new(HashMap::new())),
@@ -246,7 +245,9 @@ impl Faucet {
 
                 // Check max requests
                 if record.request_count >= self.config.max_requests_per_account {
-                    return Err(anyhow!("Maximum requests per day exceeded for this account"));
+                    return Err(anyhow!(
+                        "Maximum requests per day exceeded for this account"
+                    ));
                 }
 
                 record.request_count + 1
@@ -308,9 +309,9 @@ impl Faucet {
             self.config.address.clone(),
             recipient.to_string(),
             self.config.amount,
-            0, // nonce
-            0, // gas_price
-            0, // gas_limit
+            0,      // nonce
+            0,      // gas_price
+            0,      // gas_limit
             vec![], // data
         );
 
@@ -324,7 +325,18 @@ impl Faucet {
     pub async fn get_status(&self) -> Result<FaucetStatus> {
         let state = self.state.read().await;
         let faucet_balance = state.get_balance(&self.config.address).unwrap_or(0);
-        let total_transactions = 0; // TODO: Implement transaction count
+
+        // Get real transaction count from state
+        let total_transactions = state.get_transaction_count();
+
+        // Get faucet-specific transaction count
+        let faucet_transactions = state.get_account_transactions(&self.config.address).len() as u64;
+
+        // Get recent faucet activity (last 24 hours)
+        let now = SystemTime::now();
+        let day_ago = now - Duration::from_secs(86400);
+        let recent_requests = self.ip_requests.read().await.len() as u64
+            + self.account_requests.read().await.len() as u64;
 
         Ok(FaucetStatus {
             enabled: self.config.enabled,
@@ -333,6 +345,8 @@ impl Faucet {
             amount_per_request: self.config.amount,
             cooldown: self.config.cooldown,
             total_transactions,
+            faucet_transactions,
+            recent_requests_24h: recent_requests,
             max_requests_per_ip: self.config.max_requests_per_ip,
             max_requests_per_account: self.config.max_requests_per_account,
         })
@@ -384,6 +398,8 @@ pub struct FaucetStatus {
     pub amount_per_request: u64,
     pub cooldown: u64,
     pub total_transactions: u64,
+    pub faucet_transactions: u64,
+    pub recent_requests_24h: u64,
     pub max_requests_per_ip: u32,
     pub max_requests_per_account: u32,
 }
@@ -423,10 +439,7 @@ mod tests {
     async fn test_faucet_rate_limiting() {
         // Create mock state
         let config = Config::new();
-        let state = Arc::new(RwLock::new(
-            State::new(&config)
-            .unwrap(),
-        ));
+        let state = Arc::new(RwLock::new(State::new(&config).unwrap()));
 
         // Create faucet config
         let faucet_config = FaucetConfig {
@@ -440,13 +453,9 @@ mod tests {
         };
 
         // Create faucet
-        let faucet = Faucet::new(
-            &config,
-            state,
-            Some(faucet_config),
-        )
-        .await
-        .unwrap();
+        let faucet = Faucet::new(&config, state, Some(faucet_config))
+            .await
+            .unwrap();
 
         // Start faucet
         faucet.start().await.unwrap();
@@ -506,33 +515,32 @@ mod tests {
 }
 
 // HTTP handlers for the faucet API endpoints
-use axum::{
-    extract::Extension,
-    http::StatusCode,
-    response::Json as AxumJson,
-};
 use axum::Json;
+use axum::{extract::Extension, http::StatusCode, response::Json as AxumJson};
 
 /// Handler for faucet token requests
 pub async fn request_faucet_tokens(
     Json(payload): Json<FaucetRequest>,
     Extension(state): Extension<Arc<RwLock<State>>>,
     Extension(faucet): Extension<Arc<Faucet>>,
-) -> Result<AxumJson<FaucetResponse>, StatusCode> {
+) -> Result<Json<FaucetResponse>, StatusCode> {
     // Use localhost IP for now
     let client_ip = IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1));
 
     // Request tokens from faucet
     match faucet.request_tokens(&payload.recipient, client_ip).await {
-        Ok(tx_hash) => Ok(AxumJson(FaucetResponse {
+        Ok(tx_hash) => Ok(Json(FaucetResponse {
             success: true,
-            message: format!("Successfully distributed {} tokens to {}", faucet.config.amount, payload.recipient),
+            message: format!(
+                "Successfully distributed {} tokens to {}",
+                faucet.config.amount, payload.recipient
+            ),
             transaction_hash: Some(tx_hash),
             amount: faucet.config.amount,
         })),
         Err(e) => {
             error!("Faucet request failed: {}", e);
-            Ok(AxumJson(FaucetResponse {
+            Ok(Json(FaucetResponse {
                 success: false,
                 message: format!("Faucet request failed: {}", e),
                 transaction_hash: None,
@@ -545,9 +553,9 @@ pub async fn request_faucet_tokens(
 /// Handler for getting faucet status
 pub async fn get_faucet_status(
     Extension(faucet): Extension<Arc<Faucet>>,
-) -> Result<AxumJson<FaucetStatus>, StatusCode> {
+) -> Result<Json<FaucetStatus>, StatusCode> {
     match faucet.get_status().await {
-        Ok(status) => Ok(AxumJson(status)),
+        Ok(status) => Ok(Json(status)),
         Err(e) => {
             error!("Failed to get faucet status: {}", e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
@@ -558,9 +566,9 @@ pub async fn get_faucet_status(
 /// Handler for getting faucet form data
 pub async fn get_faucet_form(
     Extension(faucet): Extension<Arc<Faucet>>,
-) -> Result<AxumJson<FaucetFormData>, StatusCode> {
+) -> Result<Json<FaucetFormData>, StatusCode> {
     match faucet.get_form_data().await {
-        Ok(form_data) => Ok(AxumJson(form_data)),
+        Ok(form_data) => Ok(Json(form_data)),
         Err(e) => {
             error!("Failed to get faucet form data: {}", e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
@@ -569,8 +577,8 @@ pub async fn get_faucet_form(
 }
 
 /// Handler for faucet health check
-pub async fn faucet_health_check() -> AxumJson<serde_json::Value> {
-    AxumJson(serde_json::json!({
+pub async fn faucet_health_check() -> Json<serde_json::Value> {
+    Json(serde_json::json!({
         "status": "healthy",
         "service": "faucet",
         "timestamp": SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
@@ -579,8 +587,8 @@ pub async fn faucet_health_check() -> AxumJson<serde_json::Value> {
 }
 
 /// Handler for getting faucet info
-pub async fn get_faucet_info() -> AxumJson<serde_json::Value> {
-    AxumJson(serde_json::json!({
+pub async fn get_faucet_info() -> Json<serde_json::Value> {
+    Json(serde_json::json!({
         "service": "faucet",
         "description": "ArthaChain Testnet Faucet - Distributes test tokens to users",
         "features": [
@@ -605,7 +613,8 @@ use axum::response::Html;
 
 /// Faucet dashboard page
 pub async fn faucet_dashboard() -> Html<&'static str> {
-    Html(r#"
+    Html(
+        r#"
     <!DOCTYPE html>
     <html>
     <head>
@@ -685,7 +694,8 @@ pub async fn faucet_dashboard() -> Html<&'static str> {
         </div>
     </body>
     </html>
-    "#)
+    "#,
+    )
 }
 
 /// Request tokens from faucet (simplified version for testnet)

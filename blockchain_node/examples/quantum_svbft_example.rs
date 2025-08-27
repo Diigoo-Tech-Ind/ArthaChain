@@ -2,12 +2,12 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use blockchain_node::crypto::signature::Signature;
-use blockchain_node::ledger::block::BlsPublicKey;
-use blockchain_node::types::Hash;
+use arthachain_node::crypto::signature::Signature;
+use arthachain_node::ledger::block::BlsPublicKey;
+use arthachain_node::types::Hash;
 
 // Simplified mock structs for the example
-// These mirror the actual blockchain_node types but are self-contained for demo purposes.
+// These mirror the actual arthachain_node types but are self-contained for demo purposes.
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockHeader {

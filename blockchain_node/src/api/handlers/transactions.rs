@@ -97,6 +97,10 @@ pub struct SubmitTransactionRequest {
     pub amount: u64,
     /// Transaction fee
     pub fee: u64,
+    /// Gas price (in wei)
+    pub gas_price: Option<u64>,
+    /// Gas limit
+    pub gas_limit: Option<u64>,
     /// Transaction nonce
     pub nonce: u64,
     /// Transaction type
@@ -173,6 +177,7 @@ pub async fn get_transaction(
 /// Submit a new transaction to the network
 pub async fn submit_transaction(
     Extension(state): Extension<Arc<RwLock<State>>>,
+    Extension(mempool): Extension<Arc<RwLock<crate::transaction::mempool::Mempool>>>,
     Json(req): Json<SubmitTransactionRequest>,
 ) -> Result<Json<SubmitTransactionResponse>, ApiError> {
     // Convert data from hex if provided
@@ -219,15 +224,15 @@ pub async fn submit_transaction(
         recipient,
         req.amount,
         req.nonce,
-        1,     // Default gas price
-        21000, // Default gas limit
+        req.gas_price.unwrap_or(20000000000), // Use provided gas price or default
+        req.gas_limit.unwrap_or(21000),       // Use provided gas limit or default
         data,
     );
 
     // Set the signature after creation
     tx.signature = signature;
 
-    let state = state.write().await;
+    // Convert to types::Transaction for mempool
     let types_tx = crate::types::Transaction {
         from: crate::types::Address::from_string(&tx.sender).unwrap_or_default(),
         to: crate::types::Address::from_string(&tx.recipient).unwrap_or_default(),
@@ -237,18 +242,22 @@ pub async fn submit_transaction(
         nonce: tx.nonce,
         data: tx.data.clone(),
         signature: tx.signature.clone(),
-        hash: crate::utils::crypto::Hash::default(), // You may want to compute the hash
+        hash: crate::utils::crypto::Hash::default(),
     };
-    state
-        .add_pending_transaction(types_tx.into())
+
+    // Add to mempool instead of state so mining workers can process it
+    let mempool = mempool.write().await;
+    mempool
+        .add_transaction(types_tx)
+        .await
         .map_err(|e| ApiError {
             status: 500,
-            message: format!("Failed to add transaction: {e}"),
+            message: format!("Failed to add transaction to mempool: {e}"),
         })?;
 
     Ok(Json(SubmitTransactionResponse {
         hash: hex::encode(tx.hash().as_ref()),
         success: true,
-        message: "Transaction submitted successfully".to_string(),
+        message: "Transaction submitted successfully to mempool".to_string(),
     }))
 }

@@ -1,17 +1,18 @@
 use arthachain_node::{
-    config::Config,
-    ledger::state::State,
-    transaction::mempool::Mempool,
-    consensus::validator_set::{ValidatorSetManager, ValidatorSetConfig},
     api::testnet_router::create_testnet_router,
+    config::Config,
+    consensus::validator_set::{ValidatorSetConfig, ValidatorSetManager},
     ledger::block::{Block, BlockHeader},
-    types::{Hash, Transaction},
-    performance::{ParallelProcessor, parallel_processor::ProcessingTask},
-    sharding::{ShardManager, ShardingConfig, ShardInfo, ShardType},
+    ledger::state::State,
+    ledger::transaction::Transaction as LedgerTransaction,
+    performance::{parallel_processor::ProcessingTask, ParallelProcessor},
+    sharding::{ShardInfo, ShardManager, ShardType, ShardingConfig},
+    transaction::mempool::Mempool,
+    types::{Address, Hash, Transaction},
 };
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use std::time::{SystemTime, UNIX_EPOCH};
+use tokio::sync::RwLock;
 
 const TARGET_TPS: u64 = 100_000;
 const WORKER_COUNT: usize = 16;
@@ -42,26 +43,32 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Initialize sharding system
     let sharding_config = ShardingConfig::default();
     let shard_manager = Arc::new(ShardManager::new(sharding_config.clone()));
-    println!("Sharding system initialized with {} shards", sharding_config.total_shards);
+    println!(
+        "Sharding system initialized with {} shards",
+        sharding_config.total_shards
+    );
     
     // Initialize parallel processor
     let parallel_processor = Arc::new(ParallelProcessor::new(WORKER_COUNT, shard_manager.clone()));
-    println!("Parallel processor initialized with {} workers", WORKER_COUNT);
+    println!(
+        "Parallel processor initialized with {} workers",
+        WORKER_COUNT
+    );
     
     // Initialize node as validator
     println!("Initializing node as validator...");
     
     let bls_public_key = vec![
-        0x8f, 0x4e, 0x8c, 0x8e, 0x8c, 0x8e, 0x8c, 0x8e, 0x8c, 0x8e, 0x8c, 0x8e,
-        0x8c, 0x8e, 0x8c, 0x8e, 0x8c, 0x8e, 0x8c, 0x8e, 0x8c, 0x8e, 0x8c, 0x8e,
-        0x8c, 0x8e, 0x8c, 0x8e, 0x8c, 0x8e, 0x8c, 0x8e, 0x8c, 0x8e, 0x8c, 0x8e,
-        0x8c, 0x8e, 0x8c, 0x8e, 0x8c, 0x8e, 0x8c, 0x8e, 0x8c, 0x8e, 0x8c, 0x8e
+        0x8f, 0x4e, 0x8c, 0x8e, 0x8c, 0x8e, 0x8c, 0x8e, 0x8c, 0x8e, 0x8c, 0x8e, 0x8c, 0x8e, 0x8c,
+        0x8e, 0x8c, 0x8e, 0x8c, 0x8e, 0x8c, 0x8e, 0x8c, 0x8e, 0x8c, 0x8e, 0x8c, 0x8e, 0x8c, 0x8e,
+        0x8c, 0x8e, 0x8c, 0x8e, 0x8c, 0x8e, 0x8c, 0x8e, 0x8c, 0x8e, 0x8c, 0x8e, 0x8c, 0x8e, 0x8c,
+        0x8e, 0x8c, 0x8e,
     ];
     
     let private_key = vec![
-        0x1a, 0x2b, 0x3c, 0x4d, 0x5e, 0x6f, 0x7a, 0x8b, 0x9c, 0x0d, 0x1e, 0x2f,
-        0x3a, 0x4b, 0x5c, 0x6d, 0x7e, 0x8f, 0x9a, 0x0b, 0x1c, 0x2d, 0x3e, 0x4f,
-        0x5a, 0x6b, 0x7c, 0x8d, 0x9e, 0x0f, 0x1a, 0x2b
+        0x1a, 0x2b, 0x3c, 0x4d, 0x5e, 0x6f, 0x7a, 0x8b, 0x9c, 0x0d, 0x1e, 0x2f, 0x3a, 0x4b, 0x5c,
+        0x6d, 0x7e, 0x8f, 0x9a, 0x0b, 0x1c, 0x2d, 0x3e, 0x4f, 0x5a, 0x6b, 0x7c, 0x8d, 0x9e, 0x0f,
+        0x1a, 0x2b,
     ];
     
     match validator_manager
@@ -73,7 +80,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             println!("Validator registration failed: {}", e);
             println!("Attempting alternative registration method...");
             
-            let node_address = vec![0x74, 0x2d, 0x35, 0x43, 0x63, 0x66, 0x34, 0x43, 0x30, 0x35, 0x33, 0x32, 0x39, 0x32, 0x35, 0x61, 0x33, 0x62, 0x38, 0x44];
+            let node_address = vec![
+                0x74, 0x2d, 0x35, 0x43, 0x63, 0x66, 0x34, 0x43, 0x30, 0x35, 0x33, 0x32, 0x39, 0x32,
+                0x35, 0x61, 0x33, 0x62, 0x38, 0x44,
+            ];
             
             if let Err(e2) = validator_manager
                 .register_validator(node_address, private_key)
@@ -106,8 +116,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 processor_clone,
                 state_clone,
                 mempool_clone,
-                shard_manager_clone
-            ).await;
+                shard_manager_clone,
+            )
+            .await;
         });
     }
     
@@ -158,7 +169,10 @@ async fn initialize_shards(shard_manager: &Arc<ShardManager>) {
     ];
     
     for (shard_id, shard_type) in shard_types {
-        if let Err(e) = shard_manager.register_shard(shard_id, shard_type.clone(), 16).await {
+        if let Err(e) = shard_manager
+            .register_shard(shard_id, shard_type.clone(), 16)
+            .await
+        {
             println!("Failed to register shard {}: {}", shard_id, e);
         } else {
             println!("Shard {} registered with type {:?}", shard_id, shard_type);
@@ -200,54 +214,43 @@ async fn mining_worker(
                 let mut state_write = state.write().await;
                 let current_height = state_write.get_height().unwrap_or(0);
                 
-                let prev_hash = state_write.latest_block()
+                let prev_hash = state_write
+                    .latest_block()
                     .map(|b| b.hash().unwrap_or_default())
                     .unwrap_or_else(|| Hash::default());
                 
-                // Convert mempool transactions to ledger transactions for block creation
-                let ledger_transactions: Vec<arthachain_node::ledger::transaction::Transaction> = transactions.iter().map(|tx| {
-                    arthachain_node::ledger::transaction::Transaction {
-                        tx_type: arthachain_node::ledger::transaction::TransactionType::Transfer,
-                        sender: tx.from.to_hex(),
-                        recipient: tx.to.to_hex(),
-                        amount: tx.value,
-                        nonce: tx.nonce,
-                        gas_price: tx.gas_price,
-                        gas_limit: tx.gas_limit,
-                        data: tx.data.clone(),
-                        signature: tx.signature.clone(),
-                        timestamp: current_time,
-                        #[cfg(feature = "bls")]
-                        bls_signature: None,
-                        status: arthachain_node::ledger::transaction::TransactionStatus::Pending,
-                    }
-                }).collect();
+                // Transactions from mempool are already types::Transaction, no conversion needed
                 
                 let new_block = create_block(
                     prev_hash,
                     transactions.clone(),
                     current_height + 1,
                     current_time,
-                    shard_id as u32
+                    shard_id as u32,
                 );
                 
                 match state_write.add_block(new_block.clone()) {
                     Ok(_) => {
-                        println!("Worker {}: Block {} mined with {} transactions", 
-                                shard_id, current_height + 1, tx_count);
+                        println!(
+                            "Worker {}: Block {} mined with {} transactions",
+                            shard_id,
+                            current_height + 1,
+                            tx_count
+                        );
                         
                         // Update shard performance metrics
                         if let Some(shard_info) = shard_manager.get_shard_info(shard_id).await {
                             // Update shard metrics through the performance monitor
-                            let _ = shard_manager.get_performance_monitor().update_shard_metrics(
-                                shard_id,
-                                tx_count as u64,
-                                tx_count as u64,
-                            ).await;
+                            let _ = shard_manager
+                                .get_performance_monitor()
+                                .update_shard_metrics(shard_id, tx_count as u64, tx_count as u64)
+                                .await;
                         }
                         
                         for tx in transactions {
-                                                let tx_hash = arthachain_node::utils::crypto::Hash::from_slice(tx.hash().as_bytes());
+                            let tx_hash = arthachain_node::utils::crypto::Hash::from_slice(
+                                tx.hash().as_bytes(),
+                            );
                     mempool_write.mark_executed(&tx_hash).await;
                         }
                     }
@@ -284,8 +287,8 @@ async fn transaction_processor(
             for tx in pending_txs {
                 // Convert ledger Transaction to types Transaction
                 let mempool_tx = Transaction {
-                    from: arthachain_node::types::Address::from_bytes(tx.sender.as_bytes()).unwrap_or_default(),
-                    to: arthachain_node::types::Address::from_bytes(tx.recipient.as_bytes()).unwrap_or_default(),
+                    from: Address::from_string(&tx.sender).unwrap_or_default(),
+                    to: Address::from_string(&tx.recipient).unwrap_or_default(),
                     value: tx.amount,
                     gas_price: tx.gas_price,
                     gas_limit: tx.gas_limit,
@@ -305,14 +308,16 @@ async fn transaction_processor(
                         data: mempool_tx.data.clone(),
                     };
                     
-                    if let Some(optimal_shard) = shard_manager.get_optimal_shard(&transaction_data).await {
+                    if let Some(optimal_shard) =
+                        shard_manager.get_optimal_shard(&transaction_data).await
+                    {
                         // Send to parallel processor with shard information
-                        let _ = processor.submit_task(
-                            ProcessingTask::TransactionProcessing {
+                        let _ = processor
+                            .submit_task(ProcessingTask::TransactionProcessing {
                                 transaction: mempool_tx.clone(),
                                 shard_id: optimal_shard,
-                            }
-                        ).await;
+                            })
+                            .await;
                     }
                 }
             }
@@ -321,10 +326,7 @@ async fn transaction_processor(
     }
 }
 
-async fn performance_monitor(
-    processor: Arc<ParallelProcessor>,
-    shard_manager: Arc<ShardManager>,
-) {
+async fn performance_monitor(processor: Arc<ParallelProcessor>, shard_manager: Arc<ShardManager>) {
     println!("Performance Monitor started");
     
     let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(5));
@@ -333,13 +335,22 @@ async fn performance_monitor(
         interval.tick().await;
         
         let processor_metrics = processor.get_performance_metrics().await;
-        let shard_metrics = shard_manager.get_performance_monitor().get_global_metrics().await;
+        let shard_metrics = shard_manager
+            .get_performance_monitor()
+            .get_global_metrics()
+            .await;
         
         println!("Performance Report:");
-        println!("  Total Transactions: {}", processor_metrics.total_transactions_processed);
+        println!(
+            "  Total Transactions: {}",
+            processor_metrics.total_transactions_processed
+        );
         println!("  Total Blocks: {}", processor_metrics.total_blocks_created);
         println!("  Current TPS: {}", processor_metrics.current_tps);
-        println!("  Avg Confirmation: {}ms", processor_metrics.average_processing_time.as_millis());
+        println!(
+            "  Avg Confirmation: {}ms",
+            processor_metrics.average_processing_time.as_millis()
+        );
         println!("  Peak TPS: {}", processor_metrics.peak_tps);
         println!("  Shard Metrics:");
         println!("    Total Shard TPS: {}", shard_metrics.total_transactions);
@@ -351,7 +362,7 @@ async fn performance_monitor(
 
 fn create_block(
     prev_hash: Hash,
-    transactions: Vec<Transaction>,
+    transactions: Vec<arthachain_node::types::Transaction>,
     height: u64,
     timestamp: u64,
     shard_id: u32,
@@ -370,8 +381,9 @@ fn create_block(
     
     Block {
         header,
-        transactions: transactions.into_iter().map(|tx| {
-            arthachain_node::ledger::block::Transaction {
+        transactions: transactions
+            .into_iter()
+            .map(|tx| arthachain_node::ledger::block::Transaction {
                 id: Hash::new(tx.hash().as_bytes().to_vec()),
                 from: tx.from.as_bytes().to_vec(),
                 to: tx.to.as_bytes().to_vec(),
@@ -380,13 +392,13 @@ fn create_block(
                 data: tx.data,
                 nonce: tx.nonce,
                 signature: Some(arthachain_node::Signature::new(tx.signature)),
-            }
-        }).collect(),
+            })
+            .collect(),
         signature: None,
     }
 }
 
-fn calculate_merkle_root(transactions: &[Transaction]) -> Hash {
+fn calculate_merkle_root(transactions: &[arthachain_node::types::Transaction]) -> Hash {
     if transactions.is_empty() {
         return Hash::default();
     }

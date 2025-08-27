@@ -1,9 +1,13 @@
 pub mod accounts;
+pub mod ai;
 pub mod blocks;
 pub mod consensus;
+pub mod contracts;
 pub mod faucet;
 pub mod gas_free;
+pub mod identity;
 pub mod metrics;
+pub mod monitoring;
 pub mod network_monitoring;
 pub mod status;
 pub mod testnet_api;

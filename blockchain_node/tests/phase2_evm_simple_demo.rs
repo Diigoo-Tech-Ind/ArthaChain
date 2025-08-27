@@ -17,22 +17,22 @@ fn test_phase23_evm_compatibility_demo() {
     // Test EVM Constants
     println!("🔧 Testing EVM Constants...");
 
-    assert_eq!(blockchain_node::evm::DEFAULT_GAS_PRICE, 20_000_000_000);
-    assert_eq!(blockchain_node::evm::DEFAULT_GAS_LIMIT, 21_000);
-    assert_eq!(blockchain_node::evm::NATIVE_TO_GAS_CONVERSION_RATE, 1);
+    assert_eq!(arthachain_node::evm::DEFAULT_GAS_PRICE, 20_000_000_000);
+    assert_eq!(arthachain_node::evm::DEFAULT_GAS_LIMIT, 21_000);
+    assert_eq!(arthachain_node::evm::NATIVE_TO_GAS_CONVERSION_RATE, 1);
 
     println!("✅ EVM Constants:");
     println!(
         "   📊 Default Gas Price: {} wei (20 gwei)",
-        blockchain_node::evm::DEFAULT_GAS_PRICE
+        arthachain_node::evm::DEFAULT_GAS_PRICE
     );
     println!(
         "   📊 Default Gas Limit: {}",
-        blockchain_node::evm::DEFAULT_GAS_LIMIT
+        arthachain_node::evm::DEFAULT_GAS_LIMIT
     );
     println!(
         "   📊 Native to Gas Rate: {}",
-        blockchain_node::evm::NATIVE_TO_GAS_CONVERSION_RATE
+        arthachain_node::evm::NATIVE_TO_GAS_CONVERSION_RATE
     );
 
     // Test Ethereum Address Compatibility
@@ -81,7 +81,7 @@ fn test_phase23_evm_compatibility_demo() {
     ];
 
     for (scenario, gas_cost) in gas_scenarios {
-        let gas_price = U256::from(blockchain_node::evm::DEFAULT_GAS_PRICE);
+        let gas_price = U256::from(arthachain_node::evm::DEFAULT_GAS_PRICE);
         let total_cost = gas_price * U256::from(gas_cost);
 
         println!(
@@ -94,14 +94,16 @@ fn test_phase23_evm_compatibility_demo() {
     // Test EVM Transaction Structure
     println!("\n📝 Testing EVM Transaction Structure...");
 
-    let evm_transaction = blockchain_node::evm::EvmTransaction {
+    let evm_transaction = arthachain_node::evm::EvmTransaction {
         from: H160::from_slice(&[0x12; 20]),
         to: Some(H160::from_slice(&[0x34; 20])),
         value: U256::from_dec_str("1000000000000000000").unwrap(),
         data: hex::decode("a9059cbb000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").unwrap(),
         gas_limit: U256::from(100_000),
-        gas_price: U256::from(blockchain_node::evm::DEFAULT_GAS_PRICE),
+        gas_price: U256::from(arthachain_node::evm::DEFAULT_GAS_PRICE),
         nonce: U256::from(42),
+        chain_id: Some(1),
+        signature: None,
     };
 
     assert_eq!(evm_transaction.from.as_bytes().len(), 20);
@@ -123,10 +125,10 @@ fn test_phase23_evm_compatibility_demo() {
     // Test EVM Configuration
     println!("\n⚙️ Testing EVM Configuration...");
 
-    let evm_config = blockchain_node::evm::EvmConfig {
+    let evm_config = arthachain_node::evm::EvmConfig {
         chain_id: 201766,
-        default_gas_price: blockchain_node::evm::DEFAULT_GAS_PRICE,
-        default_gas_limit: blockchain_node::evm::DEFAULT_GAS_LIMIT,
+        default_gas_price: arthachain_node::evm::DEFAULT_GAS_PRICE,
+        default_gas_limit: arthachain_node::evm::DEFAULT_GAS_LIMIT,
         precompiles: std::collections::HashMap::new(),
     };
 
@@ -275,7 +277,7 @@ fn test_ethereum_wei_conversions() {
     let gas_price_wei = U256::from(gas_price_gwei) * gwei;
     assert_eq!(
         gas_price_wei,
-        U256::from(blockchain_node::evm::DEFAULT_GAS_PRICE)
+        U256::from(arthachain_node::evm::DEFAULT_GAS_PRICE)
     );
 
     println!(

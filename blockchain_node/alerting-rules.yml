@@ -1,0 +1,26 @@
+groups:
+  - name: arthachain.rules
+    rules:
+      - alert: HighMemoryUsage
+        expr: arthachain_memory_usage_bytes / arthachain_memory_total_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage detected"
+          
+      - alert: ConsensusFailure
+        expr: rate(arthachain_consensus_failures_total[5m]) > 0.1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Consensus failures detected"
+          
+      - alert: LowPeerCount
+        expr: arthachain_peer_count < 3
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low peer count"

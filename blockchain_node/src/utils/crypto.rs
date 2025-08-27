@@ -11,6 +11,13 @@ use std::sync::Arc;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct Hash([u8; 32]);
 
+/// Hash data using Blake3
+pub fn hash_data(data: &[u8]) -> Vec<u8> {
+    let mut hasher = Hasher::new();
+    hasher.update(data);
+    hasher.finalize().as_bytes().to_vec()
+}
+
 impl std::fmt::Display for Hash {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", hex::encode(&self.0))

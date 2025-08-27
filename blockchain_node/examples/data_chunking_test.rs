@@ -1,5 +1,5 @@
-use blockchain_node::ai_engine::data_chunking::{CompressionType, DataChunkingAI};
-use blockchain_node::config::Config;
+use arthachain_node::ai_engine::data_chunking::{CompressionType, DataChunkingAI};
+use arthachain_node::config::Config;
 use std::time::{Duration, Instant};
 
 fn generate_sample_file(size_mb: usize) -> Vec<u8> {

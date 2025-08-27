@@ -9,9 +9,9 @@ use crate::consensus::leader_election::LeaderElectionManager;
 use crate::consensus::sharding::ObjectiveSharding;
 #[cfg(not(skip_problematic_modules))]
 use crate::consensus::svbft::SVBFTConsensus;
-use crate::consensus::svcp::{SVCPMiner, SVCPConsensus};
+use crate::consensus::svcp::{SVCPConsensus, SVCPMiner};
 use crate::consensus::validator_set::{ValidatorSetConfig, ValidatorSetManager};
-use crate::identity::IdentityManager;
+use crate::identity::{DIDManager, IdentityManager};
 use crate::ledger::state::State;
 use crate::monitoring::advanced_alerting::AdvancedAlertingSystem;
 use crate::monitoring::health_check::{HealthChecker, RemediationStrategy};
@@ -20,26 +20,26 @@ use crate::network::redundant_network::RedundantNetworkManager;
 use crate::network::rpc::RPCServer;
 use crate::storage::disaster_recovery::DisasterRecoveryManager;
 use crate::storage::replicated_storage::ReplicatedStorage;
-use crate::storage::RocksDbStorage;
+use crate::storage::MemMapStorage;
 use crate::storage::Storage;
 use crate::types::Hash;
 use crate::utils::fuzz::ContractFuzzer;
 use crate::utils::security_audit::SecurityAuditRegistry;
 use crate::utils::security_logger::SecurityLogger;
 use anyhow::Context;
+use axum::{routing::get, Extension, Router};
 use log::{debug, error, info, warn};
+use std::collections::HashMap;
+use std::net::SocketAddr;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::broadcast;
+use tokio::sync::mpsc;
 use tokio::sync::Mutex;
 use tokio::sync::RwLock as TokioRwLock;
 use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
-use tokio::sync::mpsc;
-use std::collections::HashMap;
-use std::net::SocketAddr;
-use axum::{Router, Extension, routing::get};
 
 #[cfg(feature = "evm")]
 use crate::evm::{EvmExecutor, EvmRpcService};
@@ -431,7 +431,7 @@ pub struct Node {
     pub network: Arc<TokioRwLock<Option<P2PNetwork>>>,
     pub api_server: Arc<TokioRwLock<Option<ApiServer>>>,
     pub metrics: Arc<TokioRwLock<Option<MetricsService>>>,
-    pub state: Arc<State>,
+    pub state: Arc<RwLock<State>>,
     pub storage: Arc<TokioRwLock<Box<dyn Storage + Send + Sync>>>,
     pub p2p_network: Arc<TokioRwLock<Option<P2PNetwork>>>,
     pub rpc_server: Arc<TokioRwLock<Option<RPCServer>>>,
@@ -449,6 +449,8 @@ pub struct Node {
     metrics_service: Option<Arc<MetricsService>>,
     /// Identity manager for the node
     pub identity_manager: Option<Arc<IdentityManager>>,
+    /// DID manager for decentralized identity operations
+    pub did_manager: Option<Arc<DIDManager>>,
     /// Node ID
     pub node_id: String,
     /// Node private key
@@ -490,8 +492,8 @@ impl Node {
         let db_path = Path::new("data/rocksdb");
         std::fs::create_dir_all(db_path)?;
 
-        // Create RocksDbStorage
-        let storage = RocksDbStorage::new();
+        // Create MemMapStorage
+        let storage = MemMapStorage::default();
 
         // Get or create node identity
         let (node_id, private_key) = config.get_or_create_node_identity();
@@ -509,7 +511,7 @@ impl Node {
             network: Arc::new(TokioRwLock::new(None)),
             api_server: Arc::new(TokioRwLock::new(None)),
             metrics: Arc::new(TokioRwLock::new(None)),
-            state: Arc::new(state),
+            state: Arc::new(RwLock::new(state)),
             storage: Arc::new(TokioRwLock::new(Box::new(storage))),
             p2p_network: Arc::new(TokioRwLock::new(None)),
             rpc_server: Arc::new(TokioRwLock::new(None)),
@@ -523,6 +525,7 @@ impl Node {
             task_handles: Vec::new(),
             metrics_service: None,
             identity_manager: None,
+            did_manager: None,
             node_id,
             private_key,
             #[cfg(feature = "evm")]
@@ -546,14 +549,14 @@ impl Node {
     }
 
     /// 🛡️ ACTIVATE SPOF COORDINATOR - CRITICAL STARTUP METHOD
-    pub async fn start_with_spof_protection(&self) -> Result<(), anyhow::Error> {
+    pub async fn start_with_spof_protection(&mut self) -> Result<(), anyhow::Error> {
         info!("🚀 Starting ArthaChain Node with COMPREHENSIVE SPOF PROTECTION");
-        
+
         // 1. ACTIVATE SPOF COORDINATOR FIRST (Most Important!)
         {
             let mut coordinator = self.spof_coordinator.as_ref();
             info!("🛡️ Activating SPOF Elimination Coordinator...");
-            
+
             // Force enable all SPOF protection systems
             let mut enhanced_coordinator = SpofEliminationCoordinator::new();
             enhanced_coordinator.config.enable_leader_redundancy = true;
@@ -562,7 +565,7 @@ impl Node {
             enhanced_coordinator.config.enable_predictive_monitoring = true;
             enhanced_coordinator.config.enable_disaster_recovery = true;
             enhanced_coordinator.config.enable_cross_datacenter = true; // Enable for production
-            
+
             enhanced_coordinator.initialize_all_systems().await?;
             info!("✅ SPOF Coordinator ACTIVATED - All SPOFs eliminated!");
         }
@@ -593,18 +596,18 @@ impl Node {
     /// Start network layer
     pub async fn start_network(&self) -> Result<(), anyhow::Error> {
         info!("🌐 Network layer starting...");
-        
+
         // Start API server on port 3000
         let api_handle = tokio::spawn(async {
             if let Err(e) = crate::api::server::start_api_server(3000).await {
                 log::error!("API server failed: {}", e);
             }
         });
-        
+
         // Give the server a moment to start
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
         info!("✅ API server started on port 3000");
-        
+
         // Start HTTP RPC on port 8545
         let state_clone = self.state.clone();
         let (rpc_shutdown_tx, _) = mpsc::channel(1);
@@ -620,35 +623,35 @@ impl Node {
                     return;
                 }
             };
-            
+
             match rpc_server.start().await {
                 Ok(_) => log::info!("RPC server started successfully"),
                 Err(e) => log::error!("Failed to start RPC server: {}", e),
             }
         });
         info!("✅ HTTP RPC started on port 8545");
-        
+
         // Start WebSocket RPC on port 8546
         let state_clone = self.state.clone();
         let ws_handle = tokio::spawn(async move {
             let addr = SocketAddr::from(([0, 0, 0, 0], 8546));
-            
+
             // Create a router with the WebSocket handler
             let app = Router::new()
                 .route("/ws", get(crate::api::websocket::websocket_handler))
                 .layer(Extension(state_clone));
-            
+
             match axum::serve(tokio::net::TcpListener::bind(&addr).await.unwrap(), app).await {
-                Ok(_) => {},
+                Ok(_) => {}
                 Err(e) => log::error!("WebSocket server error: {}", e),
             }
         });
         info!("✅ WebSocket RPC started on port 8546");
-        
+
         // Start P2P network on port 30303
         let state_clone = self.state.clone();
         let (p2p_shutdown_tx, _) = mpsc::channel(1);
-        
+
         // Configure P2P network
         let mut p2p_config = Config::default();
         p2p_config.network.p2p_port = 30303;
@@ -656,20 +659,20 @@ impl Node {
             "/dns4/bootstrap.arthachain.io/tcp/30303".to_string(),
             "/dns4/seed.arthachain.io/tcp/30303".to_string(),
         ];
-        
+
         let p2p_handle = tokio::spawn(async move {
-            match crate::network::p2p::P2PNetwork::new(p2p_config, state_clone, p2p_shutdown_tx).await {
-                Ok(mut p2p) => {
-                    match p2p.start().await {
-                        Ok(_) => log::info!("P2P network started successfully"),
-                        Err(e) => log::error!("Failed to start P2P network: {}", e),
-                    }
+            match crate::network::p2p::P2PNetwork::new(p2p_config, state_clone, p2p_shutdown_tx)
+                .await
+            {
+                Ok(mut p2p) => match p2p.start().await {
+                    Ok(_) => log::info!("P2P network started successfully"),
+                    Err(e) => log::error!("Failed to start P2P network: {}", e),
                 },
                 Err(e) => log::error!("Failed to create P2P network: {}", e),
             }
         });
         info!("✅ P2P network started on port 30303");
-        
+
         info!("✅ Network layer started successfully");
         Ok(())
     }
@@ -684,29 +687,26 @@ impl Node {
     }
 
     /// Start consensus
-    pub async fn start_consensus(&self) -> Result<(), anyhow::Error> {
+    pub async fn start_consensus(&mut self) -> Result<(), anyhow::Error> {
         info!("⚖️ Consensus starting...");
-        
+
         // Create channels for communication between SVCP and SVBFT
-        let (message_sender, message_receiver) = mpsc::channel(100);
-        let (block_sender, block_receiver) = mpsc::channel(100);
-        let (shutdown_sender, shutdown_receiver) = broadcast::channel(1);
-        
+        let (message_sender, message_receiver) = mpsc::channel::<String>(100);
+        let (block_sender, block_receiver) = mpsc::channel::<Vec<u8>>(100);
+        let (shutdown_sender, shutdown_receiver) = broadcast::channel::<()>(1);
+
         // Initialize node scores for SVCP
         let node_scores = Arc::new(Mutex::new(HashMap::new()));
-        
+
         // Create SVCP consensus instance
         let svcp_config = self.config.read().await.clone();
-        let svcp_consensus = SVCPConsensus::new(
-            svcp_config.clone(),
-            self.state.clone(),
-            node_scores.clone(),
-        )?;
-        
+        let svcp_consensus =
+            SVCPConsensus::new(svcp_config.clone(), self.state.clone(), node_scores.clone())?;
+
         // Start SVCP consensus
         info!("🔄 Starting SVCP mining protocol...");
         let svcp_handle = svcp_consensus.start().await?;
-        
+
         // Create SVBFT consensus instance
         #[cfg(not(skip_problematic_modules))]
         let svbft_consensus = SVBFTConsensus::new(
@@ -717,21 +717,22 @@ impl Node {
             block_receiver,
             shutdown_receiver.resubscribe(),
             None,
-        ).await?;
-        
+        )
+        .await?;
+
         // Start SVBFT consensus
         #[cfg(not(skip_problematic_modules))]
         {
             info!("🔄 Starting SVBFT consensus protocol...");
             let svbft_handle = svbft_consensus.start().await?;
-            
+
             // Store the handle
             self.task_handles.push(svbft_handle);
         }
-        
+
         // Store the SVCP handle
         self.task_handles.push(svcp_handle);
-        
+
         info!("✅ SVCP-SVBFT consensus started successfully");
         info!("🔄 Block production and finalization active");
         Ok(())
@@ -740,19 +741,19 @@ impl Node {
     /// Start monitoring
     pub async fn start_monitoring(&self) -> Result<(), anyhow::Error> {
         info!("📊 Monitoring starting...");
-        
+
         // Start Prometheus metrics server on port 9090
         let metrics_config = crate::monitoring::metrics_collector::MetricsConfig {
             address: "0.0.0.0".to_string(),
             port: 9090,
             enabled: true,
         };
-        
+
         // TODO: Implement actual metrics server
         // let metrics_server = crate::monitoring::metrics_collector::MetricsServer::new(metrics_config).await?;
         // let metrics_handle = metrics_server.start().await?;
         // *self.metrics.write().await = Some(metrics_handle);
-        
+
         info!("✅ Metrics server would start on port 9090");
         info!("✅ Monitoring started successfully");
         Ok(())
@@ -817,7 +818,8 @@ impl Node {
     /// Get the latest block hash
     pub async fn get_latest_block_hash(&self) -> crate::types::Hash {
         // Convert the string hash to a Hash type
-        match self.state.get_latest_block_hash() {
+        let state = self.state.read().await;
+        match state.get_latest_block_hash() {
             Ok(hash_str) => crate::types::Hash::from_hex(&hash_str).unwrap_or_default(),
             Err(_) => crate::types::Hash::default(),
         }
@@ -825,12 +827,13 @@ impl Node {
 
     /// Get the current blockchain height
     pub async fn get_height(&self) -> u64 {
-        self.state.get_height().unwrap_or(0)
+        let state = self.state.read().await;
+        state.get_height().unwrap_or(0)
     }
 
     pub async fn get_metrics(&self) -> Result<serde_json::Value, anyhow::Error> {
         let height = self.get_height().await;
-        let state = &*self.state;
+        let state = self.state.read().await;
         let metrics = serde_json::json!({
             "blockchain": {
                 "height": height,
@@ -869,7 +872,7 @@ impl Node {
     }
 
     async fn get_consensus_info(&self) -> Result<serde_json::Value, anyhow::Error> {
-        let state = &*self.state;
+        let state = self.state.read().await;
         Ok(serde_json::json!({
             "status": "active",
             "validators": state.get_validator_count(),
@@ -988,6 +991,11 @@ impl Node {
 
         info!("Node initialized with ID: {}", self.node_id);
         Ok(())
+    }
+
+    /// Get the DID manager for decentralized identity operations
+    pub fn did_manager(&self) -> Option<Arc<DIDManager>> {
+        self.did_manager.clone()
     }
 
     /// Shut down the node gracefully

@@ -1,16 +1,18 @@
+use crate::common::Error;
+use crate::crypto::Signature;
+use crate::ledger::transaction::Transaction as LedgerTransaction;
+use crate::transaction::mempool::Mempool;
+use crate::types::{Address, Transaction};
+use crate::utils::crypto::Hash;
 use axum::{
-    extract::{Json, Path, Query, Extension},
+    extract::{Extension, Json, Path, Query},
     http::StatusCode,
     response::IntoResponse,
 };
 use serde::{Deserialize, Serialize};
-use crate::transaction::mempool::Mempool;
-use crate::types::{Transaction, Address};
-use crate::utils::crypto::Hash;
-use crate::crypto::Signature;
-use crate::common::Error;
 
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
 
 #[derive(Debug, Deserialize)]
@@ -44,14 +46,88 @@ pub async fn submit_transaction(
     Extension(mempool): Extension<Arc<RwLock<Mempool>>>,
     Json(payload): Json<TransactionSubmissionRequest>,
 ) -> impl IntoResponse {
-    // Simplified response for testing - just return success
-    (StatusCode::OK, Json(TransactionSubmissionResponse {
-        success: true,
-        transaction_hash: Some("0x1234567890abcdef".to_string()),
-        message: format!("Transaction submitted successfully from {} to {} amount {}", 
-                         payload.from, payload.to, payload.amount),
-        gas_estimate: Some(21000),
-    }))
+    // Convert addresses from hex strings
+    let from_address = match Address::from_string(&payload.from) {
+        Ok(addr) => addr,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(TransactionSubmissionResponse {
+                success: false,
+                transaction_hash: None,
+                message: "Invalid 'from' address format".to_string(),
+                gas_estimate: None,
+                }),
+            )
+                .into_response();
+        }
+    };
+    
+    let to_address = match Address::from_string(&payload.to) {
+        Ok(addr) => addr,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(TransactionSubmissionResponse {
+                success: false,
+                transaction_hash: None,
+                message: "Invalid 'to' address format".to_string(),
+                gas_estimate: None,
+                }),
+            )
+                .into_response();
+        }
+    };
+    
+    // Create transaction
+    let transaction = Transaction {
+        from: from_address,
+        to: to_address,
+        value: payload.amount,
+        gas_price: payload.fee, // Use fee as gas price for simplicity
+        gas_limit: 21000,       // Default gas limit
+        nonce: payload.nonce,
+        data: payload
+            .data
+            .map(|d| hex::decode(d).unwrap_or_default())
+            .unwrap_or_default(),
+        signature: payload
+            .signature
+            .map(|s| hex::decode(s).unwrap_or_default())
+            .unwrap_or_default(),
+        hash: Hash::default(), // Will be computed by mempool
+    };
+    
+    // Add to mempool
+    let mempool_guard = mempool.write().await;
+    match mempool_guard.add_transaction(transaction).await {
+        Ok(hash) => {
+            let hash_hex = format!("0x{}", hex::encode(hash.as_bytes()));
+            (
+                StatusCode::OK,
+                Json(TransactionSubmissionResponse {
+                success: true,
+                transaction_hash: Some(hash_hex.clone()),
+                    message: format!(
+                        "Transaction submitted successfully to mempool. Hash: {}",
+                        hash_hex
+                    ),
+                gas_estimate: Some(21000),
+                }),
+            )
+                .into_response()
+        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(TransactionSubmissionResponse {
+                success: false,
+                transaction_hash: None,
+                message: format!("Failed to add transaction to mempool: {}", e),
+                gas_estimate: None,
+            }),
+        )
+            .into_response(),
+    }
 }
 
 /// Get pending transactions from mempool
@@ -66,7 +142,9 @@ pub async fn get_pending_transactions(
     let offset = query.offset.unwrap_or(0);
     
     // Get transactions for block inclusion (this simulates pending transactions)
-    let transactions = mempool_guard.get_transactions_for_block(limit + offset).await;
+    let transactions = mempool_guard
+        .get_transactions_for_block(limit + offset)
+        .await;
     
     let mut result = Vec::new();
     for (i, tx) in transactions.iter().enumerate().skip(offset).take(limit) {
@@ -98,6 +176,7 @@ pub async fn get_pending_transactions(
 pub async fn get_transaction_by_hash(
     Path(hash): Path<String>,
     Extension(mempool): Extension<Arc<RwLock<Mempool>>>,
+    Extension(state): Extension<Arc<RwLock<crate::ledger::state::State>>>,
 ) -> std::result::Result<Json<serde_json::Value>, StatusCode> {
     // Parse hash
     let hash_bytes = if hash.starts_with("0x") {
@@ -115,7 +194,7 @@ pub async fn get_transaction_by_hash(
             } else {
                 Hash::default()
             }
-        },
+        }
         Err(_) => {
             return Ok(Json(serde_json::json!({
                 "error": "Invalid hash format"
@@ -128,17 +207,103 @@ pub async fn get_transaction_by_hash(
     // Check if transaction is in mempool
     let stats = mempool_guard.get_stats().await;
     
-    // For now, return a mock response since we need to implement transaction lookup
-    // In production, this would check both mempool and blockchain
-    Ok(Json(serde_json::json!({
+    // Check if transaction exists in mempool
+    let mempool_tx = mempool_guard.get_transaction(&transaction_hash);
+
+    // Check if transaction exists in blockchain state
+    let state_guard = state.read().await;
+    let blockchain_tx = state_guard.get_transaction(&format!("{}", transaction_hash));
+
+    // Determine transaction status
+    let (status, block_hash, block_height, confirmations) = if let Some(tx) = &blockchain_tx {
+        // Transaction is confirmed in blockchain
+        // For now, we don't have block_hash in Transaction, so we'll use a placeholder
+        let current_height = state_guard.get_height().unwrap_or(0);
+        let confirmations = 1; // Default confirmation count
+
+        (
+            "confirmed".to_string(),
+            Some(format!("0x{}", hex::encode(tx.hash().as_bytes()))), // Use transaction hash as block hash for now
+            Some(current_height), // Use current height as block height for now
+            confirmations,
+        )
+    } else if mempool_tx.is_some() {
+        // Transaction is pending in mempool
+        ("pending".to_string(), None, None, 0)
+    } else {
+        // Transaction not found
+        ("not_found".to_string(), None, None, 0)
+    };
+
+    // Get transaction details if available
+    let response = if let Some(tx) = blockchain_tx {
+        // Handle ledger::transaction::Transaction type
+        serde_json::json!({
+            "hash": format!("0x{}", hex::encode(tx.hash().as_bytes())),
+            "status": status,
+            "sender": tx.sender,
+            "recipient": tx.recipient,
+            "amount": tx.amount,
+            "fee": tx.gas_price * tx.gas_limit,
+            "nonce": tx.nonce,
+            "timestamp": tx.timestamp,
+            "block_hash": block_hash,
+            "block_height": block_height,
+            "confirmations": confirmations,
+            "gas_price": tx.gas_price,
+            "gas_limit": tx.gas_limit,
+            "data": if tx.data.is_empty() {
+                serde_json::Value::Null
+            } else {
+                serde_json::Value::String(format!("0x{}", hex::encode(&tx.data)))
+            },
+            "mempool_stats": {
+                "pending_count": stats.pending_count,
+                "executed_count": stats.executed_count,
+                "total_size_bytes": stats.total_size_bytes
+            }
+        })
+    } else if let Some(tx) = mempool_tx {
+        // Handle mempool transaction (ledger::transaction::Transaction)
+        serde_json::json!({
+            "hash": hash,
+            "status": status,
+            "sender": format!("0x{}", hex::encode(tx.from.as_bytes())),
+            "recipient": format!("0x{}", hex::encode(tx.to.as_bytes())),
+            "amount": tx.value,
+            "fee": tx.gas_price * tx.gas_limit,
+            "nonce": tx.nonce,
+            "timestamp": SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+            "block_hash": block_hash,
+            "block_height": block_height,
+            "confirmations": confirmations,
+            "gas_price": tx.gas_price,
+            "gas_limit": tx.gas_limit,
+            "data": if tx.data.is_empty() {
+                serde_json::Value::Null
+            } else {
+                serde_json::Value::String(format!("0x{}", hex::encode(&tx.data)))
+            },
+            "mempool_stats": {
+                "pending_count": stats.pending_count,
+                "executed_count": stats.executed_count,
+                "total_size_bytes": stats.total_size_bytes
+            }
+        })
+    } else {
+        serde_json::json!({
         "hash": hash,
-        "status": "pending",
+            "status": status,
+            "message": "Transaction not found in mempool or blockchain",
         "mempool_stats": {
             "pending_count": stats.pending_count,
-            "executed_count": stats.executed_count
-        },
-        "message": "Transaction lookup not yet implemented - check back soon!"
-    })))
+                "executed_count": stats.executed_count,
+                "total_size_bytes": stats.total_size_bytes
+            }
+        })
+    };
+
+    Ok(Json(response))
 }
 
 /// Get mempool statistics
@@ -167,10 +332,13 @@ fn parse_address(addr_str: &str) -> std::result::Result<Vec<u8>, Error> {
     };
     
     if clean_addr.len() != 40 {
-        return Err(Error::InvalidTransaction("Address must be 20 bytes (40 hex chars)".to_string()));
+        return Err(Error::InvalidTransaction(
+            "Address must be 20 bytes (40 hex chars)".to_string(),
+        ));
     }
     
-    hex::decode(clean_addr).map_err(|_| Error::InvalidTransaction("Invalid hex address".to_string()))
+    hex::decode(clean_addr)
+        .map_err(|_| Error::InvalidTransaction("Invalid hex address".to_string()))
 }
 
 fn parse_signature(sig_hex: &str) -> std::result::Result<Signature, Error> {
@@ -197,5 +365,3 @@ fn estimate_gas(payload: &TransactionSubmissionRequest) -> u64 {
     
     base_gas + data_gas
 }
-
-

@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Extension, Json, Path, Query},
+    extract::{Extension, Json, Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
 };
@@ -496,8 +496,12 @@ pub async fn register_gas_free_app(
         app_type: match payload.app_type.as_str() {
             "CompletelyFree" => crate::gas_free::GasFreeAppType::CompletelyFree,
             "Discounted" => crate::gas_free::GasFreeAppType::Discounted { percentage: 50 },
-            "LimitedFree" => crate::gas_free::GasFreeAppType::LimitedFree { max_gas: payload.gas_limit_per_tx },
-            "SelectiveFree" => crate::gas_free::GasFreeAppType::SelectiveFree { operations: payload.allowed_tx_types.clone() },
+            "LimitedFree" => crate::gas_free::GasFreeAppType::LimitedFree {
+                max_gas: payload.gas_limit_per_tx,
+            },
+            "SelectiveFree" => crate::gas_free::GasFreeAppType::SelectiveFree {
+                operations: payload.allowed_tx_types.clone(),
+            },
             _ => crate::gas_free::GasFreeAppType::CompletelyFree,
         },
         duration: payload.duration * 86400, // Convert days to seconds

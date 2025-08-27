@@ -285,7 +285,7 @@ impl Transaction {
         hasher.update(&self.fee.to_le_bytes());
         hasher.update(&self.data);
         hasher.update(&self.nonce.to_le_bytes());
-        
+
         let hash_bytes = hasher.finalize();
         Ok(Hash::new(hash_bytes.as_bytes().to_vec()))
     }

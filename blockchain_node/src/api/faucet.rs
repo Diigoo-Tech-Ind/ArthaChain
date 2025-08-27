@@ -35,9 +35,9 @@ impl Default for FaucetConfig {
     fn default() -> Self {
         Self {
             enabled: false,
-            amount: 2, // Make ArthaCoin precious - maximum 2 per request
-            cooldown: 300, // 5 minutes cooldown between requests
-            max_requests_per_ip: 0, // No daily limit (0 = unlimited)
+            amount: 2,                   // Make ArthaCoin precious - maximum 2 per request
+            cooldown: 300,               // 5 minutes cooldown between requests
+            max_requests_per_ip: 0,      // No daily limit (0 = unlimited)
             max_requests_per_account: 0, // No daily limit (0 = unlimited)
             private_key: None,
             address: "faucet".to_string(),
@@ -437,25 +437,26 @@ pub async fn faucet_dashboard() -> impl IntoResponse {
     </body>
     </html>
     "#;
-    
+
     Html(html.to_string())
 }
 
 /// Request tokens from faucet
-pub async fn request_tokens(
-    Json(request): Json<FaucetRequest>,
-) -> impl IntoResponse {
+pub async fn request_tokens(Json(request): Json<FaucetRequest>) -> impl IntoResponse {
     // This is a placeholder - in a real implementation, you'd use the Faucet service
     let amount = request.amount.unwrap_or(1000);
-    
+
     // Simulate faucet response
     let response = FaucetResponse {
         success: true,
-        message: format!("Successfully sent {} ARTHA to {}", amount, request.recipient),
+        message: format!(
+            "Successfully sent {} ARTHA to {}",
+            amount, request.recipient
+        ),
         transaction_hash: Some(format!("0x{:x}", chrono::Utc::now().timestamp())),
         amount,
     };
-    
+
     (StatusCode::OK, Json(response))
 }
 
@@ -468,7 +469,7 @@ pub async fn get_faucet_status() -> impl IntoResponse {
         available_amount: 1000000,
         total_distributed: 50000,
     };
-    
+
     Json(status)
 }
 
@@ -488,7 +489,7 @@ pub async fn get_faucet_history() -> impl IntoResponse {
             transaction_hash: Some("0xdef456abc123".to_string()),
         },
     ];
-    
+
     Json(history)
 }
 

@@ -21,6 +21,7 @@ pub const BLOCK_GAS_LIMIT: u64 = 30_000_000; // 30M gas per block
 
 /// Maximum code size in bytes
 pub const MAX_CODE_SIZE: u64 = 24_576; // 24KB
+pub const NATIVE_TO_GAS_CONVERSION_RATE: u64 = 1_000_000; // 1 native token = 1M gas units
 
 // Re-export commonly used types
 pub use advanced_gas_metering::{
@@ -28,6 +29,6 @@ pub use advanced_gas_metering::{
 };
 pub use backend::{EvmAccount, EvmBackend};
 pub use executor::EvmExecutor;
+pub use rpc::EvmRpcService;
 pub use runtime::{EvmExecutionContext, EvmRuntime, StepResult};
 pub use types::{EvmAddress, EvmConfig, EvmError, EvmExecutionResult, EvmLog, EvmTransaction};
-pub use rpc::EvmRpcService;

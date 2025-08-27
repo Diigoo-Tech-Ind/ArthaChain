@@ -1,7 +1,7 @@
-use blockchain_node::gas_optimization::{
+use arthachain_node::gas_optimization::{
     GasOptimizationConfig, GasOptimizationEngine, OptimizationStrategy,
 };
-use blockchain_node::types::Address;
+use arthachain_node::types::Address;
 use std::time::Instant;
 
 /// Demonstrate Phase 2 Gas Optimization Success
@@ -17,7 +17,7 @@ async fn demonstrate_phase2_gas_optimization_success() {
 
     let config = GasOptimizationConfig {
         default_strategy: OptimizationStrategy::Hybrid,
-        pricing_model: blockchain_node::gas_optimization::PricingModel::Dynamic {
+        pricing_model: arthachain_node::gas_optimization::PricingModel::Dynamic {
             base_price: 1_000_000_000,
             multiplier: 1.2,
         },

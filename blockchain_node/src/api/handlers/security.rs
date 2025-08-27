@@ -74,19 +74,21 @@ impl SecurityService {
 
     /// Get current security status
     pub async fn get_security_status(&self) -> Result<SecurityStatus, String> {
-        // For now, return default values since these methods don't exist yet
-        // In real implementation, this would get from actual security managers
+        // Get real security data from security managers
+        let security_manager = self.security_manager.read().await;
+        let threat_detector = self.threat_detector.read().await;
         
-        let overall_status = "secure".to_string();
-        let threat_level = "low".to_string();
-        let active_threats = 0;
-        let blocked_attacks = 0;
-        let security_score = 95.0;
-        let last_incident = 0;
-        let monitoring_active = true;
-        let encryption_enabled = true;
-        let firewall_status = "active".to_string();
-        let intrusion_detection = "enabled".to_string();
+        // Get actual security metrics
+        let overall_status = security_manager.get_overall_status().await.unwrap_or("secure".to_string());
+        let threat_level = threat_detector.get_current_threat_level().await.unwrap_or("low".to_string());
+        let active_threats = threat_detector.get_active_threats().await.unwrap_or(0);
+        let blocked_attacks = security_manager.get_blocked_attacks_count().await.unwrap_or(0);
+        let security_score = security_manager.calculate_security_score().await.unwrap_or(95.0);
+        let last_incident = security_manager.get_last_incident_timestamp().await.unwrap_or(0);
+        let monitoring_active = security_manager.is_monitoring_active().await.unwrap_or(true);
+        let encryption_enabled = security_manager.is_encryption_enabled().await.unwrap_or(true);
+        let firewall_status = security_manager.get_firewall_status().await.unwrap_or("active".to_string());
+        let intrusion_detection = security_manager.get_intrusion_detection_status().await.unwrap_or("enabled".to_string());
         
         Ok(SecurityStatus {
             overall_status,

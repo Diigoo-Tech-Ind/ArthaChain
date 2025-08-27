@@ -1295,6 +1295,114 @@ impl P2PNetwork {
         // Placeholder implementation
         Ok(())
     }
+
+    // Network status methods for WebSocket service
+    /// Get total peer count
+    pub async fn get_peer_count(&self) -> Result<usize> {
+        let stats = self.stats.read().await;
+        Ok(stats.peer_count)
+    }
+
+    /// Get active connections count
+    pub async fn get_active_connections(&self) -> Result<usize> {
+        let stats = self.stats.read().await;
+        Ok(stats.active_connections)
+    }
+
+    /// Get network version
+    pub async fn get_network_version(&self) -> Result<String> {
+        Ok(self.config.network.version.clone())
+    }
+
+    /// Get network best height from peers
+    pub async fn get_network_best_height(&self) -> Result<u64> {
+        // Get best height from connected peers
+        let peers = self.known_peers.read().await;
+        if peers.is_empty() {
+            return Ok(0);
+        }
+
+        // For now, return a reasonable estimate based on local state
+        // In a real implementation, this would query peers
+        let state = self.state.read().await;
+        Ok(state.get_height().unwrap_or(0))
+    }
+
+    /// Get network difficulty
+    pub async fn get_network_difficulty(&self) -> Result<u64> {
+        // Get difficulty from local state
+        let state = self.state.read().await;
+        Ok(state.get_difficulty() as u64)
+    }
+
+    /// Get peer list
+    pub async fn get_peer_list(&self) -> Result<Vec<String>> {
+        let peers = self.known_peers.read().await;
+        Ok(peers.iter().map(|p| p.peer_id.clone()).collect())
+    }
+
+    /// Get total bytes sent
+    pub async fn get_total_bytes_sent(&self) -> Result<usize> {
+        let stats = self.stats.read().await;
+        Ok(stats.bytes_sent)
+    }
+
+    /// Get total bytes received
+    pub async fn get_total_bytes_received(&self) -> Result<usize> {
+        let stats = self.stats.read().await;
+        Ok(stats.bytes_received)
+    }
+
+    /// Get connection success rate
+    pub async fn get_connection_success_rate(&self) -> Result<f64> {
+        let stats = self.stats.read().await;
+        Ok(stats.success_rate)
+    }
+
+    /// Get failed connection attempts
+    pub async fn get_failed_connection_attempts(&self) -> Result<usize> {
+        let stats = self.stats.read().await;
+        // Calculate failed attempts based on success rate
+        let total_attempts = stats.peer_count + stats.active_connections;
+        let failed = if stats.success_rate > 0.0 {
+            ((1.0 - stats.success_rate) * total_attempts as f64) as usize
+        } else {
+            0
+        };
+        Ok(failed)
+    }
+
+    /// Get network health score
+    pub async fn get_network_health_score(&self) -> Result<f64> {
+        let stats = self.stats.read().await;
+
+        // Calculate health score based on multiple factors
+        let peer_score = (stats.peer_count as f64 / 100.0).min(1.0); // Normalize to 0-1
+        let connection_score = (stats.active_connections as f64 / 50.0).min(1.0);
+        let success_score = stats.success_rate;
+        let latency_score = (1000.0 / (stats.avg_latency_ms + 1.0)).min(1.0); // Lower latency = higher score
+
+        let health_score = (peer_score + connection_score + success_score + latency_score) / 4.0;
+        Ok(health_score.min(1.0).max(0.0))
+    }
+
+    /// Get last sync time
+    pub async fn get_last_sync_time(&self) -> Result<SystemTime> {
+        let stats = self.stats.read().await;
+        Ok(stats.last_activity.into())
+    }
+
+    /// Get average latency
+    pub async fn get_average_latency(&self) -> Result<f64> {
+        let stats = self.stats.read().await;
+        Ok(stats.avg_latency_ms)
+    }
+
+    /// Get bandwidth usage
+    pub async fn get_bandwidth_usage(&self) -> Result<usize> {
+        let stats = self.stats.read().await;
+        Ok(stats.bandwidth_usage)
+    }
 }
 
 #[cfg(test)]

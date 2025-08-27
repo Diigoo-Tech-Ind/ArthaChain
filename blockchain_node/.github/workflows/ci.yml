@@ -1,0 +1,86 @@
+name: ArthaChain CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_VERSION: 1.75
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: ${{ env.RUST_VERSION }}
+        profile: minimal
+        override: true
+        components: rustfmt, clippy
+    
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Run tests
+      run: cargo test --verbose
+    
+    - name: Run clippy
+      run: cargo clippy -- -D warnings
+    
+    - name: Check formatting
+      run: cargo fmt -- --check
+    
+    - name: Security audit
+      run: |
+        cargo install cargo-audit
+        cargo audit
+
+  build-and-deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+    
+    - name: Login to Container Registry
+      uses: docker/login-action@v2
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        push: true
+        tags: ghcr.io/arthachain/blockchain:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+    
+    - name: Deploy to Kubernetes
+      uses: azure/k8s-deploy@v1
+      with:
+        manifests: |
+          k8s-deployment.yaml
+          k8s-service.yaml
+          k8s-hpa.yaml
+          k8s-ingress.yaml
+        kubeconfig: ${{ secrets.KUBE_CONFIG }}
+        namespace: arthachain

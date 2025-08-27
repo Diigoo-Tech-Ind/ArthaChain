@@ -1,0 +1,25 @@
+{
+  "dashboard": {
+    "title": "ArthaChain Network Performance",
+    "panels": [
+      {
+        "title": "Network Messages",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(arthachain_network_messages_total[5m])"
+          }
+        ]
+      },
+      {
+        "title": "Peer Count",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "arthachain_peer_count"
+          }
+        ]
+      }
+    ]
+  }
+}

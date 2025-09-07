@@ -1,8 +1,8 @@
-# 📱 ArthaChain API Reference
+# ArthaChain API Reference
 
 **Complete API documentation for building applications on ArthaChain.** Copy-paste examples that actually work!
 
-## 🎯 What You'll Find Here
+## What You'll Find Here
 
 - **🌐 Base URLs & Networks** - Where to connect
 - **🔐 Authentication** - API keys and rate limits  

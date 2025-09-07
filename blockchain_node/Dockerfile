@@ -30,7 +30,7 @@ RUN apt-get update && apt-get install -y \
 RUN useradd -r -s /bin/false arthachain
 
 # Copy binary from builder stage
-COPY --from=builder /app/target/release/arthachain /usr/local/bin/
+COPY --from=builder /app/target/release/arthachain /usr/local/bin/arthachain
 
 # Set ownership and permissions
 RUN chown arthachain:arthachain /usr/local/bin/arthachain

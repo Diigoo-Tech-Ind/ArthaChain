@@ -297,7 +297,7 @@ jobs:
         status: success
         text: "ArthaChain successfully deployed to staging environment!"
         webhook_url: ${{ secrets.SLACK_WEBHOOK }}
-      if: success() && secrets.SLACK_WEBHOOK
+      if: success() && secrets.SLACK_WEBHOOK != ''
 
   # 🚀 Deploy to Production
   deploy-production:
@@ -390,7 +390,7 @@ jobs:
         status: success
         text: "ArthaChain successfully deployed to production environment!"
         webhook_url: ${{ secrets.SLACK_WEBHOOK }}
-      if: success() && secrets.SLACK_WEBHOOK
+      if: success() && secrets.SLACK_WEBHOOK != ''
 
   # 📊 Post-Deployment Analysis
   post-deployment-analysis:

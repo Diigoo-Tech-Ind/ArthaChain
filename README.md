@@ -41,6 +41,265 @@ ArthaChain is a high-performance blockchain platform that combines cutting-edge 
 - **API Services** - RESTful endpoints for blockchain data access
 - **Network Monitoring** - Real-time performance and health monitoring
 
+## System Architecture
+
+ArthaChain's sophisticated architecture combines multiple layers of advanced technology to create a production-grade, enterprise-ready blockchain platform.
+
+### Overall System Architecture & API Flow
+
+```mermaid
+flowchart TB
+    subgraph "Client Layer"
+        CLI[CLI Client]
+        REST[REST Client]
+        RPC[JSON-RPC Client]
+        WS[WebSocket Client]
+        WALLET[15+ Wallets<br/>MetaMask, Trust, Coinbase, etc.]
+    end
+
+    subgraph "API Gateway Layer"
+        ROUTER[Testnet Router<br/>Axum-based]
+        CORS[CORS Layer]
+        AUTH[Authentication]
+    end
+
+    subgraph "Core Services Layer"
+        BLOCKCHAIN[Blockchain API<br/>Blocks, Transactions]
+        CONSENSUS[Consensus API<br/>SVCP, Quantum SVBFT]
+        AI[AI Services<br/>Fraud Detection, Neural Networks]
+        STORAGE[Storage API<br/>RocksDB, MemMap, Replication]
+        RECOVERY[Disaster Recovery API]
+        CROSS[Cross-Shard API]
+    end
+
+    subgraph "Consensus Layer"
+        SVCP[SVCP Consensus<br/>Social Verified Protocol]
+        QSVBFT[Quantum SVBFT<br/>Byzantine Fault Tolerance]
+        LEADER[Leader Election<br/>Multi-Leader Support]
+        VALIDATOR[Validator Set<br/>Dynamic Rotation]
+    end
+
+    subgraph "AI Engine Layer"
+        NEURAL[Advanced Neural Network<br/>Backpropagation, Adam Optimizer]
+        FRAUD[Fraud Detection<br/>Real-time Analysis]
+        BCI[BCI Interface<br/>Brain-Computer Interface]
+        SECURITY[Security AI<br/>Threat Detection]
+    end
+
+    subgraph "Storage Layer"
+        MEMMAP[MemMap Storage<br/>LZ4/Zstd Compression]
+        ROCKSDB[RocksDB<br/>Production Database]
+        REPLICA[Replicated Storage<br/>Cross-Datacenter]
+        BACKUP[Disaster Recovery<br/>Automated Backup]
+    end
+
+    subgraph "Network Layer"
+        P2P[P2P Network<br/>Peer Discovery]
+        SHARD[Cross-Shard<br/>Transaction Coordination]
+        REDUNDANT[Redundant Network<br/>SPOF Elimination]
+    end
+
+    CLI --> ROUTER
+    REST --> ROUTER
+    RPC --> ROUTER
+    WS --> ROUTER
+    WALLET --> ROUTER
+
+    ROUTER --> CORS
+    CORS --> AUTH
+    AUTH --> BLOCKCHAIN
+    AUTH --> CONSENSUS
+    AUTH --> AI
+    AUTH --> STORAGE
+    AUTH --> RECOVERY
+    AUTH --> CROSS
+
+    CONSENSUS --> SVCP
+    CONSENSUS --> QSVBFT
+    CONSENSUS --> LEADER
+    CONSENSUS --> VALIDATOR
+
+    AI --> NEURAL
+    AI --> FRAUD
+    AI --> BCI
+    AI --> SECURITY
+
+    STORAGE --> MEMMAP
+    STORAGE --> ROCKSDB
+    STORAGE --> REPLICA
+    STORAGE --> BACKUP
+
+    CONSENSUS --> P2P
+    CONSENSUS --> SHARD
+    CONSENSUS --> REDUNDANT
+```
+
+### Consensus & Cross-Shard Architecture
+
+```mermaid
+flowchart LR
+    subgraph "Multi-Leader Consensus"
+        LEADER1[Leader 1<br/>Primary]
+        LEADER2[Leader 2<br/>Backup]
+        LEADER3[Leader 3<br/>Backup]
+        BALANCER[Leader Load Balancer<br/>SPOF Elimination]
+    end
+
+    subgraph "Consensus Protocols"
+        SVCP[SVCP Consensus<br/>Social Metrics]
+        QSVBFT[Quantum SVBFT<br/>Byzantine Fault Tolerance]
+        VIEW[View Change Manager<br/>Leader Rotation]
+    end
+
+    subgraph "Cross-Shard Coordination"
+        COORD[Cross-Shard Coordinator<br/>Distributed Coordination]
+        COORD1[Coordinator Replica 1]
+        COORD2[Coordinator Replica 2]
+        COORD3[Coordinator Replica 3]
+        COORD4[Coordinator Replica 4]
+        COORD5[Coordinator Replica 5]
+    end
+
+    subgraph "Shard Network"
+        SHARD1[Shard 1<br/>Transactions 0-100K]
+        SHARD2[Shard 2<br/>Transactions 100K-200K]
+        SHARD3[Shard 3<br/>Transactions 200K-300K]
+        SHARD4[Shard 4<br/>Transactions 300K-400K]
+    end
+
+    subgraph "Validator Set"
+        VAL1[Validator 1<br/>Mobile Optimized]
+        VAL2[Validator 2<br/>High Performance]
+        VAL3[Validator 3<br/>Storage Node]
+        VAL4[Validator 4<br/>AI Node]
+        VAL5[Validator 5<br/>Quantum Node]
+    end
+
+    BALANCER --> LEADER1
+    BALANCER --> LEADER2
+    BALANCER --> LEADER3
+
+    LEADER1 --> SVCP
+    LEADER2 --> SVCP
+    LEADER3 --> SVCP
+
+    SVCP --> QSVBFT
+    QSVBFT --> VIEW
+
+    COORD --> COORD1
+    COORD --> COORD2
+    COORD --> COORD3
+    COORD --> COORD4
+    COORD --> COORD5
+
+    COORD1 <==>|Quantum Signatures| SHARD1
+    COORD2 <==>|Quantum Signatures| SHARD2
+    COORD3 <==>|Quantum Signatures| SHARD3
+    COORD4 <==>|Quantum Signatures| SHARD4
+
+    SHARD1 <==>|Cross-Shard TX| SHARD2
+    SHARD2 <==>|Cross-Shard TX| SHARD3
+    SHARD3 <==>|Cross-Shard TX| SHARD4
+
+    VAL1 --> SHARD1
+    VAL2 --> SHARD2
+    VAL3 --> SHARD3
+    VAL4 --> SHARD4
+    VAL5 --> COORD
+```
+
+### AI Engine & Storage Architecture
+
+```mermaid
+flowchart TB
+    subgraph "AI Engine Layer"
+        NEURAL[Advanced Neural Network<br/>- Adam Optimizer<br/>- Backpropagation<br/>- Layer Gradients<br/>- Real Training]
+        
+        FRAUD[Fraud Detection<br/>- Real-time Analysis<br/>- Feature Extraction<br/>- Risk Assessment<br/>- Quantum Verification]
+        
+        BCI[BCI Interface<br/>- Signal Processing<br/>- Neural Spike Detection<br/>- Intent Recognition<br/>- Real-time Inference]
+        
+        SECURITY[Security AI<br/>- Threat Detection<br/>- Anomaly Detection<br/>- Behavioral Analysis<br/>- Automated Response]
+    end
+
+    subgraph "Storage Architecture"
+        MEMMAP[MemMap Storage<br/>- LZ4/Zstd Compression<br/>- 64MB Write Buffers<br/>- Atomic Commits<br/>- Index Optimization]
+        
+        ROCKSDB[RocksDB<br/>- Production Database<br/>- ACID Properties<br/>- Compression<br/>- Caching]
+        
+        REPLICA[Replicated Storage<br/>- Cross-Datacenter<br/>- Byzantine Fault Tolerance<br/>- Real-time Sync<br/>- Consensus Writes]
+        
+        BACKUP[Disaster Recovery<br/>- Automated Backups<br/>- Integrity Checks<br/>- Cloud Storage<br/>- <1min RTO]
+    end
+
+    subgraph "Data Flow"
+        TX[Transaction Input]
+        FEATURES[Feature Extraction]
+        PREDICTION[AI Prediction]
+        STORAGE[Data Storage]
+        RECOVERY[Disaster Recovery]
+    end
+
+    subgraph "Performance Layer"
+        PARALLEL[Parallel Processor<br/>- Work Stealing<br/>- Prefetching<br/>- Pipeline Verification<br/>- 16+ Workers]
+        
+        CACHE[Smart Caching<br/>- LRU Cache<br/>- Predictive Loading<br/>- Memory Optimization]
+        
+        COMPRESS[Compression Engine<br/>- LZ4/Zstd/Brotli<br/>- Adaptive Compression<br/>- Size Thresholds]
+    end
+
+    TX --> FEATURES
+    FEATURES --> NEURAL
+    FEATURES --> FRAUD
+    FEATURES --> BCI
+    FEATURES --> SECURITY
+
+    NEURAL --> PREDICTION
+    FRAUD --> PREDICTION
+    BCI --> PREDICTION
+    SECURITY --> PREDICTION
+
+    PREDICTION --> STORAGE
+    STORAGE --> MEMMAP
+    STORAGE --> ROCKSDB
+    STORAGE --> REPLICA
+    STORAGE --> BACKUP
+
+    MEMMAP --> PARALLEL
+    ROCKSDB --> PARALLEL
+    REPLICA --> PARALLEL
+
+    PARALLEL --> CACHE
+    CACHE --> COMPRESS
+    COMPRESS --> RECOVERY
+```
+
+### Architecture Highlights
+
+#### Multi-Layer SPOF Elimination
+- **Multi-Leader Consensus**: 3+ active leaders with load balancing
+- **Distributed Cross-Shard Coordination**: 5 coordinator replicas
+- **Redundant Storage**: Cross-datacenter replication with Byzantine fault tolerance
+- **AI-Powered Monitoring**: Real-time threat detection and automated response
+
+#### Production-Grade AI System
+- **Real Neural Networks**: AdvancedNeuralNetwork with backpropagation
+- **Fraud Detection**: Real-time analysis with 15+ feature extraction
+- **BCI Interface**: Brain-Computer Interface with signal processing
+- **Security AI**: Automated threat detection and response
+
+#### Enterprise Storage Architecture
+- **MemMap Storage**: High-performance with LZ4/Zstd compression
+- **RocksDB**: Production database with ACID properties
+- **Disaster Recovery**: <1 minute RTO with automated backups
+- **Cross-Datacenter**: Real-time synchronization and consensus
+
+#### Quantum-Resistant Security
+- **Quantum SVBFT**: Byzantine fault tolerance with quantum resistance
+- **Dilithium Signatures**: Post-quantum cryptographic algorithms
+- **Quantum Merkle Trees**: Future-proof data verification
+- **Multi-Layer Security**: AI + Quantum + Traditional cryptography
+
 ## Getting Started
 
 ### Live Network Access

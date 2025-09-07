@@ -297,7 +297,8 @@ jobs:
         status: success
         text: "ArthaChain successfully deployed to staging environment!"
         webhook_url: ${{ secrets.SLACK_WEBHOOK }}
-      if: success() && secrets.SLACK_WEBHOOK != ''
+      if: success()
+      continue-on-error: true
 
   # 🚀 Deploy to Production
   deploy-production:
@@ -390,7 +391,8 @@ jobs:
         status: success
         text: "ArthaChain successfully deployed to production environment!"
         webhook_url: ${{ secrets.SLACK_WEBHOOK }}
-      if: success() && secrets.SLACK_WEBHOOK != ''
+      if: success()
+      continue-on-error: true
 
   # 📊 Post-Deployment Analysis
   post-deployment-analysis:
@@ -488,6 +490,7 @@ jobs:
       uses: 8398a7/action-slack@v3
       with:
         status: failure
-        text: "🔄 ArthaChain deployment rolled back due to failure!"
+        text: "ArthaChain deployment rolled back due to failure!"
         webhook_url: ${{ secrets.SLACK_WEBHOOK }}
       if: always()
+      continue-on-error: true

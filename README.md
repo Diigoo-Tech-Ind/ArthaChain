@@ -1,6 +1,17 @@
 # ARTHACHAIN
 ![ArthaChain Logo](blockchain_node/assets/logos/arthachain-logo.png)
 
+**ArthaChain - A Blockchain Developed By DIIGOO Tech Private Limited, from India to the World of Future**
+
+*Decentralised Indian Innovation for Global Open Opportunities (DIIGOO)*
+
+We believe technology should carry meaning, unlock power, and be written in code that shapes the future.
+
+**ArthaChain**  
+*Meaning. Power. Code.*
+
+---
+
 ## The Next Generation of Blockchain Technology
 
 ArthaChain represents a paradigm shift in blockchain architecture, delivering unprecedented performance, security, and scalability through advanced consensus mechanisms and quantum-resistant cryptography. Built with Rust for maximum efficiency and reliability, ArthaChain is designed to handle the demands of enterprise-grade applications while maintaining the decentralization principles that make blockchain technology revolutionary.
@@ -189,3 +200,8 @@ For security-related issues, please contact security@arthachain.in. Do not repor
 ---
 
 *ArthaChain: Advancing blockchain technology through innovation, security, and performance.*
+
+**Developed by DIIGOO Tech Private Limited**  
+*Decentralised Indian Innovation for Global Open Opportunities (DIIGOO)*
+
+*Meaning. Power. Code.*

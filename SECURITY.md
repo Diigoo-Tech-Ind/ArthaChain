@@ -1,5 +1,10 @@
 # Security Policy
 
+**ArthaChain - Developed by DIIGOO Tech Private Limited**  
+*Decentralised Indian Innovation for Global Open Opportunities (DIIGOO)*
+
+*Meaning. Power. Code.*
+
 ## Supported Versions
 
 We provide security updates for the following versions of ArthaChain:

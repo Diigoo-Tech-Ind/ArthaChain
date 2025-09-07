@@ -1,5 +1,12 @@
 # Contributing to ArthaChain
 
+**ArthaChain - Developed by DIIGOO Tech Private Limited**  
+*Decentralised Indian Innovation for Global Open Opportunities (DIIGOO)*
+
+*Meaning. Power. Code.*
+
+---
+
 Thank you for your interest in contributing to ArthaChain! This document provides guidelines for contributing to the project.
 
 ## Development Process

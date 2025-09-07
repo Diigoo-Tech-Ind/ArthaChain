@@ -112,7 +112,7 @@ When reporting issues, please include:
 
 ## Security
 
-For security-related issues, please contact security@arthachain.in instead of creating a public issue.
+For security-related issues, please contact sainath@diigoo.com instead of creating a public issue.
 
 ## Code Review Process
 

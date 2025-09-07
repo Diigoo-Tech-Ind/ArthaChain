@@ -21,7 +21,7 @@ We take security seriously and appreciate your efforts to responsibly disclose y
 ### How to Report
 
 1. **DO NOT** create a public GitHub issue
-2. Email us at security@arthachain.in with the following information:
+2. Email us at sainath@diigoo.com with the following information:
    - Description of the vulnerability
    - Steps to reproduce the issue
    - Potential impact assessment
@@ -78,7 +78,7 @@ Security updates are released as soon as possible after a vulnerability is confi
 
 For security-related questions or concerns:
 
-- **Email**: security@arthachain.in
+- **Email**: sainath@diigoo.com
 - **PGP Key**: Available upon request
 
 ## Acknowledgments

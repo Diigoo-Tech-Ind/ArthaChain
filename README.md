@@ -448,7 +448,7 @@ This project is licensed under the Apache License 2.0. See the LICENSE file for 
 
 ## Security
 
-For security-related issues, please contact security@arthachain.in. Do not report security vulnerabilities through public GitHub issues.
+For security-related issues, please contact sainath@diigoo.com. Do not report security vulnerabilities through public GitHub issues.
 
 ## Support
 

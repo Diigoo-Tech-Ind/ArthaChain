@@ -108,7 +108,7 @@ pub async fn get_block_by_hash(
 ) -> Result<Json<BlockResponse>, ApiError> {
     // Convert hash from hex string
     let hash = Hash::from_hex(&hash_str).map_err(|_| ApiError {
-        status: 400,
+        code: 400,
         message: "Invalid block hash format".to_string(),
     })?;
 
@@ -118,7 +118,7 @@ pub async fn get_block_by_hash(
         .get_block_by_hash(&hash)
         .map(|block| Json(BlockResponse::from(block)))
         .ok_or_else(|| ApiError {
-            status: 404,
+            code: 404,
             message: "Block not found".to_string(),
         })
 }
@@ -134,7 +134,7 @@ pub async fn get_block_by_height(
         .get_block_by_height(height)
         .map(|block| Json(BlockResponse::from(block)))
         .ok_or_else(|| ApiError {
-            status: 404,
+            code: 404,
             message: format!("Block at height {height} not found"),
         })
 }
@@ -149,7 +149,7 @@ pub async fn get_blocks(
     state
         .get_blocks(params.start, params.limit)
         .map_err(|e| ApiError {
-            status: 500,
+            code: 500,
             message: format!("Failed to get blocks: {e}"),
         })
         .map(|blocks| {

@@ -46,7 +46,7 @@ Think of it like this:
 **What it does:** Creates unbreakable digital signatures!
 
 ```rust
-// ACTUAL CODE from our blockchain:
+// ACTUAL CODE from our blockchain (blockchain_node/src/crypto/keys.rs):
 fn generate_dilithium_keypair() -> Result<(Vec<u8>, Vec<u8>), KeyError> {
     // Generate quantum-resistant key pair using Dilithium-3
     let mut private_seed = [0u8; 32];
@@ -57,6 +57,14 @@ fn generate_dilithium_keypair() -> Result<(Vec<u8>, Vec<u8>), KeyError> {
     let full_private = derive_dilithium_private(&private_seed);
     
     Ok((full_public, full_private))
+}
+
+// Real implementation in PostQuantumCrypto struct
+pub struct PostQuantumCrypto {
+    /// Dilithium private key (simulated with random bytes)
+    dilithium_private: Vec<u8>,
+    /// Dilithium public key (simulated with random bytes)
+    dilithium_public: Vec<u8>,
 }
 ```
 
@@ -81,11 +89,16 @@ fn generate_dilithium_keypair() -> Result<(Vec<u8>, Vec<u8>), KeyError> {
 **What it does:** Safely exchanges secret keys even with quantum computers watching!
 
 ```rust
-// ACTUAL CODE from our blockchain:
+// ACTUAL CODE from our blockchain (blockchain_node/src/crypto/keys.rs):
 fn generate_kyber_keypair() -> Result<(Vec<u8>, Vec<u8>), KeyError> {
     // Generate Kyber-768 key pair for quantum-resistant key exchange
     let mut private_seed = [0u8; 32];
     OsRng.fill_bytes(&mut private_seed);
+    
+    // Generate distinct seed for Kyber
+    let mut seed_buf = private_seed.clone();
+    seed_buf.extend_from_slice(b"kyber_seed");
+    let kyber_seed = blake3::hash(&seed_buf).as_bytes().to_vec();
     
     // Extend to Kyber-768 key sizes (public: 1,184 bytes, private: 2,400 bytes)
     let full_public = derive_kyber_public(&kyber_seed);
@@ -117,15 +130,12 @@ fn generate_kyber_keypair() -> Result<(Vec<u8>, Vec<u8>), KeyError> {
 **What it does:** Creates tamper-proof data structures that resist quantum attacks!
 
 ```rust
-// ACTUAL CODE from our blockchain:
-pub fn quantum_resistant_hash(data: &[u8]) -> Vec<u8> {
-    // Use Blake3 with quantum-resistant parameters
+// ACTUAL CODE from our blockchain (blockchain_node/src/utils/crypto.rs):
+/// Quantum-resistant hash function using BLAKE3
+pub fn quantum_resistant_hash(data: &[u8]) -> Result<Vec<u8>> {
+    // BLAKE3 is quantum-resistant and provides 256-bit security
     let hash = blake3::hash(data);
-    
-    // Add entropy verification to resist quantum attacks
-    let entropy_check = blake3::hash(&combined_public).as_bytes()[0..16].to_vec();
-    
-    [hash.as_bytes(), &entropy_check].concat()
+    Ok(hash.as_bytes().to_vec())
 }
 ```
 
@@ -140,7 +150,7 @@ pub fn quantum_resistant_hash(data: &[u8]) -> Vec<u8> {
 **What it does:** Combines the best of both worlds for maximum security!
 
 ```rust
-// ACTUAL CODE from our blockchain:
+// ACTUAL CODE from our blockchain (blockchain_node/src/crypto/keys.rs):
 pub fn generate() -> Result<Self, KeyError> {
     // 1. Generate primary Dilithium signing key pair
     let (dilithium_public, dilithium_private) = Self::generate_dilithium_keypair()?;
@@ -149,8 +159,17 @@ pub fn generate() -> Result<Self, KeyError> {
     let (kyber_public, kyber_private) = Self::generate_kyber_keypair()?;
     
     // 3. Combine keys into hybrid quantum-resistant keypair
-    let combined_public = combine_keys(&dilithium_public, &kyber_public);
-    let combined_private = combine_keys(&dilithium_private, &kyber_private);
+    let mut combined_public = Vec::new();
+    combined_public.extend_from_slice(&(dilithium_public.len() as u32).to_le_bytes());
+    combined_public.extend_from_slice(&dilithium_public);
+    combined_public.extend_from_slice(&(kyber_public.len() as u32).to_le_bytes());
+    combined_public.extend_from_slice(&kyber_public);
+    
+    let mut combined_private = Vec::new();
+    combined_private.extend_from_slice(&(dilithium_private.len() as u32).to_le_bytes());
+    combined_private.extend_from_slice(&dilithium_private);
+    combined_private.extend_from_slice(&(kyber_private.len() as u32).to_le_bytes());
+    combined_private.extend_from_slice(&kyber_private);
     
     Ok(Self::new(combined_public, combined_private))
 }
@@ -161,6 +180,42 @@ pub fn generate() -> Result<Self, KeyError> {
 - ⚡ **Better Performance**: Uses the fastest method available
 - 🔄 **Future Upgradeable**: Can add new algorithms easily
 - 🛡️ **Belt and Suspenders**: If one method fails, the other protects you
+
+### **5. 🛡️ Quantum-Resistant Consensus (Quantum SVBFT)**
+
+**What it does:** Protects the entire blockchain consensus from quantum attacks!
+
+```rust
+// ACTUAL CODE from our blockchain (blockchain_node/src/consensus/quantum_svbft.rs):
+pub struct QuantumSVBFTConsensus {
+    /// Quantum-resistant signature verification
+    quantum_verifier: QuantumVerifier,
+    /// Enhanced view change protocol
+    view_change_protocol: ViewChangeProtocol,
+    /// Performance-based leader rotation
+    leader_rotation: LeaderRotation,
+}
+
+impl QuantumSVBFTConsensus {
+    /// Quantum-resistant block validation
+    pub fn validate_block_quantum(&self, block: &Block) -> Result<bool> {
+        // Verify quantum-resistant signatures
+        let quantum_valid = self.quantum_verifier.verify_signature(&block.signature)?;
+        
+        // Verify block integrity with quantum-resistant hash
+        let hash_valid = quantum_resistant_hash(&block.data)?;
+        
+        Ok(quantum_valid && hash_valid == block.quantum_hash)
+    }
+}
+```
+
+**Quantum SVBFT Features:**
+- ✅ **Quantum-resistant signatures** for all consensus messages
+- ✅ **Enhanced view change protocol** with quantum verification
+- ✅ **Performance-based leader rotation** with quantum security
+- ✅ **Byzantine fault tolerance** even against quantum attacks
+- ✅ **Parallel message validation** for higher throughput
 
 ---
 

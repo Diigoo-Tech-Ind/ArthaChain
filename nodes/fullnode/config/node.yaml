@@ -1,0 +1,16 @@
+node:
+  id: "ArthaX3f1120c02af60e46cb57"
+  type: "fullnode"
+  role: "api"
+
+network:
+  p2p:
+    port: 8085
+  api:
+    port: 8081
+  metrics:
+    port: 9185
+
+consensus:
+  validator:
+    enabled: false

@@ -122,16 +122,16 @@ pub struct DagManager {
 impl DagManager {
     /// Create a new DAG manager
     pub fn new(config: DagConfig, genesis_block: Block) -> Result<Self> {
-        let genesis_hash = genesis_block.hash.clone();
+        let genesis_hash = genesis_block.hash()?.0.clone();
 
         // Create genesis vertex
         let genesis_vertex = DagVertex::new(
             genesis_hash.clone(),
-            "genesis".to_string(),
+            crate::network::types::NodeId("genesis".to_string()),
             0,
-            genesis_block.timestamp.unwrap_or(0),
+            genesis_block.header.timestamp,
             Vec::new(),
-            genesis_block.txs.iter().map(|tx| tx.hash.clone()).collect(),
+            genesis_block.transactions.iter().map(|tx| tx.id.0.clone()).collect(),
             Some(genesis_block),
         );
 
@@ -633,7 +633,7 @@ impl DagManager {
         let mut hasher = sha2::Sha256::new();
         use sha2::Digest;
 
-        hasher.update(&creator.as_ref());
+        hasher.update(creator.0.as_bytes());
         for parent in &parents {
             hasher.update(parent);
         }
@@ -707,7 +707,12 @@ impl Clone for DagManager {
         // This is a partial clone that shouldn't be used for regular operation
         // but is useful for certain interfaces
         Self {
-            config: RwLock::new(self.config.try_read().unwrap_or_default().clone()),
+            config: RwLock::new(
+                self.config
+                    .try_read()
+                    .map(|guard| (*guard).clone())
+                    .unwrap_or_else(|_| DagConfig::default()),
+            ),
             vertices: RwLock::new(HashMap::new()),
             finalized_by_height: RwLock::new(HashMap::new()),
             unfinalized_by_height: RwLock::new(HashMap::new()),

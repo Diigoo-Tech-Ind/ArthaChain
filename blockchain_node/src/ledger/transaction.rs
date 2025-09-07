@@ -172,7 +172,7 @@ impl Transaction {
 
         // Parse signature
         let signature_bytes: [u8; 64] = self.signature.as_slice().try_into().unwrap_or([0u8; 64]);
-        let signature = match ed25519_dalek::Signature::try_from(signature_bytes.as_ref()) {
+        let signature = match ed25519_dalek::Signature::try_from(&signature_bytes[..]) {
             Ok(sig) => sig,
             Err(_) => return false,
         };

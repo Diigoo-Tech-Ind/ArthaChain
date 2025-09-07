@@ -1,0 +1,17 @@
+node:
+  id: "ArthaX2c3947f7942e3f0a5e62"
+  type: "archive"
+  role: "storage"
+
+network:
+  p2p:
+    port: 8086
+  api:
+    port: 8082
+  metrics:
+    port: 9186
+
+storage:
+  archive:
+    enabled: true
+    retention_period: "10 years"

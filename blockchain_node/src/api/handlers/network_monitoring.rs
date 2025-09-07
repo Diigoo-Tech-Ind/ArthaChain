@@ -284,7 +284,7 @@ impl NetworkMonitoringService {
             })
         } else {
             Err(ApiError {
-                status: 503,
+                code: 503,
                 message: "Mempool service not available".to_string(),
             })
         }
@@ -296,7 +296,7 @@ impl NetworkMonitoringService {
         let current_timestamp = current_time
             .duration_since(UNIX_EPOCH)
             .map_err(|e| ApiError {
-                status: 500,
+                code: 500,
                 message: format!("Failed to get current time: {e}"),
             })?
             .as_secs();
@@ -305,7 +305,7 @@ impl NetworkMonitoringService {
             let start_timestamp = start_time
                 .duration_since(UNIX_EPOCH)
                 .map_err(|e| ApiError {
-                    status: 500,
+                    code: 500,
                     message: format!("Failed to get start time: {e}"),
                 })?
                 .as_secs();
@@ -321,7 +321,7 @@ impl NetworkMonitoringService {
             })
         } else {
             Err(ApiError {
-                status: 503,
+                code: 503,
                 message: "Node start time not initialized".to_string(),
             })
         }

@@ -536,7 +536,7 @@ impl VoteAggregator {
             vote_type,
             height,
             round,
-            &validator_id,
+            &validator_id.0,
             private_key,
         )?;
 
@@ -568,7 +568,7 @@ impl VoteAggregator {
         hasher.update(&[vote_type as u8]);
         hasher.update(&height.to_be_bytes());
         hasher.update(&round.to_be_bytes());
-        hasher.update(validator_id.as_ref());
+        hasher.update(validator_id.as_bytes());
         let signature = hasher.finalize().to_vec();
 
         Ok(signature)
@@ -661,7 +661,7 @@ impl Clone for VoteAggregator {
     fn clone(&self) -> Self {
         // This is a partial clone for internal use
         Self {
-            config: RwLock::new(self.config.try_read().unwrap_or_default().clone()),
+            config: RwLock::new(VoteAggregatorConfig::default()),
             vote_sets: RwLock::new(HashMap::new()),
             validators: self.validators.clone(),
             vote_receiver: None,

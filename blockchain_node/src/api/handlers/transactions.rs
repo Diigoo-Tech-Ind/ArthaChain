@@ -132,14 +132,17 @@ pub async fn get_transaction(
         Ok(bytes) => bytes,
         Err(_) => {
             return Err(ApiError {
-                status: 400,
+                code: 400,
                 message: "Invalid transaction hash format".to_string(),
             })
         }
     };
 
     // Create a Hash object from bytes
-    let hash = Hash::from_slice(&hash_bytes);
+    let hash = Hash::from_slice(&hash_bytes).map_err(|_| ApiError {
+        code: 400,
+        message: "Invalid hash format".to_string(),
+    })?;
 
     let state = state.read().await;
 
@@ -155,10 +158,10 @@ pub async fn get_transaction(
         };
 
         let block_hash: Option<String> = Some(block_hash);
-        let block_hash_ref: Option<crate::utils::crypto::Hash> = block_hash
+                  let block_hash_ref: Option<crate::utils::crypto::Hash> = block_hash
             .as_ref()
             .and_then(|h| crate::types::Hash::from_hex(h.as_str()).ok())
-            .map(|h| crate::utils::crypto::Hash::from_slice(&h.0));
+            .and_then(|h| crate::utils::crypto::Hash::from_slice(&h.0).ok());
         let response = TransactionResponse::from_tx(
             &ledger_tx,
             block_hash_ref.as_ref(),
@@ -168,7 +171,7 @@ pub async fn get_transaction(
         Ok(Json(response))
     } else {
         Err(ApiError {
-            status: 404,
+            code: 404,
             message: "Transaction not found".to_string(),
         })
     }
@@ -183,7 +186,7 @@ pub async fn submit_transaction(
     // Convert data from hex if provided
     let data = if let Some(data_hex) = req.data {
         hex::decode(&data_hex).map_err(|_| ApiError {
-            status: 400,
+            code: 400,
             message: "Invalid data format".to_string(),
         })?
     } else {
@@ -192,7 +195,7 @@ pub async fn submit_transaction(
 
     // Convert signature from hex
     let signature = hex::decode(&req.signature).map_err(|_| ApiError {
-        status: 400,
+        code: 400,
         message: "Invalid signature format".to_string(),
     })?;
 
@@ -210,7 +213,7 @@ pub async fn submit_transaction(
         9 => TransactionType::System,
         _ => {
             return Err(ApiError {
-                status: 400,
+                code: 400,
                 message: "Invalid transaction type".to_string(),
             })
         }
@@ -251,7 +254,7 @@ pub async fn submit_transaction(
         .add_transaction(types_tx)
         .await
         .map_err(|e| ApiError {
-            status: 500,
+            code: 500,
             message: format!("Failed to add transaction to mempool: {e}"),
         })?;
 

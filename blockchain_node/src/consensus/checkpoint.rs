@@ -10,6 +10,14 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, RwLock};
 
+/// Serializable state representation for checkpointing
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct SerializableState {
+    height: u64,
+    shard_id: u64,
+    latest_block_hash: String,
+}
+
 /// Configuration for the checkpoint system
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CheckpointConfig {
@@ -252,8 +260,8 @@ impl CheckpointManager {
 
                 let should_checkpoint = {
                     let config = self_clone.config.read().await;
-                    block.height > 0
-                        && block.height - last_checkpoint_height
+                    block.header.height > 0
+                        && block.header.height - last_checkpoint_height
                             >= config.checkpoint_interval_blocks
                 };
 
@@ -264,7 +272,7 @@ impl CheckpointManager {
                                 "Created checkpoint {} at block height {}",
                                 checkpoint.id, checkpoint.block_height
                             );
-                            last_checkpoint_height = block.height;
+                            last_checkpoint_height = block.header.height;
                         }
                         Err(e) => {
                             warn!("Failed to create checkpoint: {}", e);
@@ -280,8 +288,13 @@ impl CheckpointManager {
         // Get the current state
         let state = self.state.read().await;
 
-        // Serialize the state
-        let state_data = state.serialize().await?;
+        // Create a serializable state representation
+        let state_rep = SerializableState {
+            height: state.get_height()?,
+            shard_id: state.get_shard_id()?,
+            latest_block_hash: state.get_latest_block_hash()?,
+        };
+        let state_data = bincode::serialize(&state_rep)?;
         let state_hash = compute_state_hash(&state_data);
 
         // Create the checkpoint
@@ -295,7 +308,7 @@ impl CheckpointManager {
         // Create metadata
         let metadata = CheckpointMetadata {
             creator: self.node_id.clone(),
-            network_id: state.network_id.clone(),
+            network_id: "arthachain".to_string(),
             version: env!("CARGO_PKG_VERSION").to_string(),
             state_size_bytes: state_data.len(),
             additional_info: HashMap::new(),
@@ -304,8 +317,8 @@ impl CheckpointManager {
         // Create checkpoint
         let mut checkpoint = Checkpoint {
             id,
-            block_hash: block.hash.clone(),
-            block_height: block.height,
+            block_hash: block.hash()?.0.clone(),
+            block_height: block.header.height,
             timestamp: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
@@ -529,8 +542,10 @@ impl CheckpointManager {
         }
 
         // Apply the state
+        let state_rep: SerializableState = bincode::deserialize(&state_data)?;
         let mut state = self.state.write().await;
-        state.deserialize(&state_data).await?;
+        state.set_height(state_rep.height)?;
+        state.set_latest_block_hash(&state_rep.latest_block_hash)?;
 
         info!(
             "Applied checkpoint {} (block height: {})",
@@ -612,7 +627,7 @@ impl Clone for CheckpointManager {
     fn clone(&self) -> Self {
         // Partial clone for use in async tasks
         Self {
-            config: RwLock::new(self.config.try_read().unwrap_or_default().clone()),
+            config: RwLock::new(self.config.try_read().map(|guard| (*guard).clone()).unwrap_or(CheckpointConfig::default())),
             checkpoints: RwLock::new(HashMap::new()),
             validators: self.validators.clone(),
             state: self.state.clone(),

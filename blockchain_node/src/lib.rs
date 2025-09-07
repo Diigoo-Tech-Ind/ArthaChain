@@ -171,7 +171,7 @@ Phantom, Solflare, Backpack, Slope, Glow.
 
 ### Developer IDEs (10+)
 Remix, Hardhat, Truffle, Foundry, Brownie, OpenZeppelin Defender,
-Solana Playground, Anchor, AssemblyScript, CosmWasm.
+Multi-VM Playground, Anchor, AssemblyScript, CosmWasm.
 
 ## License
 

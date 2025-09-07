@@ -153,6 +153,7 @@ impl Hash {
 
     /// Create hash from hex string
     pub fn from_hex(hex: &str) -> Result<Self, anyhow::Error> {
+        let hex = hex.trim_start_matches("0x");
         let bytes = hex::decode(hex).map_err(|e| anyhow::anyhow!("Invalid hex string: {}", e))?;
         Ok(Self(bytes))
     }
@@ -1009,9 +1010,9 @@ impl From<crate::ledger::block::Block> for Block {
             version: 1,  // Default version
             shard_id: 0, // Default shard for now
             height: ledger_block.header.height,
-            prev_hash: CryptoHash::from_slice(ledger_block.header.previous_hash.as_ref()),
+            prev_hash: CryptoHash::from_slice(ledger_block.header.previous_hash.as_ref()).expect("Invalid hash length"),
             timestamp: ledger_block.header.timestamp,
-            merkle_root: CryptoHash::from_slice(ledger_block.header.merkle_root.as_ref()),
+            merkle_root: CryptoHash::from_slice(ledger_block.header.merkle_root.as_ref()).expect("Invalid hash length"),
             state_root: CryptoHash::default(), // Will be calculated elsewhere
             receipt_root: CryptoHash::default(), // Will be calculated elsewhere
             proposer: {
@@ -1058,7 +1059,7 @@ impl From<crate::ledger::block::Block> for Block {
                         .signature
                         .map(|s| s.as_bytes().to_vec())
                         .unwrap_or_default(),
-                    hash: CryptoHash::from_slice(ledger_tx.id.as_ref()),
+                    hash: CryptoHash::from_slice(ledger_tx.id.as_ref()).expect("Invalid hash length"),
                 }
             })
             .collect();

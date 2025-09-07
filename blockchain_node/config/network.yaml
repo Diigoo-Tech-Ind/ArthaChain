@@ -1,0 +1,170 @@
+# ArthaChain Network Configuration
+# ArthaChain production-ready network configuration
+
+# Network identity
+network:
+  chain_id: 201766
+  network_name: "arthachain-testnet"
+  version: "1.0.0"
+
+# Node configuration
+node:
+  # Node type: validator, fullnode, seed, archive
+  type: "validator"
+  
+  # Node identifier (will be auto-generated)
+  node_id: ""
+  
+  # Moniker (human-readable name)
+  moniker: "ArthaChain-Node"
+
+# Network addresses (ArthaChain standard)
+addresses:
+  # API/RPC address - ArthaChain standard port
+  api_address: "0.0.0.0:8080"
+  
+  # P2P address - ArthaChain standard port
+  p2p_address: "0.0.0.0:8084"
+  
+  # Metrics address - ArthaChain standard port
+  metrics_address: "0.0.0.0:9184"
+  
+  # External address for P2P discovery (real IP/DNS)
+  external_address: ""
+
+# Seed peers (real infrastructure, not tunnels)
+seed_peers:
+  # Primary seed nodes (deployed on real infrastructure)
+  - peer_id: "12D3KooWSeed1ArthaChainTestnet001"
+    address: "/dns/seed1.arthachain.in/tcp/8084"
+    location: "us-east-1"
+    provider: "aws"
+    
+  - peer_id: "12D3KooWSeed2ArthaChainTestnet002"
+    address: "/dns/seed2.arthachain.in/tcp/8084"
+    location: "eu-west-1"
+    provider: "aws"
+    
+  - peer_id: "12D3KooWSeed3ArthaChainTestnet003"
+    address: "/dns/seed3.arthachain.in/tcp/8084"
+    location: "ap-southeast-1"
+    provider: "aws"
+
+# Bootstrap nodes (for initial network discovery)
+bootstrap_nodes:
+  - "seed1.arthachain.in:8084"
+  - "seed2.arthachain.in:8084"
+  - "seed3.arthachain.in:8084"
+
+# Network discovery configuration
+discovery:
+  # Enable P2P discovery
+  enabled: true
+  
+  # Discovery interval (seconds)
+  interval: 30
+  
+  # Max peers to discover
+  max_peers: 50
+  
+  # Connection timeout (seconds)
+  connection_timeout: 10
+  
+  # Keep-alive interval (seconds)
+  keep_alive: 60
+
+# Peer monitoring (ArthaChain standard)
+peer_monitoring:
+  enabled: true
+  interval_ms: 30000  # 30 seconds
+  timeout_ms: 20000   # 20 seconds
+  max_failures: 3
+
+# Network security
+security:
+  # Enable peer authentication
+  peer_auth: true
+  
+  # Enable connection encryption
+  encryption: true
+  
+  # Max connection rate per IP
+  max_connections_per_ip: 5
+  
+  # Ban duration for malicious peers (seconds)
+  ban_duration: 3600
+
+# Load balancing (for multi-region deployment)
+load_balancing:
+  enabled: true
+  health_check_interval: 30
+  health_check_timeout: 10
+  health_check_path: "/health"
+  
+  # Regions for global deployment
+  regions:
+    - name: "us-east-1"
+      location: "Virginia, USA"
+      provider: "aws"
+      nodes: 3
+      
+    - name: "eu-west-1"
+      location: "Ireland"
+      provider: "aws"
+      nodes: 2
+      
+    - name: "ap-southeast-1"
+      location: "Singapore"
+      provider: "aws"
+      nodes: 2
+      
+    - name: "us-west-2"
+      location: "Oregon, USA"
+      provider: "aws"
+      nodes: 2
+      
+    - name: "sa-east-1"
+      location: "São Paulo, Brazil"
+      provider: "aws"
+      nodes: 1
+
+# Monitoring and metrics
+monitoring:
+  # Enable Prometheus metrics
+  prometheus: true
+  
+  # Enable health checks
+  health_checks: true
+  
+  # Log level
+  log_level: "info"
+  
+  # Performance monitoring
+  performance_monitoring: true
+  
+  # Network latency monitoring
+  latency_monitoring: true
+
+# Deployment configuration
+deployment:
+  # Infrastructure provider
+  provider: "aws"  # aws, gcp, azure
+  
+  # Auto-scaling
+  auto_scaling:
+    enabled: true
+    min_nodes: 5
+    max_nodes: 20
+    target_cpu_utilization: 70
+  
+  # High availability
+  high_availability:
+    enabled: true
+    multi_az: true
+    failover: true
+  
+  # Backup and recovery
+  backup:
+    enabled: true
+    interval: "1h"
+    retention: "7d"

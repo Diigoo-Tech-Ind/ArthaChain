@@ -44,8 +44,8 @@ pub mod vote_aggregation;
 pub use batch::BatchProcessor;
 #[cfg(not(skip_problematic_modules))]
 pub use checkpoint::CheckpointManager;
-#[cfg(not(skip_problematic_modules))]
-pub use cross_shard::CrossShardManager;
+// #[cfg(not(skip_problematic_modules))]
+// pub use cross_shard::CrossShardManager;
 // Quantum-resistant enhanced cross-shard coordinator
 pub use cross_shard::{CrossShardCoordinator, EnhancedCrossShardManager};
 // Import network cross-shard types

@@ -1,0 +1,138 @@
+# ArthaChain Cloudflare Tunnel Configuration
+# Port Scheme: 1900, 1910, 1920, 1930, 1940, 1950, 1960, 1970
+
+tunnel: arthachain-testnet
+credentials-file: /Users/sainathtangallapalli/.cloudflared/cc3311b0-2a5c-4444-aacc-668576634499.json
+
+# Ingress rules for routing traffic
+ingress:
+  # Main Blockchain Node (Port 1900)
+  - hostname: testnet.arthachain.in
+    service: http://localhost:1900
+    originRequest:
+      connectTimeout: 30s
+      readTimeout: 30s
+      writeTimeout: 30s
+      noTLSVerify: false
+    headers:
+      - name: X-Forwarded-For
+        value: "{{ .ClientIP }}"
+      - name: X-Real-IP
+        value: "{{ .ClientIP }}"
+      - name: X-Forwarded-Proto
+        value: "https"
+
+  # Global API Service (Port 1910)
+  - hostname: api.arthachain.in
+    service: http://localhost:1910
+    originRequest:
+      connectTimeout: 30s
+      readTimeout: 30s
+      writeTimeout: 30s
+      noTLSVerify: false
+    headers:
+      - name: X-Forwarded-For
+        value: "{{ .ClientIP }}"
+      - name: X-Real-IP
+        value: "{{ .ClientIP }}"
+      - name: X-Forwarded-Proto
+        value: "https"
+
+  # Real-Time API Server (Port 1920)
+  - hostname: ws.arthachain.in
+    service: http://localhost:1920
+    originRequest:
+      connectTimeout: 30s
+      readTimeout: 30s
+      writeTimeout: 30s
+      noTLSVerify: false
+    headers:
+      - name: X-Forwarded-For
+        value: "{{ .ClientIP }}"
+      - name: X-Real-IP
+        value: "{{ .ClientIP }}"
+      - name: X-Forwarded-Proto
+        value: "https"
+
+  # Block Explorer API (Port 1930)
+  - hostname: explorer.arthachain.in
+    service: http://localhost:1930
+    originRequest:
+      connectTimeout: 30s
+      readTimeout: 30s
+      writeTimeout: 30s
+      noTLSVerify: false
+    headers:
+      - name: X-Forwarded-For
+        value: "{{ .ClientIP }}"
+      - name: X-Real-IP
+        value: "{{ .ClientIP }}"
+      - name: X-Forwarded-Proto
+        value: "https"
+
+  # Documentation Server (Port 1940)
+  - hostname: docs.arthachain.in
+    service: http://localhost:1940
+    originRequest:
+      connectTimeout: 30s
+      readTimeout: 30s
+      writeTimeout: 30s
+      noTLSVerify: false
+    headers:
+      - name: X-Forwarded-For
+        value: "{{ .ClientIP }}"
+      - name: X-Real-IP
+        value: "{{ .ClientIP }}"
+      - name: X-Forwarded-Proto
+        value: "https"
+
+  # Metrics Server (Port 1950)
+  - hostname: metrics.arthachain.in
+    service: http://localhost:1950
+    originRequest:
+      connectTimeout: 30s
+      readTimeout: 30s
+      writeTimeout: 30s
+      noTLSVerify: false
+    headers:
+      - name: X-Forwarded-For
+        value: "{{ .ClientIP }}"
+      - name: X-Real-IP
+        value: "{{ .ClientIP }}"
+      - name: X-Forwarded-Proto
+        value: "https"
+
+  # Faucet Service (Port 1960)
+  - hostname: faucet.arthachain.in
+    service: http://localhost:1960
+    originRequest:
+      connectTimeout: 30s
+      readTimeout: 30s
+      writeTimeout: 30s
+      noTLSVerify: false
+    headers:
+      - name: X-Forwarded-For
+        value: "{{ .ClientIP }}"
+      - name: X-Real-IP
+        value: "{{ .ClientIP }}"
+      - name: X-Forwarded-Proto
+        value: "https"
+
+  # RPC Service (Port 1970)
+  - hostname: rpc.arthachain.in
+    service: http://localhost:1970
+    originRequest:
+      connectTimeout: 30s
+      readTimeout: 30s
+      writeTimeout: 30s
+      noTLSVerify: false
+    headers:
+      - name: X-Forwarded-For
+        value: "{{ .ClientIP }}"
+      - name: X-Real-IP
+        value: "{{ .ClientIP }}"
+      - name: X-Forwarded-Proto
+        value: "https"
+
+  # Catch-all rule for unmatched hostnames
+  - service: http_status:404

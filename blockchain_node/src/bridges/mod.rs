@@ -24,7 +24,7 @@ pub enum Network {
     Avalanche,
     Cosmos,
     Polkadot,
-    Solana,
+    MultiVM,
 }
 
 /// Bridge configuration

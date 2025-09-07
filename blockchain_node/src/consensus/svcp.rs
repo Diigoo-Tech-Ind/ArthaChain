@@ -378,7 +378,7 @@ impl SVCPMiner {
                                 match mining_result {
                                     MiningResult::Success(mined_block) => {
                                         if let Ok(hash) = mined_block.hash() {
-                            info!("Successfully mined block: {}", hash.to_hex());
+                            info!("Successfully mined block: {}", hash.to_evm_hex());
                         }
 
                                         // Record block time for difficulty adjustment

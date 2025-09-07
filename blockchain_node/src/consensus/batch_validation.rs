@@ -150,6 +150,7 @@ impl BatchValidator {
     /// Start the transaction processing loop
     fn start_transaction_processing(&self, mut receiver: mpsc::Receiver<Transaction>) {
         let self_clone = Arc::new(self.clone());
+        let self_clone2 = self_clone.clone();
 
         tokio::spawn(async move {
             while let Some(tx) = receiver.recv().await {
@@ -177,7 +178,6 @@ impl BatchValidator {
         });
 
         // Start a timer to periodically process batches regardless of queue size
-        let self_clone2 = self_clone.clone();
         tokio::spawn(async move {
             let mut interval = {
                 let config = self_clone2.config.read().await;
@@ -219,11 +219,11 @@ impl BatchValidator {
                 if let Some(min_idx) = pending
                     .iter()
                     .enumerate()
-                    .min_by_key(|(_, t)| t.fee)
+                    .min_by_key(|(_, t)| t.fee())
                     .map(|(i, _)| i)
                 {
                     // Only replace if the new transaction has a higher fee
-                    if tx.fee > pending[min_idx].fee {
+                    if tx.fee() > pending[min_idx].fee() {
                         pending[min_idx] = tx;
                         return Ok(());
                     }
@@ -250,7 +250,7 @@ impl BatchValidator {
 
             // Sort by fee if prioritized
             if config.prioritize_by_fee {
-                pending.sort_by(|a, b| b.fee.cmp(&a.fee));
+                pending.sort_by(|a, b| b.fee().cmp(&a.fee()));
             }
 
             // Take up to max_batch_size transactions
@@ -300,13 +300,14 @@ impl BatchValidator {
             let mut results = HashMap::new();
             let mut valid_count = 0;
             let mut invalid_count = 0;
+            let total_count = transactions.len();
 
             // Set up a worker pool for validation
             let (tx, mut rx) = mpsc::channel(config.max_validation_workers);
 
             // Submit validation tasks
             for transaction in transactions {
-                let tx_hash = transaction.hash.clone();
+                let tx_hash = transaction.hash().as_bytes().to_vec();
                 let tx_clone = transaction.clone();
                 let validation_engine_clone = validation_engine.clone();
                 let tx_sender = tx.clone();
@@ -348,9 +349,9 @@ impl BatchValidator {
             }
 
             // Determine batch status
-            let status = if valid_count == transactions.len() {
+            let status = if valid_count == total_count {
                 BatchStatus::Valid
-            } else if invalid_count == transactions.len() {
+            } else if invalid_count == total_count {
                 BatchStatus::Invalid
             } else {
                 // Mixed results, we'll consider the batch invalid
@@ -388,7 +389,7 @@ impl BatchValidator {
         batch_result.status = status;
         batch_result.valid_count = valid_count;
         batch_result.invalid_count = invalid_count;
-        batch_result.results = results;
+        batch_result.results = results.into_iter().map(|(k, v)| (k, v)).collect();
         batch_result.error = error;
         batch_result.duration_ms = start_time.elapsed().as_millis() as u64;
 
@@ -471,7 +472,7 @@ impl Clone for BatchValidator {
     fn clone(&self) -> Self {
         // This is a partial clone for internal use
         Self {
-            config: RwLock::new(self.config.try_read().unwrap_or_default().clone()),
+            config: RwLock::new(self.config.try_read().map(|guard| (*guard).clone()).unwrap_or(BatchValidationConfig::default())),
             validation_engine: self.validation_engine.clone(),
             pending_transactions: RwLock::new(Vec::new()),
             batch_results: RwLock::new(HashMap::new()),

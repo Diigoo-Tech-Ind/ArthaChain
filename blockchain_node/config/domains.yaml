@@ -1,0 +1,101 @@
+# ArthaChain Domain Configuration
+# Truly decentralized hosting strategy - NO centralized cloud providers
+# Using arthachain.in for APIs to symbolize Indian origin
+# Version: ArthaChain 0.1
+
+domains:
+  primary:
+    main: "arthachain.in"
+    api: "api.arthachain.in"
+    testnet: "testnet.arthachain.in"
+    docs: "docs.arthachain.in"
+    explorer: "explorer.arthachain.in"
+    staging: "staging.arthachain.in"
+    
+  secondary:
+    main: "arthachain.com"
+    archive: "archive.arthachain.com"
+    research: "research.arthachain.com"
+    
+  tertiary:
+    main: "arthachain.org"
+    community: "community.arthachain.org"
+
+version:
+  name: "ArthaChain"
+  version: "0.1"
+  codename: "Indian Genesis"
+  
+dns_strategy:
+  decentralized_dns: true
+  dnssec: true
+  geo_routing: false  # No centralized CDN
+  
+load_balancing:
+  strategy: "p2p_network"
+  regions: []  # No centralized regions
+  
+ssl_certificates:
+  provider: "letsencrypt"  # Free, automated SSL
+  wildcard: true
+  auto_renewal: true
+  
+monitoring:
+  health_checks:
+    - "https://api.arthachain.in/health"
+    - "https://testnet.arthachain.in/health"
+    - "https://staging.arthachain.in/health"
+  uptime_monitoring: true
+  performance_monitoring: true
+
+deployment:
+  strategy: "p2p_distributed"
+  rollback: true
+  canary_deployment: true
+  
+infrastructure:
+  strategy: "community_nodes"
+  no_centralized_providers: true
+  community_hosting: true
+  
+container_registry:
+  primary: "ghcr.io/arthachain"  # GitHub Container Registry (only centralized part)
+  secondary: "docker.io/arthachain"
+  
+api_versioning:
+  current: "v1"
+  supported: ["v1", "v2"]
+  deprecated: []
+  
+rate_limiting:
+  strategy: "token_bucket"
+  limits:
+    public: "1000/hour"
+    authenticated: "10000/hour"
+    premium: "100000/hour"
+
+decentralized_hosting:
+  community_nodes:
+    - "validator.arthachain.in"      # Main validator node
+    - "fullnode.arthachain.in"       # Full node for API access
+    - "archive.arthachain.in"        # Archive node for historical data
+    - "rpc.arthachain.in"            # RPC endpoint node
+    - "explorer.arthachain.in"       # Blockchain explorer node
+    - "faucet.arthachain.in"         # Faucet service node
+    - "monitor.arthachain.in"        # Monitoring and metrics node
+    - "bridge.arthachain.in"         # Cross-chain bridge node
+  
+  p2p_networking: true
+  distributed_storage: true
+  community_governance: true
+  
+  no_single_point_of_failure: true
+  no_centralized_control: true
+  community_owned: true
+
+indian_identity:
+  primary_domain: "arthachain.in"
+  api_endpoints: "*.arthachain.in"
+  testnet: "testnet.arthachain.in"
+  staging: "staging.arthachain.in"
+  production: "api.arthachain.in"

@@ -1,0 +1,17 @@
+node:
+  id: "ArthaXc29bcc951c60581c0e46"
+  type: "monitor"
+  role: "monitoring"
+
+network:
+  p2p:
+    port: 8090
+  api:
+    port: 8086
+  metrics:
+    port: 9190
+
+monitoring:
+  metrics:
+    collection_enabled: true
+    export_interval: 30

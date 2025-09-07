@@ -1,0 +1,17 @@
+node:
+  id: "ArthaX468b80569274fae1bb17"
+  type: "validator"
+  role: "consensus"
+
+network:
+  p2p:
+    port: 8084
+  api:
+    port: 8080
+  metrics:
+    port: 9184
+
+ consensus:
+   validator:
+     enabled: true
+     # No staking - pure consensus based

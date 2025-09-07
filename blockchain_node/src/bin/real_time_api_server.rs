@@ -6,6 +6,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use std::net::SocketAddr;
 use tokio::sync::RwLock;
 use tower_http::cors::{Any, CorsLayer};
 
@@ -281,8 +282,8 @@ async fn main() -> Result<()> {
     // Create the real-time API router
     let app = create_real_time_router(state);
 
-    // Bind to port 8081 (different from main API on 8080)
-    let addr = "0.0.0.0:8081";
+    // Bind to port 1920 (ArthaChain real-time API)
+    let addr = SocketAddr::from(([127, 0, 0, 1], 1920));
     let listener = tokio::net::TcpListener::bind(addr).await?;
 
     println!("🔍 REAL-TIME API Server starting...");

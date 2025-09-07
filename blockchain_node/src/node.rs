@@ -5,8 +5,8 @@ use crate::api::ApiServer;
 use crate::config::Config;
 
 use crate::consensus::leader_election::LeaderElectionManager;
-#[cfg(not(skip_problematic_modules))]
-use crate::consensus::sharding::ObjectiveSharding;
+// #[cfg(not(skip_problematic_modules))]
+// use crate::consensus::sharding::ObjectiveSharding;
 #[cfg(not(skip_problematic_modules))]
 use crate::consensus::svbft::SVBFTConsensus;
 use crate::consensus::svcp::{SVCPConsensus, SVCPMiner};
@@ -438,9 +438,9 @@ pub struct Node {
     pub svcp_miner: Option<SVCPMiner>,
     #[cfg(not(skip_problematic_modules))]
     pub svbft_consensus: Option<SVBFTConsensus>,
-    #[allow(dead_code)]
-    #[cfg(not(skip_problematic_modules))]
-    objective_sharding: Option<ObjectiveSharding>,
+    // #[allow(dead_code)]
+    // #[cfg(not(skip_problematic_modules))]
+    // objective_sharding: Option<ObjectiveSharding>,
     pub security_ai: Option<SecurityAI>,
     pub shutdown_signal: broadcast::Sender<()>,
     pub task_handles: Vec<JoinHandle<()>>,
@@ -518,8 +518,8 @@ impl Node {
             svcp_miner: None,
             #[cfg(not(skip_problematic_modules))]
             svbft_consensus: None,
-            #[cfg(not(skip_problematic_modules))]
-            objective_sharding: None,
+            // #[cfg(not(skip_problematic_modules))]
+            // objective_sharding: None,
             security_ai: None,
             shutdown_signal: broadcast::channel(1).0,
             task_handles: Vec::new(),
@@ -691,8 +691,8 @@ impl Node {
         info!("⚖️ Consensus starting...");
 
         // Create channels for communication between SVCP and SVBFT
-        let (message_sender, message_receiver) = mpsc::channel::<String>(100);
-        let (block_sender, block_receiver) = mpsc::channel::<Vec<u8>>(100);
+        let (message_sender, message_receiver) = mpsc::channel::<crate::consensus::svbft::ConsensusMessage>(100);
+        let (block_sender, block_receiver) = mpsc::channel::<crate::ledger::block::Block>(100);
         let (shutdown_sender, shutdown_receiver) = broadcast::channel::<()>(1);
 
         // Initialize node scores for SVCP
@@ -709,7 +709,7 @@ impl Node {
 
         // Create SVBFT consensus instance
         #[cfg(not(skip_problematic_modules))]
-        let svbft_consensus = SVBFTConsensus::new(
+        let mut svbft_consensus = SVBFTConsensus::new(
             svcp_config,
             self.state.clone(),
             message_sender,

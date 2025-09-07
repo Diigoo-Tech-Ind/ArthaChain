@@ -754,7 +754,7 @@ impl GasOptimizationEngine {
     /// Start background optimization worker
     fn start_optimization_worker(&self) {
         let queue = self.optimization_queue.clone();
-        let patterns = self.patterns.clone();
+        let _patterns = self.patterns.clone();
 
         tokio::spawn(async move {
             loop {

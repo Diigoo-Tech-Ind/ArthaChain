@@ -23,10 +23,10 @@
 curl -X GET http://localhost:8080/api/recovery/status
 
 # Check specific component health
-curl -X GET http://localhost:8080/api/health
+curl -X GET http://localhost:8080/health
 
 # View active alerts
-curl -X GET http://localhost:8080/api/alerts/active
+curl -X GET http://localhost:8080/api/v1/monitoring/alerts
 ```
 
 ### 🔄 Basic Recovery Operations
@@ -34,20 +34,77 @@ curl -X GET http://localhost:8080/api/alerts/active
 # Force leader election
 curl -X POST http://localhost:8080/api/recovery/execute \
   -H "Content-Type: application/json" \
-  -d '{"operation": "ForceLeaderElection", "force": false}'
+  -d '{"operation": "ForceLeaderElection", "force": false, "parameters": {}}'
 
 # Restart from checkpoint
 curl -X POST http://localhost:8080/api/recovery/execute \
   -H "Content-Type: application/json" \
-  -d '{"operation": "RestartFromCheckpoint", "force": false}'
+  -d '{"operation": "RestartFromCheckpoint", "force": false, "parameters": {}}'
+
+# Restore from backup
+curl -X POST http://localhost:8080/api/recovery/execute \
+  -H "Content-Type: application/json" \
+  -d '{"operation": "RestoreFromBackup", "backup_id": "backup_123", "force": true, "parameters": {}}'
+
+# Force failover to specific node
+curl -X POST http://localhost:8080/api/recovery/execute \
+  -H "Content-Type: application/json" \
+  -d '{"operation": "ForceFailover", "target_node": "node_456", "force": true, "parameters": {}}'
+
+# Heal network partition
+curl -X POST http://localhost:8080/api/recovery/execute \
+  -H "Content-Type: application/json" \
+  -d '{"operation": "HealPartition", "partition_id": "partition_789", "force": false, "parameters": {}}'
+
+# State repair operations
+curl -X POST http://localhost:8080/api/recovery/execute \
+  -H "Content-Type: application/json" \
+  -d '{"operation": "StateRepair", "repair_type": "CorruptedBlocks", "force": false, "parameters": {}}'
+
+# Network reset
+curl -X POST http://localhost:8080/api/recovery/execute \
+  -H "Content-Type: application/json" \
+  -d '{"operation": "NetworkReset", "force": false, "parameters": {}}'
+
+# Full system recovery
+curl -X POST http://localhost:8080/api/recovery/execute \
+  -H "Content-Type: application/json" \
+  -d '{"operation": "FullSystemRecovery", "force": true, "parameters": {}}'
 
 # Emergency shutdown
 curl -X POST http://localhost:8080/api/recovery/execute \
   -H "Content-Type: application/json" \
-  -d '{"operation": "EmergencyShutdown", "force": true}'
+  -d '{"operation": "EmergencyShutdown", "force": true, "parameters": {}}'
 ```
 
 ---
+
+## 🛠️ Available Recovery Operations
+
+### **📋 Complete List of Recovery Operations**
+
+Based on the actual implementation in `blockchain_node/src/api/recovery_api.rs`:
+
+| Operation | Description | Force Required | Use Case |
+|-----------|-------------|----------------|----------|
+| **RestartFromCheckpoint** | Restart node from last checkpoint | No | Node crash recovery |
+| **ForceLeaderElection** | Force new leader election | No | Leader failure |
+| **RestoreFromBackup** | Restore from specific backup | Yes | Data corruption |
+| **ForceFailover** | Failover to specific node | Yes | Node replacement |
+| **HealPartition** | Heal network partition | No | Network split |
+| **EmergencyShutdown** | Emergency system shutdown | Yes | Critical failure |
+| **StateRepair** | Repair corrupted state | No | State corruption |
+| **NetworkReset** | Reset network connections | No | Network issues |
+| **FullSystemRecovery** | Complete system recovery | Yes | Major disaster |
+
+### **🔧 State Repair Types**
+
+| Repair Type | Description | Use Case |
+|-------------|-------------|----------|
+| **CorruptedBlocks** | Repair corrupted blocks | Block corruption detected |
+| **StateDatabase** | Repair state database | Database corruption |
+| **TransactionPool** | Repair transaction pool | Pool corruption |
+| **FullRebuild** | Complete state rebuild | Major corruption |
 
 ## 🎯 Failure Scenarios & Recovery Procedures
 

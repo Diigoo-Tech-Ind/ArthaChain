@@ -1,0 +1,21 @@
+# Testnet Router Test Configuration
+[testnet]
+enable_faucet = true
+enable_testnet_features = true
+max_transactions_per_block = 1000
+block_time = 5
+chain_id = 201766
+
+[testnet.api]
+enable_websocket = true
+enable_metrics = true
+enable_health_checks = true
+
+[testnet.security]
+enable_fraud_detection = true
+enable_ai_monitoring = true
+enable_quantum_resistance = true
+
+[testnet.gas_free]
+enable_gas_free_apps = true
+max_gas_free_transactions = 100

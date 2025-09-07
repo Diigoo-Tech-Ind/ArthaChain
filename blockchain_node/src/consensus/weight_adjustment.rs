@@ -194,7 +194,7 @@ impl DynamicWeightAdjuster {
         let mut current = health.write().await;
 
         // Get actual node count from network peers
-        current.node_count = Self::get_active_node_count().await?;
+        current.node_count = Self::get_active_node_count().await.unwrap_or(0) as usize;
 
         // Calculate real network throughput (TPS over last minute)
         current.avg_throughput = Self::calculate_network_throughput().await?;
@@ -203,7 +203,7 @@ impl DynamicWeightAdjuster {
         current.avg_latency = Self::measure_network_latency().await?;
 
         // Calculate network uptime percentage
-        current.uptime = Self::calculate_network_uptime().await?;
+        current.uptime = Self::calculate_network_uptime().await.unwrap_or(0.0) as f32;
 
         current.last_update = SystemTime::now();
 
@@ -256,7 +256,7 @@ impl DynamicWeightAdjuster {
 
         // Perform some computational work to gauge system performance
         let mut hash_count = 0;
-        for i in 0..10000 {
+        for i in 0..10000u32 {
             let _ = blake3::hash(&i.to_le_bytes());
             hash_count += 1;
         }

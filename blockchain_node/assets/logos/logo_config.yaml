@@ -1,0 +1,39 @@
+# ArthaChain Logo Configuration
+
+logo:
+  primary:
+    file: "arthachain-logo.png"
+    format: "PNG"
+    dimensions: "Original size from Google Drive"
+    usage: "Primary logo for all applications"
+  
+  web:
+    favicon: "../icons/favicon.ico"
+    logo_192: "../icons/logo-192.png"
+    logo_512: "../icons/logo-512.png"
+    apple_touch: "../icons/apple-touch-icon.png"
+  
+  social:
+    banner: "social-banner.png"
+    twitter_card: "twitter-card.png"
+    linkedin_banner: "linkedin-banner.png"
+  
+  branding:
+    colors:
+      primary: "#FFD700"  # Golden from your logo
+      secondary: "#000000" # Black background
+      accent: "#C0C0C0"   # Silver accents
+    
+    guidelines:
+      - "Always maintain aspect ratio"
+      - "Use on dark backgrounds for best contrast"
+      - "Minimum size: 200px width"
+      - "Recommended size: 400px width"
+      - "Maximum size: 800px width"
+
+implementation:
+  web_dashboard: true
+  api_responses: true
+  docker_images: true
+  documentation: true
+  monitoring: true

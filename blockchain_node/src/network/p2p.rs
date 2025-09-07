@@ -650,7 +650,7 @@ impl P2PNetwork {
 
         match &network_message {
             NetworkMessage::BlockProposal(block) => {
-                info!("Received block proposal: {}", block.hash()?.to_hex());
+                info!("Received block proposal: {}", block.hash()?.to_evm_hex());
 
                 // Forward to consensus layer
                 message_tx

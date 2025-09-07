@@ -17,18 +17,18 @@
 
 | Network | Base URL | Chain ID | Purpose |
 |---------|----------|----------|---------|
-| **🧪 Testnet** | `https://testnet.arthachain.online` | `artha-testnet-1` | Development & Testing |
-| **🚀 Mainnet** | `https://api.arthachain.com` | `artha-mainnet-1` | Production Applications |
+| **🧪 Testnet** | `https://testnet.arthachain.in` | `201766` | Development & Testing |
+| **🚀 Mainnet** | `https://api.arthachain.in` | `artha-mainnet-1` | Production Applications |
 
 ### 🔌 Available Endpoints
 
 | Service | Testnet | Mainnet |
 |---------|---------|---------|
-| **REST API** | `https://testnet.arthachain.online/api` | `https://api.arthachain.com/api` |
-| **JSON-RPC** | `https://testnet.arthachain.online/rpc` | `https://api.arthachain.com/rpc` |
-| **WebSocket** | `wss://testnet.arthachain.online/ws` | `wss://api.arthachain.com/ws` |
-| **Explorer** | `https://testnet.arthachain.online` | `https://explorer.arthachain.com` |
-| **Faucet** | `https://faucet.arthachain.online` | N/A (Mainnet has no faucet) |
+| **REST API** | `https://testnet.arthachain.in/api` | `https://api.arthachain.in/api` |
+| **JSON-RPC** | `https://rpc.arthachain.in` | `https://rpc.arthachain.in` |
+| **WebSocket** | `wss://testnet.arthachain.in/ws` | `wss://api.arthachain.in/ws` |
+| **Explorer** | `https://explorer.arthachain.in` | `https://explorer.arthachain.in` |
+| **Faucet** | `https://faucet.arthachain.in` | N/A (Mainnet has no faucet) |
 
 ## 🔐 Authentication & Rate Limits
 
@@ -37,7 +37,7 @@ Most read operations are completely free:
 
 ```bash
 # Get latest block - no authentication needed
-curl https://testnet.arthachain.online/api/blocks/latest
+curl https://testnet.arthachain.in/api/v1/blocks/latest
 ```
 
 ### 🔑 API Key Authentication (Optional)
@@ -46,7 +46,7 @@ For higher rate limits and premium features:
 ```bash
 # Add API key to headers
 curl -H "X-API-Key: your-api-key-here" \
-     https://api.arthachain.com/api/blocks/latest
+     https://api.arthachain.in/api/v1/blocks/latest
 ```
 
 **Get an API key**: [developer.arthachain.com/api-keys](https://developer.arthachain.com/api-keys)
@@ -74,10 +74,10 @@ X-RateLimit-Reset: 1640345400
 #### Get Latest Block
 Get information about the most recent block.
 
-**Endpoint:** `GET /api/blocks/latest`
+**Endpoint:** `GET /api/v1/blocks/latest`
 
 ```bash
-curl https://testnet.arthachain.online/api/blocks/latest
+curl https://testnet.arthachain.in/api/v1/blocks/latest
 ```
 
 **Response:**
@@ -497,10 +497,10 @@ curl https://testnet.arthachain.online/api/stats
 #### Get Fraud Dashboard Stats
 Get AI-powered fraud detection statistics.
 
-**Endpoint:** `GET /api/fraud/dashboard`
+**Endpoint:** `GET /api/v1/ai/status`
 
 ```bash
-curl https://testnet.arthachain.online/api/fraud/dashboard
+curl https://testnet.arthachain.in/api/v1/ai/status
 ```
 
 **Response:**
@@ -533,19 +533,23 @@ curl https://testnet.arthachain.online/api/fraud/dashboard
 #### Get Detection History
 Get fraud detection event history.
 
-**Endpoint:** `GET /api/fraud/history`
+**Endpoint:** `POST /api/v1/ai/detect-fraud`
 
 ```bash
-curl "https://testnet.arthachain.online/api/fraud/history?limit=20"
+curl -X POST https://testnet.arthachain.in/api/v1/ai/detect-fraud \
+  -H "Content-Type: application/json" \
+  -d '{"transaction_data": {...}}'
 ```
 
 #### Get Transaction Risk Analysis
 Get detailed AI risk analysis for a specific transaction.
 
-**Endpoint:** `GET /api/fraud/transaction/{tx_hash}`
+**Endpoint:** `POST /api/v1/ai/device-health`
 
 ```bash
-curl https://testnet.arthachain.online/api/fraud/transaction/0xabc123...
+curl -X POST https://testnet.arthachain.in/api/v1/ai/device-health \
+  -H "Content-Type: application/json" \
+  -d '{"device_info": {...}}'
 ```
 
 **Response:**
@@ -603,7 +607,7 @@ Programmatically request tokens from the testnet faucet.
 **Endpoint:** `POST /api/faucet/request`
 
 ```bash
-curl -X POST https://faucet.arthachain.online/api/faucet/request \
+curl -X POST https://faucet.arthachain.in/api/faucet/request \
   -H "Content-Type: application/json" \
   -d '{
     "address": "artha1xyz123abc456...",
@@ -638,7 +642,7 @@ Check faucet availability and limits.
 **Endpoint:** `GET /api/faucet/status`
 
 ```bash
-curl https://faucet.arthachain.online/api/faucet/status
+curl https://faucet.arthachain.in/api/faucet/status
 ```
 
 **Response:**

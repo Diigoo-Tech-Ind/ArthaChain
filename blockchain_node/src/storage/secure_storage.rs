@@ -267,7 +267,7 @@ impl SecureStorage {
             .map_err(|e| anyhow::anyhow!(e.to_string()))
         {
             Ok(()) => {
-                let hash = Hash::from_slice(key_bytes);
+                let hash = Hash::from_slice(key_bytes).expect("Invalid hash length");
                 // Log successful operation
                 self.log_audit_entry(SecurityAuditEntry {
                     audit_id: Uuid::new_v4().to_string(),

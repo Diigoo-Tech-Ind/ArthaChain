@@ -1,0 +1,37 @@
+; ArthaChain Decentralized DNS Zone
+; Primary domain: arthachain.in
+; No centralized providers - community managed
+
+$TTL 3600
+@       IN      SOA     ns1.arthachain.in. admin.arthachain.in. (
+                        2024010101      ; Serial
+                        3600            ; Refresh
+                        1800            ; Retry
+                        1209600         ; Expire
+                        3600            ; Minimum TTL
+)
+
+; Name servers
+@       IN      NS      ns1.arthachain.in.
+@       IN      NS      ns2.arthachain.in.
+
+; Main domain records
+@       IN      A       127.0.0.1
+www     IN      CNAME   @
+
+; API endpoints
+api     IN      A       127.0.0.1
+testnet IN      A       127.0.0.1
+staging IN      A       127.0.0.1
+docs    IN      A       127.0.0.1
+explorer IN     A       127.0.0.1
+
+; Community nodes
+node1 IN A 127.0.0.1
+node2 IN A 127.0.0.1
+node3 IN A 127.0.0.1
+node4 IN A 127.0.0.1
+node5 IN A 127.0.0.1
+node6 IN A 127.0.0.1
+node7 IN A 127.0.0.1
+node8 IN A 127.0.0.1

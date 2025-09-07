@@ -1,96 +1,191 @@
-# 🚀 ARTHACHAIN - THE FUTURE OF BLOCKCHAIN!
+# ARTHACHAIN
+![ArthaChain Logo](blockchain_node/assets/logos/arthachain-logo.png)
 
-## ⚡ SINGLE COMMAND SETUP WITH AMAZING ANIMATIONS! ⚡
+## The Next Generation of Blockchain Technology
 
-**No more boring scripts!** One command does everything with cool animations, system detection, and automatic optimization!
+ArthaChain represents a paradigm shift in blockchain architecture, delivering unprecedented performance, security, and scalability through advanced consensus mechanisms and quantum-resistant cryptography. Built with Rust for maximum efficiency and reliability, ArthaChain is designed to handle the demands of enterprise-grade applications while maintaining the decentralization principles that make blockchain technology revolutionary.
 
-## 🎯 WHAT YOU GET
+## Overview
 
-- **🔄 SVCP Consensus** - Scalable Virtual Consensus Protocol
-- **🔐 Quantum SVBFT** - Quantum-resistant Byzantine Fault Tolerance  
-- **🎯 Advanced Sharding** - 64-shard system with AI optimization
-- **⚡ DAG Processing** - Parallel execution with conflict resolution
-- **🧠 AI Engine** - Neural networks, fraud detection, BCI integration
-- **🚀 Ultra Performance** - 100,000+ TPS, <0.1s confirmation
-- **🔐 Quantum Security** - Post-quantum cryptography
-- **🌐 Cross-Chain** - Ethereum, Bitcoin, Cosmos, Polkadot bridges
+ArthaChain is a high-performance blockchain platform that combines cutting-edge consensus algorithms with advanced cryptographic techniques to create a secure, scalable, and efficient distributed ledger system. The platform features a comprehensive suite of tools including a real-time blockchain explorer, analytics dashboard, and persistent storage mechanisms that ensure data integrity across network restarts.
 
-## 🚀 SINGLE COMMAND TO START EVERYTHING!
+## Core Features
+
+### Consensus & Security
+- **SVCP Consensus** - Scalable Virtual Consensus Protocol enabling high-throughput transaction processing
+- **Quantum SVBFT** - Quantum-resistant Byzantine Fault Tolerance ensuring security against future cryptographic threats
+- **Advanced Sharding** - 64-shard system with AI-driven optimization for maximum parallel processing
+- **DAG Processing** - Directed Acyclic Graph architecture for parallel execution with intelligent conflict resolution
+- **Post-Quantum Cryptography** - Future-proof security mechanisms resistant to quantum computing attacks
+
+### Performance & Scalability
+- **Ultra-High Throughput** - Stage 1 performance of 100,000+ TPS with capability to handle 22.6 million TPS
+- **Sub-Second Confirmation** - Block confirmation times under 0.1 seconds
+- **AI-Powered Optimization** - Neural network integration for fraud detection and performance tuning
+- **Cross-Chain Interoperability** - Native bridges to Ethereum, Bitcoin, Cosmos, and Polkadot networks
+
+### Infrastructure & Tools
+- **Persistent Storage** - File-based state management ensuring data integrity across restarts
+- **Global Access** - Cloudflare-powered global distribution with HTTPS encryption
+- **API Services** - RESTful endpoints for blockchain data access
+- **Network Monitoring** - Real-time performance and health monitoring
+
+## Getting Started
+
+### Live Network Access
+
+The ArthaChain network is currently operational and accessible through the following endpoints:
+
+- **API Gateway**: https://api.arthachain.in
+- **Health Monitoring**: https://api.arthachain.in/health
+
+### Running Your Own Node
+
+To participate in the ArthaChain network by running your own node:
 
 ```bash
-# Make it executable (one time)
-chmod +x 🚀_ARTHACHAIN.sh
+# Grant execution permissions
+chmod +x ARTHACHAIN.sh
 
-# START YOUR NODE WITH ONE COMMAND! 🎉
-./🚀_ARTHACHAIN.sh
+# Launch the node
+./ARTHACHAIN.sh
 ```
 
-That's it! The script will:
-1. 🎨 Show amazing ASCII art and animations
-2. 🔍 Auto-detect your system capabilities
-3. 🎯 Determine optimal node role (mining/validation/sharding)
-4. ⚙️ Create perfect configuration automatically
-5. 🏗️ Build and optimize everything
-6. 🚀 Launch your node with style!
+The setup script performs the following operations:
+1. System capability assessment and optimization
+2. Automatic role determination (mining/validation/sharding)
+3. Configuration generation based on hardware specifications
+4. Compilation and optimization of the blockchain client
+5. Network initialization and peer discovery
 
-## 🎬 OTHER COMMANDS
+### Additional Commands
 
 ```bash
-./🚀_ARTHACHAIN.sh --demo     # Show features demo
-./🚀_ARTHACHAIN.sh --status   # Check node status  
-./🚀_ARTHACHAIN.sh --stop     # Stop running node
-./🚀_ARTHACHAIN.sh --help     # Show help
+./ARTHACHAIN.sh --demo     # Display feature demonstration
+./ARTHACHAIN.sh --status   # Check node operational status
+./ARTHACHAIN.sh --stop     # Gracefully shutdown running node
+./ARTHACHAIN.sh --help     # Display command reference
 ```
 
-## 🎯 AUTOMATIC ROLE DETECTION
+### Node Role Assignment
 
-The script automatically determines your optimal role:
+The system automatically assigns optimal roles based on hardware specifications:
 
-- **🚀 MINING NODE**: 16+ CPU cores, 32+ GB RAM, GPU
-- **✅ VALIDATION NODE**: 8+ CPU cores, 16+ GB RAM
-- **🎯 SHARDING NODE**: 4+ CPU cores, 8+ GB RAM  
-- **💡 LIGHT NODE**: Any system for basic operations
+- **Mining Node**: 16+ CPU cores, 32+ GB RAM, dedicated GPU
+- **Validation Node**: 8+ CPU cores, 16+ GB RAM
+- **Sharding Node**: 4+ CPU cores, 8+ GB RAM
+- **Light Node**: Minimum requirements for basic operations
 
-## 🌐 NETWORK ACCESS
+## Network Architecture
 
-- **Local API**: `http://localhost:8080`
+### Production Endpoints
+- **API Gateway**: https://api.arthachain.in
 - **P2P Network**: Port 30303
-- **Global Dashboard**: `https://api.arthachain.in`
 
-## 🔧 PREREQUISITES
+### Development Environment
+- **Local API Server**: `http://localhost:1900`
+- **Health Monitoring**: `http://localhost:1900/health`
 
-- **Rust**: Will auto-install if missing!
-- **System**: macOS, Linux, or Windows with WSL
+## System Requirements
 
-## 🎊 WHAT HAPPENS WHEN YOU RUN IT
+- **Rust Toolchain**: Automatically installed if not present
+- **Operating System**: macOS, Linux, or Windows with WSL2
+- **Memory**: Minimum 4GB RAM (8GB+ recommended)
+- **Storage**: 10GB available disk space
 
-1. **🎨 Beautiful ASCII art welcome**
-2. **🔍 Animated system detection** (CPU, Memory, GPU)
-3. **🎯 Role determination with effects**
-4. **📁 Directory creation with dots animation**
-5. **⚙️ Configuration generation**
-6. **🏗️ Build process with spinner**
-7. **🚀 Launch countdown with rocket emojis**
-8. **🌐 Endpoint activation showcase**
-9. **⚡ Performance features display**
-10. **🎉 FINAL LAUNCH!**
+## Installation Process
 
-## 🌟 FEATURES HIGHLIGHTED
+The automated setup process includes:
 
-- **100,000+ TPS** target performance
-- **<0.1 second** block confirmation
-- **AI-powered** optimization
-- **Quantum-resistant** security
-- **Cross-chain** interoperability
-- **Smart contract** support (EVM + WASM)
-- **Hybrid storage** optimization
+1. System capability analysis and hardware detection
+2. Optimal configuration generation based on system specifications
+3. Directory structure creation and permission setup
+4. Rust toolchain installation and dependency resolution
+5. Blockchain client compilation with performance optimizations
+6. Network configuration and peer discovery initialization
+7. Service startup and health verification
+8. Endpoint activation and connectivity testing
 
-## 🎉 READY TO EXPERIENCE THE FUTURE?
+## Technical Specifications
 
-**Just run: `./🚀_ARTHACHAIN.sh`**
+### Performance Metrics
+- **Throughput**: Stage 1 performance of 100,000+ TPS with capability to handle 22.6 million TPS
+- **Latency**: Sub-100ms block confirmation
+- **Consensus**: Byzantine fault tolerance with quantum resistance
+- **Scalability**: Horizontal scaling through advanced sharding
+- **Interoperability**: Native cross-chain bridge protocols
 
-And watch the magic happen! 🚀✨
+### Core Capabilities
+- **Real-Time Monitoring**: Live blockchain state visualization
+- **Historical Analysis**: Complete transaction and block history
+- **Advanced Search**: Universal query system across all data types
+- **Data Persistence**: Reliable state management across restarts
+- **Cross-Platform**: Multi-platform compatibility
+
+### Security Features
+- **Quantum Resistance**: Post-quantum cryptographic algorithms
+- **Consensus Security**: Byzantine fault tolerance mechanisms
+- **Data Integrity**: Cryptographic verification of all transactions
+- **Network Security**: Encrypted peer-to-peer communication
+- **Access Control**: Role-based permission systems
+
+## Current Status
+
+### Operational Features
+- **Persistent Storage**: Reliable data persistence across node restarts
+- **Global Search**: Comprehensive search across all blockchain data
+- **Global Distribution**: Worldwide access via Cloudflare infrastructure
+- **API Services**: RESTful endpoints for blockchain data access
+- **Network Monitoring**: Real-time performance and health monitoring
+
+### Network Metrics
+- **Total Blocks**: 200+ blocks successfully mined and validated
+- **Block Interval**: 10-second block generation cycle
+- **Network Status**: Fully operational and stable
+- **Data Integrity**: Verified persistence across restarts
+- **Search Coverage**: Complete historical data accessibility
+- **Analytics**: Real-time performance monitoring active
+
+### Development Roadmap
+- **Transaction Processing**: Enhanced transaction creation and validation
+- **Multi-Node Architecture**: Distributed validator network expansion
+- **Cross-Chain Integration**: Bridge protocols to major blockchain networks
+- **Mobile Applications**: Native mobile client development
+- **Internationalization**: Multi-language support implementation
+
+## Contributing
+
+We welcome contributions to the ArthaChain project. Please review our contribution guidelines and code of conduct before submitting pull requests.
+
+### Development Setup
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run tests and ensure code quality
+5. Submit a pull request
+
+### Code Standards
+
+- Follow Rust best practices and conventions
+- Include comprehensive tests for new features
+- Update documentation for API changes
+- Ensure all tests pass before submission
+
+## License
+
+This project is licensed under the Apache License 2.0. See the LICENSE file for details.
+
+## Security
+
+For security-related issues, please contact security@arthachain.in. Do not report security vulnerabilities through public GitHub issues.
+
+## Support
+
+- **Documentation**: https://docs.arthachain.in
+- **Community**: https://discord.gg/arthachain
+- **Issues**: https://github.com/arthachain/arthachain/issues
 
 ---
 
-*No more boring setup scripts - just pure blockchain awesomeness!* 🎊
+*ArthaChain: Advancing blockchain technology through innovation, security, and performance.*

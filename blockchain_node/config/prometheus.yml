@@ -1,0 +1,68 @@
+# ArthaChain Prometheus Configuration
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "arthachain_rules.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  # ArthaChain Node Metrics
+  - job_name: 'arthachain-node'
+    static_configs:
+      - targets: ['arthachain-node:1900']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+
+  # Global API Metrics
+  - job_name: 'arthachain-global-api'
+    static_configs:
+      - targets: ['arthachain-global-api:1910']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+
+  # Real-Time API Metrics
+  - job_name: 'arthachain-realtime-api'
+    static_configs:
+      - targets: ['arthachain-realtime-api:1920']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+
+  # Block Explorer Metrics
+  - job_name: 'arthachain-explorer'
+    static_configs:
+      - targets: ['arthachain-explorer-api:1930']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # RPC Service Metrics
+  - job_name: 'arthachain-rpc'
+    static_configs:
+      - targets: ['arthachain-rpc:1970']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+
+  # System Metrics
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 15s
+
+  # Docker Metrics
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    scrape_interval: 15s
+
+  # Cloudflare Tunnel Metrics
+  - job_name: 'cloudflared'
+    static_configs:
+      - targets: ['cloudflared:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 30s

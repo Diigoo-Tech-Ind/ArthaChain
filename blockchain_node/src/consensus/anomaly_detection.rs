@@ -80,6 +80,25 @@ pub enum AnomalyType {
     TransactionPattern,
 }
 
+impl std::fmt::Display for AnomalyType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AnomalyType::TransactionVolume => write!(f, "TransactionVolume"),
+            AnomalyType::FeeAnomaly => write!(f, "FeeAnomaly"),
+            AnomalyType::BlockTimeDeviation => write!(f, "BlockTimeDeviation"),
+            AnomalyType::BlockSizeAnomaly => write!(f, "BlockSizeAnomaly"),
+            AnomalyType::NetworkLatencySpike => write!(f, "NetworkLatencySpike"),
+            AnomalyType::ValidatorBehavior => write!(f, "ValidatorBehavior"),
+            AnomalyType::MempoolCongestion => write!(f, "MempoolCongestion"),
+            AnomalyType::ChainReorg => write!(f, "ChainReorg"),
+            AnomalyType::StateInconsistency => write!(f, "StateInconsistency"),
+            AnomalyType::SmartContractBehavior => write!(f, "SmartContractBehavior"),
+            AnomalyType::ConsensusDrop => write!(f, "ConsensusDrop"),
+            AnomalyType::TransactionPattern => write!(f, "TransactionPattern"),
+        }
+    }
+}
+
 /// Detected anomaly
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Anomaly {
@@ -470,14 +489,14 @@ impl AnomalyDetector {
         let mut detected_anomalies = Vec::new();
 
         // Record block metrics
-        let tx_count = block.txs.len() as f64;
+        let tx_count = block.transactions.len() as f64;
         if let Some(anomaly) = self.record_metric("tx_volume", tx_count).await? {
             // Add block information to the anomaly
             let mut updated_anomaly = anomaly.clone();
             updated_anomaly
                 .related_entities
                 .block_hashes
-                .push(block.hash.clone());
+                .push(block.hash()?.0.clone());
 
             // Update the stored anomaly
             let mut anomalies = self.anomalies.write().await;
@@ -493,7 +512,7 @@ impl AnomalyDetector {
         }
 
         // Calculate block size (approximate)
-        let block_size = block.txs.iter().map(|tx| tx.size.unwrap_or(0)).sum::<u64>() as f64;
+        let block_size = block.transactions.iter().map(|tx| tx.data.len() as u64).sum::<u64>() as f64;
 
         if let Some(anomaly) = self.record_metric("block_size", block_size).await? {
             // Add block information to the anomaly
@@ -501,7 +520,7 @@ impl AnomalyDetector {
             updated_anomaly
                 .related_entities
                 .block_hashes
-                .push(block.hash.clone());
+                .push(block.hash()?.0.clone());
 
             // Update the stored anomaly
             let mut anomalies = self.anomalies.write().await;
@@ -517,8 +536,8 @@ impl AnomalyDetector {
         }
 
         // Record block time if we have timestamps
-        if let Some(timestamp) = block.timestamp {
-            if let Some(proposal_time) = block.proposal_timestamp {
+        if let Some(timestamp) = Some(block.header.timestamp) {
+            if let Some(proposal_time) = Some(block.header.timestamp) {
                 let block_time = (timestamp - proposal_time) as f64;
 
                 if let Some(anomaly) = self.record_metric("block_time", block_time).await? {
@@ -527,7 +546,7 @@ impl AnomalyDetector {
                     updated_anomaly
                         .related_entities
                         .block_hashes
-                        .push(block.hash.clone());
+                        .push(block.hash()?.0.clone());
 
                     // Update the stored anomaly
                     let mut anomalies = self.anomalies.write().await;
@@ -545,34 +564,34 @@ impl AnomalyDetector {
         }
 
         // Process transactions for fee anomalies
-        for tx in &block.txs {
-            if let Some(fee) = tx.fee {
-                let fee_rate = fee as f64 / tx.size.unwrap_or(1) as f64;
+        for tx in &block.transactions {
+            let fee = tx.fee;
+            let tx_size = tx.data.len() as u64;
+            let fee_rate = fee as f64 / tx_size as f64;
 
-                if let Some(anomaly) = self.record_metric("fee_rate", fee_rate).await? {
-                    // Add transaction information to the anomaly
-                    let mut updated_anomaly = anomaly.clone();
-                    updated_anomaly
-                        .related_entities
-                        .block_hashes
-                        .push(block.hash.clone());
-                    updated_anomaly
-                        .related_entities
-                        .tx_hashes
-                        .push(tx.hash.clone());
+            if let Some(anomaly) = self.record_metric("fee_rate", fee_rate).await? {
+                // Add transaction information to the anomaly
+                let mut updated_anomaly = anomaly.clone();
+                updated_anomaly
+                    .related_entities
+                    .block_hashes
+                    .push(block.hash()?.0.clone());
+                updated_anomaly
+                    .related_entities
+                    .tx_hashes
+                    .push(tx.id.0.clone());
 
-                    // Update the stored anomaly
-                    let mut anomalies = self.anomalies.write().await;
-                    if let Some(last) = anomalies.back_mut() {
-                        if last.detection_time == updated_anomaly.detection_time
-                            && last.anomaly_type == updated_anomaly.anomaly_type
-                        {
-                            *last = updated_anomaly.clone();
-                        }
+                // Update the stored anomaly
+                let mut anomalies = self.anomalies.write().await;
+                if let Some(last) = anomalies.back_mut() {
+                    if last.detection_time == updated_anomaly.detection_time
+                        && last.anomaly_type == updated_anomaly.anomaly_type
+                    {
+                        *last = updated_anomaly.clone();
                     }
-
-                    detected_anomalies.push(updated_anomaly);
                 }
+
+                detected_anomalies.push(updated_anomaly);
             }
         }
 
@@ -688,7 +707,7 @@ impl Clone for AnomalyDetector {
     fn clone(&self) -> Self {
         // This is a partial clone for use in async tasks
         Self {
-            config: RwLock::new(self.config.try_read().unwrap_or_default().clone()),
+            config: RwLock::new(AnomalyDetectionConfig::default()),
             time_series: RwLock::new(HashMap::new()),
             anomalies: RwLock::new(VecDeque::new()),
             running: RwLock::new(false),

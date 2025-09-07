@@ -1,0 +1,16 @@
+node:
+  id: "ArthaXcda5a9909208c9c51eea"
+  type: "explorer"
+  role: "api"
+
+network:
+  p2p:
+    port: 8088
+  api:
+    port: 8084
+  metrics:
+    port: 9188
+
+explorer:
+  search_enabled: true
+  real_time_updates: true

@@ -5,15 +5,52 @@ use axum::{
     response::Json,
     routing::{get, post},
     Router,
+    serve,
+    ServiceExt,
 };
+use tower::Service;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{collections::HashMap, sync::Arc, time::Duration, net::IpAddr};
 use tokio::sync::RwLock;
 use tower_http::cors::{Any, CorsLayer};
 use uuid::Uuid;
 
 use crate::consensus::cross_shard::EnhancedCrossShardManager;
 use crate::network::cross_shard::{CrossShardConfig, CrossShardTransaction, ShardStats, TxPhase};
+use crate::api::handlers::faucet::{self, FaucetConfig};
+use crate::gas_free::GasFreeManager;
+use crate::config::Config;
+
+// App State for dependency injection will be defined below
+
+/// API Server struct
+pub struct ApiServer {
+    pub port: u16,
+    pub state: Arc<RwLock<AppState>>,
+}
+
+impl ApiServer {
+    pub fn new(port: u16, state: Arc<RwLock<AppState>>) -> Self {
+        Self { port, state }
+    }
+}
+
+/// API Error type
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ApiError {
+    pub code: u16,
+    pub message: String,
+}
+
+impl ApiError {
+    pub fn new(code: u16, message: String) -> Self {
+        Self { code, message }
+    }
+    
+    pub fn account_not_found() -> Self {
+        Self::new(404, "Account not found".to_string())
+    }
+}
 
 // API Models
 #[derive(Serialize, Deserialize)]
@@ -73,6 +110,9 @@ pub struct ShardInfoResponse {
 // Application State
 #[derive(Clone)]
 pub struct AppState {
+    pub blockchain_state: Arc<RwLock<crate::ledger::state::State>>,
+    pub validator_manager: Arc<crate::consensus::validator_set::ValidatorSetManager>,
+    pub mempool: Arc<RwLock<crate::transaction::mempool::Mempool>>,
     pub cross_shard_manager: Arc<RwLock<EnhancedCrossShardManager>>,
     pub node_id: String,
     pub network: String,
@@ -295,14 +335,32 @@ pub async fn start_api_server(port: u16) -> Result<()> {
     let mut manager = EnhancedCrossShardManager::new(config, network).await?;
     manager.start()?;
 
-    let state = AppState {
-        cross_shard_manager: Arc::new(RwLock::new(manager)),
-        node_id: format!("node_{}", uuid::Uuid::new_v4()),
-        network: "mainnet".to_string(),
-        stats: Arc::new(RwLock::new(NetworkStats::default())),
-    };
+    // Create the blockchain state
+    let config = crate::config::Config::default();
+    let blockchain_state = Arc::new(RwLock::new(crate::ledger::state::State::new(&config).unwrap()));
+    
+    // Create validator manager
+    let validator_config = crate::consensus::validator_set::ValidatorSetConfig::default();
+    let validator_manager = Arc::new(crate::consensus::validator_set::ValidatorSetManager::new(validator_config));
+    
+    // Create mempool
+    let mempool = Arc::new(RwLock::new(crate::transaction::mempool::Mempool::new(10000)));
 
-    let app = create_router(state);
+    // Use the comprehensive testnet router instead of basic router
+        // Create a basic config for the faucet
+        let faucet_config = crate::config::Config {
+            is_genesis: true,
+            ..Default::default()
+        };
+
+        let faucet = faucet::Faucet::new(&faucet_config, blockchain_state.clone(), None).await?;
+
+        let app = crate::api::testnet_router::create_testnet_router(
+            blockchain_state.clone(),
+            mempool,
+            Arc::new(faucet),
+            Arc::new(GasFreeManager::new()),
+        );
 
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port)).await?;
     println!(
@@ -317,7 +375,7 @@ pub async fn start_api_server(port: u16) -> Result<()> {
     println!("  GET  /shards              - List all shards");
     println!("  GET  /shards/:id          - Get shard info");
 
-    axum::serve(listener, app).await?;
+    axum::serve(listener, app.into_make_service()).await?;
 
     Ok(())
 }

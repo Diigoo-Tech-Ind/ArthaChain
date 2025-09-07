@@ -220,14 +220,14 @@ impl IncentiveManager {
         let validators = self.validators.read().await;
 
         // Calculate total transaction fees
-        let total_tx_fees = block.txs.iter().map(|tx| tx.fee.unwrap_or(0)).sum::<u64>();
+        let total_tx_fees = block.transactions.iter().map(|tx| tx.fee).sum::<u64>();
 
         // Calculate total block reward
         let total_block_reward = if config.use_dynamic_rewards {
             // Adjust based on block height
             let base_reward = config.base_block_reward;
             let adjustment_factor =
-                1.0 - (block.height as f64 / (block.height + 2_000_000) as f64) * 0.5;
+                                 1.0 - (block.header.height as f64 / (block.header.height + 2_000_000) as f64) * 0.5;
             (base_reward as f64 * adjustment_factor) as u64
         } else {
             config.base_block_reward
@@ -364,13 +364,13 @@ impl IncentiveManager {
             total_tx_fees,
             rewards_by_validator: rewards_by_validator.clone(),
             total_distributed,
-            block_height: block.height,
+            block_height: block.header.height,
             distribution_method: config.distribution_method,
         };
 
         *self.last_reward_calculation.write().await = Some(calculation.clone());
         *self.last_reward_time.write().await = Instant::now();
-        *self.current_block_height.write().await = block.height;
+        *self.current_block_height.write().await = block.header.height;
 
         // Update total rewards distributed
         let mut total = self.total_rewards_distributed.write().await;
@@ -387,10 +387,10 @@ impl IncentiveManager {
             reward_history.push(RewardEvent {
                 validator_id: validator.clone(),
                 amount: *amount,
-                block_height: block.height,
+                block_height: block.header.height,
                 timestamp,
                 reason: "Block reward".to_string(),
-                block_hash: Some(block.hash.clone()),
+                block_hash: Some(block.hash()?.0.clone()),
                 tx_hash: None,
             });
         }
@@ -597,8 +597,11 @@ impl IncentiveManager {
             0
         };
 
+        let rewards_count = rewards_by_validator.len();
+        let penalties_count = penalties_by_validator.len();
+        
         IncentiveStatistics {
-            total_rewards_distributed,
+            total_rewards_distributed: *self.total_rewards_distributed.read().await,
             total_penalties_applied: penalty_history.iter().map(|e| e.amount).sum(),
             reward_events_count: reward_history.len(),
             penalty_events_count: penalty_history.len(),
@@ -608,8 +611,8 @@ impl IncentiveManager {
             validator_with_highest_penalties,
             average_rewards,
             active_validators_count: validators.len(),
-            validators_with_rewards_count: rewards_by_validator.len(),
-            validators_with_penalties_count: penalties_by_validator.len(),
+            validators_with_rewards_count: rewards_count,
+            validators_with_penalties_count: penalties_count,
         }
     }
 }
@@ -618,7 +621,7 @@ impl Clone for IncentiveManager {
     fn clone(&self) -> Self {
         // This is a partial clone for use in async tasks
         Self {
-            config: RwLock::new(self.config.try_read().unwrap_or_default().clone()),
+            config: RwLock::new(IncentiveConfig::default()),
             validator_stakes: RwLock::new(HashMap::new()),
             validator_reputations: RwLock::new(HashMap::new()),
             validators: self.validators.clone(),

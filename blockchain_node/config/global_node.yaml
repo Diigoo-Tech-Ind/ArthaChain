@@ -1,0 +1,105 @@
+# ArthaChain Global Node Configuration
+# ArthaChain production-ready architecture
+
+# Database configuration
+db_path: "/opt/arthachain/db"
+
+# Network configuration - Fixed ports like major blockchains
+network:
+  # API/RPC address - ArthaChain standard port
+  api_address: "0.0.0.0:8080"
+  
+  # P2P address - ArthaChain standard port
+  p2p_address: "0.0.0.0:8084"
+  
+  # Metrics address - ArthaChain standard port
+  metrics_address: "0.0.0.0:9184"
+  
+  # External address for P2P discovery
+  external_address: "/dns/global.arthachain.in/tcp/8084"
+  
+  # Seed peers for network discovery (ArthaChain network)
+  seed_peers:
+    - peer_id: "12D3KooWSeed1ArthaChainGlobal001"
+      address: "/dns/seed1.arthachain.in/tcp/8084"
+    - peer_id: "12D3KooWSeed2ArthaChainGlobal002"
+      address: "/dns/seed2.arthachain.in/tcp/8084"
+    - peer_id: "12D3KooWSeed3ArthaChainGlobal003"
+      address: "/dns/seed3.arthachain.in/tcp/8084"
+
+# Blockchain configuration
+blockchain:
+  chain_id: 201766
+  genesis_file_location: "/opt/arthachain/config/genesis.blob"
+  
+  # Consensus configuration
+  consensus:
+    algorithm: "SVCP-SVBFT"
+    min_validators: 1
+    max_validators: 100
+    rotation_interval: 1000
+
+# API configuration
+api:
+  # Enable all API endpoints
+  enable_transactions: true
+  enable_blocks: true
+  enable_consensus: true
+  enable_network: true
+  
+  # CORS configuration for global access
+  cors:
+    allowed_origins: ["*"]
+    allowed_methods: ["GET", "POST", "PUT", "DELETE"]
+    allowed_headers: ["*"]
+
+# Mempool configuration
+mempool:
+  max_transactions: 10000
+  transaction_timeout: 300
+  enable_priority_queue: true
+
+# Mining configuration
+mining:
+  enabled: true
+  block_time: 5
+  max_block_size: 10000
+  difficulty_adjustment: true
+
+# Validation configuration
+validation:
+  enabled: true
+  signature_verification: true
+  transaction_validation: true
+
+# Sharding configuration
+sharding:
+  enabled: false  # Enable when network grows
+  shard_count: 1
+  cross_shard_communication: false
+
+# Performance configuration
+performance:
+  parallel_processing: true
+  memory_optimization: true
+  network_optimization: true
+
+# Security configuration
+security:
+  enable_rate_limiting: true
+  max_requests_per_minute: 1000
+  enable_ddos_protection: true
+
+# Monitoring configuration
+monitoring:
+  enable_metrics: true
+  enable_health_checks: true
+  enable_performance_monitoring: true
+  log_level: "info"
+
+# Deployment configuration
+deployment:
+  environment: "production"
+  region: "global"
+  datacenter: "multi"
+  load_balancer: true

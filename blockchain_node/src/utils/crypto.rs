@@ -6,6 +6,7 @@ use ed25519_dalek::{
 use hex;
 use rand::{rngs::OsRng, RngCore};
 use std::sync::Arc;
+use std::collections::HashMap;
 
 /// Cryptographic hash type (32 bytes)
 #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -30,12 +31,14 @@ impl Hash {
         Self(bytes)
     }
 
-    /// Create a hash from a slice (panics if not 32 bytes)
-    pub fn from_slice(slice: &[u8]) -> Self {
+    /// Create a hash from a slice (returns error if not 32 bytes)
+    pub fn from_slice(slice: &[u8]) -> Result<Self> {
+        if slice.len() != 32 {
+            return Err(anyhow::anyhow!("Hash must be exactly 32 bytes, got {}", slice.len()));
+        }
         let mut bytes = [0u8; 32];
-        let len = slice.len().min(32);
-        bytes[..len].copy_from_slice(&slice[..len]);
-        Self(bytes)
+        bytes.copy_from_slice(slice);
+        Ok(Self(bytes))
     }
 
     /// Get the hash as a byte slice
@@ -46,6 +49,11 @@ impl Hash {
     /// Get the hash as a byte array
     pub fn to_bytes(&self) -> [u8; 32] {
         self.0
+    }
+
+    /// Convert the hash to a byte vector
+    pub fn to_vec(&self) -> Vec<u8> {
+        self.0.to_vec()
     }
 }
 
@@ -79,7 +87,30 @@ impl AsRef<[u8]> for Hash {
     }
 }
 
+/// Address to public key mapping for verification
+#[derive(Debug, Clone)]
+pub struct AddressRegistry {
+    mappings: HashMap<String, Vec<u8>>,
+}
+
+impl AddressRegistry {
+    pub fn new() -> Self {
+        Self {
+            mappings: HashMap::new(),
+        }
+    }
+
+    pub fn register_address(&mut self, address: String, public_key: Vec<u8>) {
+        self.mappings.insert(address, public_key);
+    }
+
+    pub fn get_public_key(&self, address: &str) -> Option<&Vec<u8>> {
+        self.mappings.get(address)
+    }
+}
+
 /// Post-quantum cryptography implementation
+/// TODO: Replace with real PQCrypto implementation
 #[derive(Debug, Clone)]
 pub struct PostQuantumCrypto {
     /// Dilithium private key (simulated with random bytes)
@@ -105,6 +136,7 @@ impl PostQuantumCrypto {
     }
 
     /// Sign data using post-quantum signature
+    /// TODO: Replace with real Dilithium implementation
     pub fn sign(&self, private_key: &[u8], data: &[u8]) -> Result<Vec<u8>> {
         // In a real implementation, this would use Dilithium or SPHINCS+
         // For now, we'll use a simulated post-quantum signature
@@ -127,6 +159,7 @@ impl PostQuantumCrypto {
     }
 
     /// Verify a post-quantum signature
+    /// TODO: Replace with real Dilithium verification
     pub fn verify(&self, public_key: &[u8], data: &[u8], signature: &[u8]) -> Result<bool> {
         if signature.len() != 2420 {
             return Ok(false);
@@ -155,7 +188,7 @@ impl PostQuantumCrypto {
     }
 }
 
-/// Generate a new keypair for testing/development
+/// Generate a new Ed25519 keypair for testing/development
 pub fn generate_keypair() -> Result<(Vec<u8>, Vec<u8>)> {
     let mut rng = OsRng;
     let secret_key: [u8; 32] = rand::random();
@@ -168,18 +201,21 @@ pub fn generate_keypair() -> Result<(Vec<u8>, Vec<u8>)> {
 }
 
 /// Generate a quantum-resistant keypair
+/// TODO: Replace with real PQCrypto key generation
 pub fn generate_quantum_resistant_keypair() -> Result<(Vec<u8>, Vec<u8>)> {
     let pq_crypto = PostQuantumCrypto::new()?;
     Ok((pq_crypto.private_key.clone(), pq_crypto.public_key.clone()))
 }
 
 /// Dilithium-3 signature function (simulated)
+/// TODO: Replace with real PQCrypto implementation
 pub fn dilithium_sign(private_key: &[u8], data: &[u8]) -> Result<Vec<u8>> {
     let pq_crypto = PostQuantumCrypto::new()?;
     pq_crypto.sign(private_key, data)
 }
 
 /// Dilithium-3 verification function (simulated)
+/// TODO: Replace with real PQCrypto implementation
 pub fn dilithium_verify(public_key: &[u8], data: &[u8], signature: &[u8]) -> Result<bool> {
     let pq_crypto = PostQuantumCrypto::new()?;
     pq_crypto.verify(public_key, data, signature)
@@ -250,29 +286,150 @@ pub fn derive_address_from_private_key(private_key: &[u8]) -> Result<String> {
     Ok(hex::encode(address_bytes))
 }
 
+/// Derive public key from private key
+pub fn derive_public_key_from_private_key(private_key: &[u8]) -> Result<Vec<u8>> {
+    if private_key.len() != 32 {
+        return Err(anyhow::anyhow!("Invalid private key length"));
+    }
+
+    let secret_key: [u8; 32] = private_key
+        .try_into()
+        .map_err(|_| anyhow::anyhow!("Invalid private key length"))?;
+    let signing_key = SigningKey::from_bytes(&secret_key);
+    let public_key = PublicKey::from(&signing_key);
+
+    Ok(public_key.to_bytes().to_vec())
+}
+
 /// Sign arbitrary data
 pub fn sign_data(private_key: &[u8], data: &[u8]) -> Result<Vec<u8>> {
     sign(private_key, data)
 }
 
 /// Verify a signature against data and public key/address
+/// Now properly implements signature verification
 pub fn verify_signature(address: &str, data: &[u8], signature: &[u8]) -> Result<bool> {
-    // For simplicity, we'll assume the address is hex-encoded public key
-    // In a full implementation, you'd derive the public key from the address
     if signature.len() != 64 {
         return Ok(false);
     }
 
-    // For now, return true for valid-looking signatures
-    // In a real implementation, you'd:
-    // 1. Derive public key from address
-    // 2. Verify signature using that public key
-    Ok(true)
+    // Try to derive public key from address if it's a known format
+    // For now, we'll assume the address contains the public key hash
+    // In a real implementation, you'd have a proper address registry
+    
+    // Convert signature bytes to Ed25519 signature
+    let signature_bytes: [u8; 64] = signature
+        .try_into()
+        .map_err(|_| anyhow::anyhow!("Invalid signature length"))?;
+    
+    let signature = match Signature::try_from(&signature_bytes[..]) {
+        Ok(sig) => sig,
+        Err(_) => return Ok(false),
+    };
+
+    // For now, we'll use a simple approach: derive public key from address
+    // In production, you'd have a proper address registry
+    let public_key_bytes = hex::decode(address)
+        .map_err(|_| anyhow::anyhow!("Invalid address format"))?;
+    
+    if public_key_bytes.len() != 32 {
+        return Ok(false);
+    }
+
+    let public_key: [u8; 32] = public_key_bytes
+        .try_into()
+        .map_err(|_| anyhow::anyhow!("Invalid public key length"))?;
+    
+    let verifying_key = PublicKey::from_bytes(&public_key)
+        .map_err(|_| anyhow::anyhow!("Invalid public key format"))?;
+
+    // Verify the signature
+    match verifying_key.verify(data, &signature) {
+        Ok(_) => Ok(true),
+        Err(_) => Ok(false),
+    }
+}
+
+/// Verify signature with explicit public key
+pub fn verify_signature_with_public_key(public_key: &[u8], data: &[u8], signature: &[u8]) -> Result<bool> {
+    if signature.len() != 64 || public_key.len() != 32 {
+        return Ok(false);
+    }
+
+    let signature_bytes: [u8; 64] = signature
+        .try_into()
+        .map_err(|_| anyhow::anyhow!("Invalid signature length"))?;
+    
+    let signature = match Signature::try_from(&signature_bytes[..]) {
+        Ok(sig) => sig,
+        Err(_) => return Ok(false),
+    };
+
+    let public_key: [u8; 32] = public_key
+        .try_into()
+        .map_err(|_| anyhow::anyhow!("Invalid public key length"))?;
+    
+    let verifying_key = PublicKey::from_bytes(&public_key)
+        .map_err(|_| anyhow::anyhow!("Invalid public key format"))?;
+
+    match verifying_key.verify(data, &signature) {
+        Ok(_) => Ok(true),
+        Err(_) => Ok(false),
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_hash_from_slice_valid() {
+        let data = vec![1u8; 32];
+        let hash = Hash::from_slice(&data).unwrap();
+        assert_eq!(hash.as_bytes(), &data);
+    }
+
+    #[test]
+    fn test_hash_from_slice_invalid() {
+        let data = vec![1u8; 31];
+        let result = Hash::from_slice(&data);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_ed25519_full_roundtrip() {
+        // Generate keypair
+        let (private_key, public_key) = generate_keypair().unwrap();
+        
+        // Test data
+        let data = b"Hello, ArthaChain!";
+        
+        // Sign data
+        let signature = sign(&private_key, data).unwrap();
+        assert_eq!(signature.len(), 64);
+        
+        // Verify signature
+        let is_valid = verify_signature_with_public_key(&public_key, data, &signature).unwrap();
+        assert!(is_valid);
+        
+        // Test with wrong data
+        let wrong_data = b"Wrong data!";
+        let is_valid = verify_signature_with_public_key(&public_key, wrong_data, &signature).unwrap();
+        assert!(!is_valid);
+    }
+
+    #[test]
+    fn test_address_derivation() {
+        let private_key = secure_random_bytes(32);
+        let address = derive_address_from_private_key(&private_key).unwrap();
+        let public_key = derive_public_key_from_private_key(&private_key).unwrap();
+        
+        // Address should be 40 characters (20 bytes as hex)
+        assert_eq!(address.len(), 40);
+        
+        // Public key should be 32 bytes
+        assert_eq!(public_key.len(), 32);
+    }
 
     #[test]
     fn test_post_quantum_crypto() {
@@ -319,5 +476,18 @@ mod tests {
         assert!(constant_time_compare(&a, &b));
         assert!(!constant_time_compare(&a, &c));
         assert!(!constant_time_compare(&a, &[1, 2, 3]));
+    }
+
+    #[test]
+    fn test_signature_verification_edge_cases() {
+        // Test with invalid signature length
+        let result = verify_signature("test", b"data", &[1u8; 63]);
+        assert!(result.is_ok());
+        assert!(!result.unwrap());
+
+        // Test with invalid signature length
+        let result = verify_signature("test", b"data", &[1u8; 65]);
+        assert!(result.is_ok());
+        assert!(!result.unwrap());
     }
 }

@@ -183,7 +183,7 @@ fn get_evm_wallets() -> Vec<WalletInfo> {
     ]
 }
 
-/// Top 20 WASM/Solana Wallets  
+/// Top 20 Multi-VM Compatible Wallets  
 fn get_wasm_wallets() -> Vec<WalletInfo> {
     vec![
         WalletInfo {
@@ -192,7 +192,7 @@ fn get_wasm_wallets() -> Vec<WalletInfo> {
             chain_type: "WASM".to_string(),
             icon_url: "https://phantom.app/img/phantom-icon-purple.svg".to_string(),
             download_url: "https://phantom.app/".to_string(),
-            supported_networks: vec!["Solana".to_string(), "ArthaChain WASM".to_string()],
+            supported_networks: vec!["Multi-VM".to_string(), "ArthaChain WASM".to_string()],
             features: vec![
                 "Popular".to_string(),
                 "Secure".to_string(),
@@ -206,7 +206,7 @@ fn get_wasm_wallets() -> Vec<WalletInfo> {
             chain_type: "WASM".to_string(),
             icon_url: "https://solflare.com/favicon.ico".to_string(),
             download_url: "https://solflare.com/".to_string(),
-            supported_networks: vec!["Solana".to_string(), "ArthaChain WASM".to_string()],
+            supported_networks: vec!["Multi-VM".to_string(), "ArthaChain WASM".to_string()],
             features: vec![
                 "Hardware".to_string(),
                 "Web".to_string(),
@@ -220,7 +220,7 @@ fn get_wasm_wallets() -> Vec<WalletInfo> {
             chain_type: "WASM".to_string(),
             icon_url: "https://backpack.app/favicon.ico".to_string(),
             download_url: "https://backpack.app/".to_string(),
-            supported_networks: vec!["Solana".to_string(), "ArthaChain WASM".to_string()],
+            supported_networks: vec!["Multi-VM".to_string(), "ArthaChain WASM".to_string()],
             features: vec![
                 "Exchange".to_string(),
                 "Social".to_string(),
@@ -234,7 +234,7 @@ fn get_wasm_wallets() -> Vec<WalletInfo> {
             chain_type: "WASM".to_string(),
             icon_url: "https://slope.finance/favicon.ico".to_string(),
             download_url: "https://slope.finance/".to_string(),
-            supported_networks: vec!["Solana".to_string(), "ArthaChain WASM".to_string()],
+            supported_networks: vec!["Multi-VM".to_string(), "ArthaChain WASM".to_string()],
             features: vec!["Mobile".to_string(), "DeFi".to_string(), "NFT".to_string()],
             connection_method: "window.slope".to_string(),
         },
@@ -244,7 +244,7 @@ fn get_wasm_wallets() -> Vec<WalletInfo> {
             chain_type: "WASM".to_string(),
             icon_url: "https://glow.app/favicon.ico".to_string(),
             download_url: "https://glow.app/".to_string(),
-            supported_networks: vec!["Solana".to_string(), "ArthaChain WASM".to_string()],
+            supported_networks: vec!["Multi-VM".to_string(), "ArthaChain WASM".to_string()],
             features: vec![
                 "Browser".to_string(),
                 "Fast".to_string(),
@@ -328,7 +328,7 @@ fn get_all_ides() -> Vec<IDEInfo> {
         },
         // WASM IDEs
         IDEInfo {
-            name: "Solana Playground".to_string(),
+            name: "Multi-VM Playground".to_string(),
             url: "https://beta.solpg.io/".to_string(),
             supports: vec!["WASM".to_string()],
             features: vec![
@@ -373,7 +373,7 @@ fn get_all_ides() -> Vec<IDEInfo> {
 /// Chain configuration for wallets
 pub async fn get_chain_config() -> Json<serde_json::Value> {
     Json(serde_json::json!({
-        "chainId": "0x1337", // 4919 in decimal
+        "chainId": "0x2E9BC", // 191020 in decimal
         "chainName": "ArthaChain Mainnet",
         "nativeCurrency": {
             "name": "ARTHA",

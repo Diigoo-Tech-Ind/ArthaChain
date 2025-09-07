@@ -87,8 +87,14 @@ impl PartialEq for SerializableDuration {
 }
 
 /// Network node identifier
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct NodeId(pub String);
+
+impl Clone for NodeId {
+    fn clone(&self) -> Self {
+        NodeId(self.0.clone())
+    }
+}
 
 impl NodeId {
     /// Create a new node ID

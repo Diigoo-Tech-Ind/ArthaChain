@@ -1,0 +1,16 @@
+node:
+  id: "ArthaX6e2ca5256188a44cbccc"
+  type: "faucet"
+  role: "service"
+
+network:
+  p2p:
+    port: 8089
+  api:
+    port: 8085
+  metrics:
+    port: 9189
+
+faucet:
+  max_daily_requests: 1000
+  tokens_per_request: 100

@@ -1,6 +1,6 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
@@ -10,9 +10,6 @@ use crate::config::Config;
 use crate::consensus::ConsensusType;
 use crate::ledger::block::Block;
 use crate::network::types::NodeId;
-use anyhow::{anyhow, Result};
-use log::{debug, info, warn};
-use std::collections::HashSet;
 
 /// Configurable parameters for the adaptive consensus
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -263,7 +260,7 @@ impl AdaptiveConsensusManager {
         let current_algo = *self.current_algorithm.read().await;
         let mut all_metrics = self.metrics.write().await;
 
-        all_metrics.insert(current_algo, metrics);
+        all_metrics.insert(current_algo, metrics.clone());
 
         // Reset consecutive failures if we have a successful proposal
         if metrics.successful_proposals > 0 {
@@ -313,8 +310,8 @@ impl AdaptiveConsensusManager {
             metrics.successful_proposals += 1;
 
             // Update other metrics based on the block
-            if let Some(timestamp) = block.timestamp {
-                if let Some(proposal_time) = block.proposal_timestamp {
+            if let Some(timestamp) = Some(block.header.timestamp) {
+                if let Some(proposal_time) = Some(block.header.timestamp) {
                     let finality_time = timestamp - proposal_time;
 
                     // Exponential moving average for block time and finality
@@ -323,7 +320,7 @@ impl AdaptiveConsensusManager {
                         alpha * (finality_time as f64) + (1.0 - alpha) * metrics.finality_time_ms;
 
                     // Calculate TPS based on number of transactions and time
-                    let txs_count = block.txs.len() as f64;
+                    let txs_count = block.transactions.len() as f64;
                     if finality_time > 0 {
                         let current_tps = txs_count * 1000.0 / (finality_time as f64);
                         metrics.tps = alpha * current_tps + (1.0 - alpha) * metrics.tps;
@@ -452,7 +449,7 @@ impl AdaptiveConsensusManager {
 
         // Update blockchain config to reflect consensus change
         let mut blockchain_cfg = self.blockchain_config.write().await;
-        blockchain_cfg.consensus_type = format!("{:?}", new_algo).to_lowercase();
+        blockchain_cfg.consensus.consensus_type = format!("{:?}", new_algo).to_lowercase();
 
         info!("Switched consensus algorithm to {:?}", new_algo);
         Ok(())
@@ -703,12 +700,13 @@ impl Clone for AdaptiveConsensusManager {
         // This is a partial clone for use in async tasks
         // The RwLocks will be new but the references within will be the same
         Self {
-            config: RwLock::new(self.config.try_read().unwrap_or_default().clone()),
+            config: RwLock::new(self.config.try_read().map(|guard| (*guard).clone()).unwrap_or(AdaptiveConsensusConfig::default())),
             current_algorithm: RwLock::new(
-                *self
+                self
                     .current_algorithm
                     .try_read()
-                    .unwrap_or(&ConsensusType::Svbft),
+                    .map(|guard| *guard)
+                    .unwrap_or(ConsensusType::Svbft),
             ),
             metrics: RwLock::new(HashMap::new()),
             network_conditions: RwLock::new(NetworkConditions::default()),

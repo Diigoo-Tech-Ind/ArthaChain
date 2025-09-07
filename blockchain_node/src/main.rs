@@ -138,7 +138,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         performance_monitor(processor_monitor, shard_monitor).await;
     });
     
-    let app = create_testnet_router(state.clone(), validator_manager, mempool).await;
+    // Create faucet and gas free manager instances
+    let faucet_service = Arc::new(arthachain_node::api::handlers::faucet::Faucet::new());
+    let gas_free_manager = Arc::new(arthachain_node::gas_free::GasFreeManager::new());
+    
+    let app = create_testnet_router(state.clone(), mempool, faucet_service, gas_free_manager);
     println!("API router created");
     
     println!("ArthaChain Blockchain launched successfully");
@@ -250,7 +254,7 @@ async fn mining_worker(
                         for tx in transactions {
                             let tx_hash = arthachain_node::utils::crypto::Hash::from_slice(
                                 tx.hash().as_bytes(),
-                            );
+                            ).unwrap();
                     mempool_write.mark_executed(&tx_hash).await;
                         }
                     }
@@ -295,7 +299,7 @@ async fn transaction_processor(
                     nonce: tx.nonce,
                     data: tx.data.clone(),
                     signature: tx.signature.clone(),
-                    hash: arthachain_node::utils::crypto::Hash::from_slice(tx.signature.as_slice()),
+                    hash: arthachain_node::utils::crypto::Hash::from_slice(tx.signature.as_slice()).unwrap(),
                 };
                 
                 if let Ok(_) = mempool_write.add_transaction(mempool_tx.clone()).await {

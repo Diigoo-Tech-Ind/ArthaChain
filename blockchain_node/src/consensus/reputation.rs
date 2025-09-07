@@ -36,6 +36,8 @@ pub enum ReputationUpdateReason {
     CrossShardValidationSuccess,
     /// Cross-shard validation failure
     CrossShardValidationFailure,
+    /// Byzantine behavior detected
+    ByzantineBehavior,
     /// Custom reason
     Custom(String),
 }

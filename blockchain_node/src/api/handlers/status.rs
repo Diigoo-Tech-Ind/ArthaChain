@@ -155,7 +155,7 @@ pub async fn get_status(
     let state = state.read().await;
 
     let height = state.get_height().map_err(|e| ApiError {
-        status: 500,
+        code: 500,
         message: format!("Failed to get height: {e}"),
     })?;
 

@@ -13,6 +13,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::fs;
+use std::path::Path;
 use tokio::sync::{broadcast, Mutex as TokioMutex};
 
 /// Interface for sharding configuration
@@ -75,6 +77,9 @@ struct Snapshot {
 /// Blockchain state representation
 #[derive(Debug)]
 pub struct State {
+    /// Data directory for persistence
+    data_dir: String,
+    
     /// Account balances
     balances: RwLock<HashMap<String, u64>>,
 
@@ -129,8 +134,15 @@ pub struct State {
 impl State {
     pub fn new(_config: &Config) -> Result<Self> {
         let (sync_sender, _) = broadcast::channel(1000);
+        let data_dir = "data/blockchain".to_string();
+        
+        // Create data directory if it doesn't exist
+        if !Path::new(&data_dir).exists() {
+            fs::create_dir_all(&data_dir)?;
+        }
 
-        Ok(Self {
+        let mut state = Self {
+            data_dir,
             balances: RwLock::new(HashMap::new()),
             nonces: RwLock::new(HashMap::new()),
             storage: RwLock::new(HashMap::new()),
@@ -158,7 +170,14 @@ impl State {
                 last_consensus: 0,
                 pending_updates: HashMap::new(),
             })),
-        })
+        };
+        
+        // Try to load existing state
+        if let Err(e) = state.load_state() {
+            warn!("Failed to load existing state: {}, starting fresh", e);
+        }
+        
+        Ok(state)
     }
 
     /// Get account balance
@@ -372,7 +391,7 @@ impl State {
     /// Add a block to the state
     pub fn add_block(&self, block: Block) -> Result<()> {
         let height = block.header.height;
-        let hash = block.hash()?.to_hex();
+        let hash = block.hash()?.to_evm_hex();
 
         // Add to blocks by height
         {
@@ -391,6 +410,11 @@ impl State {
         if height > current_height {
             self.set_height(height)?;
             self.set_latest_block_hash(&hash)?;
+        }
+
+        // Save state to disk
+        if let Err(e) = self.save_state() {
+            warn!("Failed to save state: {}", e);
         }
 
         Ok(())
@@ -702,6 +726,59 @@ impl State {
         // In a real implementation, this would query the transaction storage
         1000
     }
+
+    /// Save state to disk
+    pub fn save_state(&self) -> Result<()> {
+        let state_data = StateData {
+            height: *self.height.read().unwrap(),
+            balances: self.balances.read().unwrap().clone(),
+            nonces: self.nonces.read().unwrap().clone(),
+            storage: self.storage.read().unwrap().clone(),
+            blocks: self.blocks.read().unwrap().clone(),
+            blocks_by_hash: self.blocks_by_hash.read().unwrap().clone(),
+            latest_block_hash: self.latest_block_hash.read().unwrap().clone(),
+        };
+
+        let data = serde_json::to_vec(&state_data)?;
+        fs::write(format!("{}/state.json", self.data_dir), data)?;
+        info!("State saved to disk");
+        Ok(())
+    }
+
+    /// Load state from disk
+    pub fn load_state(&self) -> Result<()> {
+        let state_file = format!("{}/state.json", self.data_dir);
+        if !Path::new(&state_file).exists() {
+            return Ok(()); // No existing state to load
+        }
+
+        let data = fs::read(&state_file)?;
+        let state_data: StateData = serde_json::from_slice(&data)?;
+
+        // Restore state
+        *self.height.write().unwrap() = state_data.height;
+        *self.balances.write().unwrap() = state_data.balances;
+        *self.nonces.write().unwrap() = state_data.nonces;
+        *self.storage.write().unwrap() = state_data.storage;
+        *self.blocks.write().unwrap() = state_data.blocks;
+        *self.blocks_by_hash.write().unwrap() = state_data.blocks_by_hash;
+        *self.latest_block_hash.write().unwrap() = state_data.latest_block_hash;
+
+        info!("State loaded from disk: height={}", state_data.height);
+        Ok(())
+    }
+}
+
+/// Serializable state data for persistence
+#[derive(Serialize, Deserialize)]
+struct StateData {
+    height: u64,
+    balances: HashMap<String, u64>,
+    nonces: HashMap<String, u64>,
+    storage: HashMap<String, Vec<u8>>,
+    blocks: HashMap<u64, Block>,
+    blocks_by_hash: HashMap<String, Block>,
+    latest_block_hash: String,
 }
 
 /// Account information

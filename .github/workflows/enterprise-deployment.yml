@@ -254,9 +254,13 @@ jobs:
     
     - name: Configure kubectl
       run: |
-        echo "${{ secrets.KUBECONFIG_STAGING }}" > kubeconfig.yaml
-        export KUBECONFIG=kubeconfig.yaml
-        kubectl config use-context staging
+        if [ -n "${{ secrets.KUBECONFIG_STAGING }}" ]; then
+          echo "${{ secrets.KUBECONFIG_STAGING }}" > kubeconfig.yaml
+          export KUBECONFIG=kubeconfig.yaml
+          kubectl config use-context staging
+        else
+          echo "KUBECONFIG_STAGING secret not configured, skipping K8s setup"
+        fi
     
     - name: Deploy to staging
       run: |
@@ -291,9 +295,9 @@ jobs:
       uses: 8398a7/action-slack@v3
       with:
         status: success
-        text: "🚀 ArthaChain successfully deployed to staging environment!"
+        text: "ArthaChain successfully deployed to staging environment!"
         webhook_url: ${{ secrets.SLACK_WEBHOOK }}
-      if: success()
+      if: success() && secrets.SLACK_WEBHOOK
 
   # 🚀 Deploy to Production
   deploy-production:
@@ -319,9 +323,13 @@ jobs:
     
     - name: Configure kubectl
       run: |
-        echo "${{ secrets.KUBECONFIG_PRODUCTION }}" > kubeconfig.yaml
-        export KUBECONFIG=kubeconfig.yaml
-        kubectl config use-context production
+        if [ -n "${{ secrets.KUBECONFIG_PRODUCTION }}" ]; then
+          echo "${{ secrets.KUBECONFIG_PRODUCTION }}" > kubeconfig.yaml
+          export KUBECONFIG=kubeconfig.yaml
+          kubectl config use-context production
+        else
+          echo "KUBECONFIG_PRODUCTION secret not configured, skipping K8s setup"
+        fi
     
     - name: Create production namespace
       run: |
@@ -380,9 +388,9 @@ jobs:
       uses: 8398a7/action-slack@v3
       with:
         status: success
-        text: "🎉 ArthaChain successfully deployed to production environment!"
+        text: "ArthaChain successfully deployed to production environment!"
         webhook_url: ${{ secrets.SLACK_WEBHOOK }}
-      if: success()
+      if: success() && secrets.SLACK_WEBHOOK
 
   # 📊 Post-Deployment Analysis
   post-deployment-analysis:

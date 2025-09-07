@@ -7,7 +7,7 @@ COPY blockchain_node ./blockchain_node
 COPY src ./src
 
 # Build the application
-RUN cargo build --release --features production
+RUN cargo build --release --features full
 
 # Runtime stage
 FROM debian:bookworm-slim as runtime

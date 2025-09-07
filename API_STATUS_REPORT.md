@@ -1,11 +1,11 @@
 # ArthaChain API Comprehensive Status Report
 
 **Generated:** September 7, 2025  
-**Node Status:** ✅ RUNNING  
+**Node Status:** RUNNING  
 **Block Height:** 138+ blocks mined  
 **API Base URL:** http://localhost:1900  
 
-## 📊 Summary Statistics
+## Summary Statistics
 
 - **Total Endpoints Tested:** 50+
 - **FULLY WORKING WITH REAL DATA:** 8 endpoints

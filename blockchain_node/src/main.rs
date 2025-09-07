@@ -146,7 +146,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("API router created");
     
     println!("ArthaChain Blockchain launched successfully");
-    println!("🌐 GLOBAL ENDPOINTS:");
+    println!("GLOBAL ENDPOINTS:");
     println!("API Dashboard: https://api.arthachain.in/api/stats");
     println!("Block Explorer: https://explorer.arthachain.in/api/explorer/blocks/recent");
     println!("Faucet: https://faucet.arthachain.in/");

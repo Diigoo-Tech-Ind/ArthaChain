@@ -53,10 +53,10 @@ pub fn create_testnet_router(
     </head>
     <body>
         <div class="container">
-                    <h1>🚀 ArthaChain Node</h1>
+                    <h1>ArthaChain Node</h1>
             <p style="text-align: center; color: #7f8c8d;">Next-generation blockchain with AI-native features, quantum resistance, and ultra-high performance</p>
             <div class="section">
-                        <h2>📡 API Endpoints</h2>
+                        <h2>API Endpoints</h2>
                 <div class="endpoint">
                             <span class="method">GET</span>
                             <span class="url">/health</span>

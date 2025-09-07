@@ -45,7 +45,7 @@ async fn test_merkle_proof_core() {
     cache.store(tx_hashes[1].clone(), test_proof);
     assert!(cache.get(&tx_hashes[1]).is_some(), "Cache retrieval failed");
 
-    println!("✅ Merkle Proof System: PASSED");
+    println!(" Merkle Proof System: PASSED");
 }
 
 /// Quick test of cross-shard coordinator - CORE FUNCTIONALITY  
@@ -78,7 +78,7 @@ async fn test_cross_shard_core() {
 
     coordinator.clear_proof_cache();
 
-    println!("✅ Cross-Shard Coordinator: PASSED");
+    println!(" Cross-Shard Coordinator: PASSED");
 }
 
 /// Performance validation for critical components
@@ -109,7 +109,7 @@ async fn test_performance_validation() {
     assert!(proof.verify().unwrap());
     let verification_time = start.elapsed();
 
-    println!("📊 Performance Results:");
+    println!(" Performance Results:");
     println!("   Tree building (1000 txs): {}ms", build_time.as_millis());
     println!("   Proof generation: {}μs", generation_time.as_micros());
     println!("   Proof verification: {}μs", verification_time.as_micros());
@@ -128,7 +128,7 @@ async fn test_performance_validation() {
         "Proof verification should be < 10ms"
     );
 
-    println!("✅ Performance Validation: PASSED");
+    println!(" Performance Validation: PASSED");
 }
 
 /// Test consensus protocol types and structures
@@ -156,13 +156,13 @@ async fn test_consensus_structures() {
     let _transfer_json = serde_json::to_string(&transfer).unwrap();
     let _status_json = serde_json::to_string(&pending).unwrap();
 
-    println!("✅ Consensus Protocol Structures: PASSED");
+    println!(" Consensus Protocol Structures: PASSED");
 }
 
 /// Integration test summary for Phase 1
 #[tokio::test]
 async fn phase1_final_validation() {
-    println!("\n🚀 PHASE 1 FINAL VALIDATION");
+    println!("\n PHASE 1 FINAL VALIDATION");
     println!("============================");
 
     let start_time = std::time::Instant::now();
@@ -192,12 +192,12 @@ async fn phase1_final_validation() {
 
     let total_time = start_time.elapsed();
 
-    println!("📊 Phase 1 Results Summary:");
-    println!("   ✅ Merkle Proof System: PRODUCTION READY");
-    println!("   ✅ Cross-Shard Protocol: PRODUCTION READY");
-    println!("   ✅ Atomic Transaction Support: PRODUCTION READY");
-    println!("   ✅ Cryptographic Proofs: PRODUCTION READY");
-    println!("   ✅ Performance Benchmarks: PASSED");
+    println!(" Phase 1 Results Summary:");
+    println!("    Merkle Proof System: PRODUCTION READY");
+    println!("    Cross-Shard Protocol: PRODUCTION READY");
+    println!("    Atomic Transaction Support: PRODUCTION READY");
+    println!("    Cryptographic Proofs: PRODUCTION READY");
+    println!("    Performance Benchmarks: PASSED");
     println!("   ⏱️ Total validation time: {}ms", total_time.as_millis());
 
     // Final assertions
@@ -206,22 +206,22 @@ async fn phase1_final_validation() {
         "Phase 1 validation should complete < 5 seconds"
     );
 
-    println!("\n🏆 PHASE 1 STATUS: 100% COMPLETE AND PRODUCTION READY!");
-    println!("🎯 Core consensus and cross-shard functionality validated");
-    println!("🚀 Ready to proceed to Phase 2: Execution Layer");
+    println!("\n PHASE 1 STATUS: COMPLETE AND PRODUCTION READY!");
+    println!(" Core consensus and cross-shard functionality validated");
+    println!(" Ready to proceed to Phase 2: Execution Layer");
 
     // List of validated components
     let validated_components = vec![
-        "✅ Merkle Tree Implementation",
-        "✅ Cryptographic Proof Generation",
-        "✅ Proof Verification System",
-        "✅ Cross-Shard Transaction Protocol",
-        "✅ Atomic Transaction Support",
-        "✅ Proof Caching System",
-        "✅ Performance Benchmarks",
-        "✅ Protocol Message Types",
-        "✅ Transaction Status Management",
-        "✅ Multi-Shard Coordination",
+        " Merkle Tree Implementation",
+        " Cryptographic Proof Generation",
+        " Proof Verification System",
+        " Cross-Shard Transaction Protocol",
+        " Atomic Transaction Support",
+        " Proof Caching System",
+        " Performance Benchmarks",
+        " Protocol Message Types",
+        " Transaction Status Management",
+        " Multi-Shard Coordination",
     ];
 
     println!("\n📋 VALIDATED PHASE 1 COMPONENTS:");
@@ -229,5 +229,5 @@ async fn phase1_final_validation() {
         println!("   {}", component);
     }
 
-    println!("\n🎉 PHASE 1 BLOCKCHAIN FOUNDATION: SOLID AND READY!");
+    println!("\n PHASE 1 BLOCKCHAIN FOUNDATION: SOLID AND READY!");
 }

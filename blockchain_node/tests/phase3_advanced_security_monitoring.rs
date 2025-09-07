@@ -13,7 +13,7 @@ use tokio::time::{sleep, Duration};
 /// Test Phase 3.1: Advanced Security Monitoring
 #[tokio::test]
 async fn test_phase31_advanced_security_monitoring() {
-    println!("\n🚀 PHASE 3.1: ADVANCED SECURITY & MONITORING");
+    println!("\n PHASE 3.1: ADVANCED SECURITY & MONITORING");
     println!("===========================================");
 
     let start_time = Instant::now();
@@ -31,7 +31,7 @@ async fn test_phase31_advanced_security_monitoring() {
     };
 
     let monitor = Arc::new(AdvancedSecurityMonitor::new(config));
-    println!("✅ Advanced Security Monitor: INITIALIZED");
+    println!(" Advanced Security Monitor: INITIALIZED");
 
     // Test Threat Detection Capabilities
     println!("\n🕵️ TESTING THREAT DETECTION:");
@@ -45,7 +45,7 @@ async fn test_phase31_advanced_security_monitoring() {
 
     if let Some(incident) = ddos_result {
         println!(
-            "   ✅ DDoS Detection: {} ({})",
+            "    DDoS Detection: {} ({})",
             incident.id, incident.description
         );
         assert_eq!(incident.threat_type, ThreatType::DdosAttack);
@@ -64,7 +64,7 @@ async fn test_phase31_advanced_security_monitoring() {
 
     if let Some(incident) = consensus_result {
         println!(
-            "   ✅ Consensus Attack Detection: {} ({})",
+            "    Consensus Attack Detection: {} ({})",
             incident.id, incident.description
         );
         assert_eq!(incident.threat_type, ThreatType::ConsensusAttack);
@@ -79,7 +79,7 @@ async fn test_phase31_advanced_security_monitoring() {
 
     if let Some(incident) = validator_result {
         println!(
-            "   ✅ Validator Attack Detection: {} ({})",
+            "    Validator Attack Detection: {} ({})",
             incident.id, incident.description
         );
         assert_eq!(incident.threat_type, ThreatType::ValidatorAttack);
@@ -94,7 +94,7 @@ async fn test_phase31_advanced_security_monitoring() {
 
     if let Some(incident) = suspicious_result {
         println!(
-            "   ✅ Suspicious Transaction Detection: {} ({})",
+            "    Suspicious Transaction Detection: {} ({})",
             incident.id, incident.description
         );
         assert_eq!(incident.threat_type, ThreatType::SuspiciousTransactions);
@@ -109,7 +109,7 @@ async fn test_phase31_advanced_security_monitoring() {
 
     if let Some(incident) = exhaustion_result {
         println!(
-            "   ✅ Resource Exhaustion Detection: {} ({})",
+            "    Resource Exhaustion Detection: {} ({})",
             incident.id, incident.description
         );
         assert_eq!(incident.threat_type, ThreatType::ResourceExhaustion);
@@ -121,7 +121,7 @@ async fn test_phase31_advanced_security_monitoring() {
     let mut incident_receiver = monitor.subscribe_to_incidents();
 
     // Test incident notification system
-    println!("   ✅ Real-time Notification: System ready");
+    println!("    Real-time Notification: System ready");
     
     // Test incident creation directly
     let test_data = vec![0u8; 20000];
@@ -130,7 +130,7 @@ async fn test_phase31_advanced_security_monitoring() {
         .await;
 
     // Test Security Metrics
-    println!("\n📊 TESTING SECURITY METRICS:");
+    println!("\n TESTING SECURITY METRICS:");
 
     let metrics = monitor.get_metrics();
     println!("   📈 Total Incidents: {}", metrics.total_incidents);
@@ -158,7 +158,7 @@ async fn test_phase31_advanced_security_monitoring() {
     );
 
     // Test Threat Level Classification
-    println!("\n🎯 TESTING THREAT LEVEL CLASSIFICATION:");
+    println!("\n TESTING THREAT LEVEL CLASSIFICATION:");
 
     let threat_levels = vec![
         ThreatLevel::Low,
@@ -168,11 +168,11 @@ async fn test_phase31_advanced_security_monitoring() {
     ];
 
     for level in threat_levels {
-        println!("   ✅ Threat Level: {:?} - CLASSIFIED", level);
+        println!("    Threat Level: {:?} - CLASSIFIED", level);
     }
 
     // Test Threat Type Coverage
-    println!("\n🛡️ TESTING THREAT TYPE COVERAGE:");
+    println!("\n TESTING THREAT TYPE COVERAGE:");
 
     let threat_types = vec![
         ThreatType::DdosAttack,
@@ -188,7 +188,7 @@ async fn test_phase31_advanced_security_monitoring() {
     ];
 
     for threat_type in threat_types {
-        println!("   ✅ Threat Type: {:?} - SUPPORTED", threat_type);
+        println!("    Threat Type: {:?} - SUPPORTED", threat_type);
     }
 
     // Test Recent Incidents Retrieval
@@ -196,7 +196,7 @@ async fn test_phase31_advanced_security_monitoring() {
 
     let recent_incidents = monitor.get_recent_incidents(5);
     println!(
-        "   📊 Recent Incidents Retrieved: {}",
+        "    Recent Incidents Retrieved: {}",
         recent_incidents.len()
     );
 
@@ -210,7 +210,7 @@ async fn test_phase31_advanced_security_monitoring() {
     }
 
     // Integration with Security Manager
-    println!("\n🔗 TESTING SECURITY MANAGER INTEGRATION:");
+    println!("\n TESTING SECURITY MANAGER INTEGRATION:");
 
     let mut security_manager = SecurityManager::new();
     security_manager
@@ -219,7 +219,7 @@ async fn test_phase31_advanced_security_monitoring() {
         .unwrap();
 
     let health_status = security_manager.get_health_status().await;
-    println!("   ✅ Security Manager Health:");
+    println!("    Security Manager Health:");
     println!("      🔐 Initialized: {}", health_status.initialized);
     println!(
         "      🔐 Encryption Active: {}",
@@ -247,16 +247,16 @@ async fn test_phase31_advanced_security_monitoring() {
 
     let total_time = start_time.elapsed();
 
-    println!("\n🎉 PHASE 3.1 ADVANCED SECURITY: COMPLETE VALIDATION");
+    println!("\n PHASE 3.1 ADVANCED SECURITY: COMPLETE VALIDATION");
     println!("==================================================");
-    println!("✅ Real-time Threat Detection: OPERATIONAL");
-    println!("✅ Anomaly Detection System: WORKING");
-    println!("✅ Incident Management: COMPREHENSIVE");
-    println!("✅ Auto-mitigation System: ENABLED");
-    println!("✅ Performance Monitoring: ACTIVE");
-    println!("✅ Security Analytics: DETAILED");
+    println!(" Real-time Threat Detection: OPERATIONAL");
+    println!(" Anomaly Detection System: WORKING");
+    println!(" Incident Management: COMPREHENSIVE");
+    println!(" Auto-mitigation System: ENABLED");
+    println!(" Performance Monitoring: ACTIVE");
+    println!(" Security Analytics: DETAILED");
 
-    println!("\n🛡️ SECURITY FEATURES IMPLEMENTED:");
+    println!("\n SECURITY FEATURES IMPLEMENTED:");
     println!("   🔧 10 Threat Type Classifications");
     println!("   🔧 4 Threat Level Severities");
     println!("   🔧 Real-time Incident Broadcasting");
@@ -266,7 +266,7 @@ async fn test_phase31_advanced_security_monitoring() {
     println!("   🔧 Security Metrics Collection");
     println!("   🔧 Incident History Management");
 
-    println!("\n⚡ PERFORMANCE METRICS:");
+    println!("\n PERFORMANCE METRICS:");
     println!("   📈 Test Execution Time: {}ms", total_time.as_millis());
     println!("   📈 Incidents Detected: {}", metrics.total_incidents);
     println!(
@@ -278,15 +278,15 @@ async fn test_phase31_advanced_security_monitoring() {
         metrics.uptime_percentage
     );
 
-    println!("\n🎯 PRODUCTION READINESS:");
-    println!("   ✅ Multi-layered Security: COMPLETE");
-    println!("   ✅ Real-time Monitoring: ACTIVE");
-    println!("   ✅ Automated Response: ENABLED");
-    println!("   ✅ Performance Analytics: WORKING");
-    println!("   ✅ Scalable Architecture: READY");
+    println!("\n PRODUCTION READINESS:");
+    println!("    Multi-layered Security: COMPLETE");
+    println!("    Real-time Monitoring: ACTIVE");
+    println!("    Automated Response: ENABLED");
+    println!("    Performance Analytics: WORKING");
+    println!("    Scalable Architecture: READY");
 
-    println!("\n🏆 PHASE 3.1: ADVANCED SECURITY & MONITORING - 100% COMPLETE!");
-    println!("🚀 ENTERPRISE-GRADE SECURITY OPERATIONAL!");
+    println!("\n PHASE 3.1: ADVANCED SECURITY & MONITORING - COMPLETE!");
+    println!(" ENTERPRISE-GRADE SECURITY OPERATIONAL!");
 
     // Final assertions
     assert!(total_time.as_millis() < 5000, "Should complete quickly");
@@ -322,7 +322,7 @@ async fn test_security_manager_integration() {
     assert!(health.monitoring_active);
     assert_eq!(health.total_incidents, 0);
 
-    println!("✅ Security Manager integration: WORKING");
+    println!(" Security Manager integration: WORKING");
 }
 
 /// Test Threat Detection Accuracy
@@ -373,9 +373,9 @@ async fn test_threat_detection_accuracy() {
     }
 
     let accuracy = detections as f64 / 4.0;
-    println!("   📊 Detection Accuracy: {:.1}%", accuracy * 100.0);
+    println!("    Detection Accuracy: {:.1}%", accuracy * 100.0);
 
     assert!(accuracy >= 0.75, "Should have reasonable accuracy");
 
-    println!("✅ Threat detection accuracy: VALIDATED");
+    println!(" Threat detection accuracy: VALIDATED");
 }

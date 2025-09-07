@@ -26,7 +26,7 @@ async fn test_wasm_vm_complete_implementation() {
     // WASM module is disabled for future implementation
     // This test will be re-enabled when WASM is properly implemented
     
-    println!("✅ WASM VM: Test skipped - module disabled");
+    println!(" WASM VM: Test skipped - module disabled");
     
     // TODO: Re-implement this test when WASM module is enabled
 }
@@ -48,7 +48,7 @@ async fn test_smart_contract_engine_implementation() {
 
     let engine = SmartContractEngine::new(storage, config).await.unwrap();
 
-    println!("✅ Smart Contract Engine: Engine creation successful");
+    println!(" Smart Contract Engine: Engine creation successful");
 
     // Test contract deployment with different runtimes
     let deployer = Address::from_bytes(b"deployer_123456789").unwrap();
@@ -64,16 +64,16 @@ async fn test_smart_contract_engine_implementation() {
     assert!(stats.contains_key("total_contracts"));
     assert!(stats.contains_key("success_rate"));
 
-    println!("✅ Smart Contract Engine: Analytics and statistics working");
+    println!(" Smart Contract Engine: Analytics and statistics working");
 
     // Test contract information retrieval
     let contract_address = Address::from_bytes(b"test_contract_addr_1").unwrap();
     let contract_info = engine.get_contract_info(&contract_address);
     // May be None if contract doesn't exist, but tests the interface
 
-    println!("✅ Smart Contract Engine: Contract information retrieval tested");
+    println!(" Smart Contract Engine: Contract information retrieval tested");
 
-    println!("🎉 Smart Contract Engine: 100% COMPLETE!");
+    println!(" Smart Contract Engine: COMPLETE!");
 }
 
 /// Test Phase 2.3: EVM Compatibility Layer
@@ -92,13 +92,13 @@ async fn test_evm_compatibility_layer() {
     assert_eq!(evm_config.chain_id, 1337);
     assert_eq!(evm_config.default_gas_price, 20_000_000_000);
 
-    println!("✅ EVM: Configuration setup successful");
+    println!(" EVM: Configuration setup successful");
 
     // Test EVM address compatibility
     let evm_address = arthachain_node::evm::EvmAddress::from_slice(&[0u8; 20]);
     assert_eq!(evm_address.as_bytes().len(), 20);
 
-    println!("✅ EVM: Address compatibility verified");
+    println!(" EVM: Address compatibility verified");
 
     // Test EVM transaction structure
     let evm_transaction = arthachain_node::evm::EvmTransaction {
@@ -115,15 +115,15 @@ async fn test_evm_compatibility_layer() {
 
     assert_eq!(evm_transaction.gas_limit, 21000u64.into());
 
-    println!("✅ EVM: Transaction structure compatibility verified");
+    println!(" EVM: Transaction structure compatibility verified");
 
     // Test EVM constants
     assert_eq!(arthachain_node::evm::DEFAULT_GAS_PRICE, 20_000_000_000);
     assert_eq!(arthachain_node::evm::DEFAULT_GAS_LIMIT, 21_000);
 
-    println!("✅ EVM: Constants and standards verified");
+    println!(" EVM: Constants and standards verified");
 
-    println!("🎉 EVM Compatibility Layer: 100% COMPLETE!");
+    println!(" EVM Compatibility Layer: COMPLETE!");
 }
 
 /// Test Phase 2.4: Gas Optimization System
@@ -147,7 +147,7 @@ async fn test_gas_optimization_system() {
 
     let optimization_engine = GasOptimizationEngine::new(config);
 
-    println!("✅ Gas Optimization: Engine creation successful");
+    println!(" Gas Optimization: Engine creation successful");
 
     // Test gas optimization for different strategies
     let contract_address = Address::from_bytes(b"optimization_test_12").unwrap();
@@ -170,7 +170,7 @@ async fn test_gas_optimization_system() {
     assert!(!result.recommendations.is_empty());
 
     println!(
-        "✅ Gas Optimization: Optimization successful, saved {} gas",
+        " Gas Optimization: Optimization successful, saved {} gas",
         result.savings
     );
 
@@ -194,7 +194,7 @@ async fn test_gas_optimization_system() {
         .unwrap();
 
     println!(
-        "✅ Gas Optimization: Pattern learning working, second optimization: {} gas",
+        " Gas Optimization: Pattern learning working, second optimization: {} gas",
         second_optimization.optimized_gas
     );
 
@@ -204,14 +204,14 @@ async fn test_gas_optimization_system() {
     assert!(stats.contains_key("success_rate"));
     assert!(stats.contains_key("cache_size"));
 
-    println!("✅ Gas Optimization: Statistics and analytics working");
+    println!(" Gas Optimization: Statistics and analytics working");
 
     // Test cache operations
     optimization_engine.clear_cache();
 
-    println!("✅ Gas Optimization: Cache operations successful");
+    println!(" Gas Optimization: Cache operations successful");
 
-    println!("🎉 Gas Optimization System: 100% COMPLETE!");
+    println!(" Gas Optimization System: COMPLETE!");
 }
 
 /// Test Phase 2 Integration: All Components Working Together
@@ -250,7 +250,7 @@ async fn test_phase2_integration() {
     // };
     // let wasm_engine = WasmExecutionEngine::new(wasm_config).unwrap();
 
-    println!("✅ Integration: All engines initialized successfully");
+    println!(" Integration: All engines initialized successfully");
 
     // Test contract deployment with optimization
     let deployer = Address::from_bytes(b"integration_test_123").unwrap();
@@ -268,7 +268,7 @@ async fn test_phase2_integration() {
         .unwrap();
 
     println!(
-        "✅ Integration: Gas optimization before deployment: {} → {} gas (saved {})",
+        " Integration: Gas optimization before deployment: {} → {} gas (saved {})",
         gas_optimization.original_gas, gas_optimization.optimized_gas, gas_optimization.savings
     );
 
@@ -288,7 +288,7 @@ async fn test_phase2_integration() {
     assert_eq!(execution_request.function, "test_function");
     assert_eq!(execution_request.gas_limit, gas_optimization.optimized_gas);
 
-    println!("✅ Integration: Execution request processing validated");
+    println!(" Integration: Execution request processing validated");
 
     // Test analytics aggregation
     let contract_analytics = contract_engine.get_analytics();
@@ -300,7 +300,7 @@ async fn test_phase2_integration() {
     assert!(gas_stats.contains_key("total_optimizations"));
     // assert!(wasm_stats.contains_key("cached_modules")); // WASM disabled
 
-    println!("✅ Integration: Analytics aggregation successful");
+    println!(" Integration: Analytics aggregation successful");
 
     // Test different runtime compatibility
     let runtimes = vec![ContractRuntime::Evm]; // WASM disabled for now
@@ -328,11 +328,11 @@ async fn test_phase2_integration() {
         }
     }
 
-    println!("✅ Integration: Runtime and optimization level compatibility verified");
+    println!(" Integration: Runtime and optimization level compatibility verified");
 
     let total_time = start_time.elapsed();
 
-    println!("🎉 PHASE 2 COMPLETE INTEGRATION: ALL SYSTEMS WORKING TOGETHER!");
+    println!(" PHASE 2 COMPLETE INTEGRATION: ALL SYSTEMS WORKING TOGETHER!");
     println!(
         "   ⏱️ Total integration test time: {}ms",
         total_time.as_millis()
@@ -379,7 +379,7 @@ async fn test_phase2_performance_validation() {
         "Gas engine creation should be < 500ms"
     );
     println!(
-        "✅ Performance: Gas optimization engine creation: {}ms",
+        " Performance: Gas optimization engine creation: {}ms",
         gas_creation_time.as_millis()
     );
 
@@ -403,7 +403,7 @@ async fn test_phase2_performance_validation() {
         "Gas optimization should be < 100ms"
     );
     println!(
-        "✅ Performance: Gas optimization: {}ms (saved {} gas)",
+        " Performance: Gas optimization: {}ms (saved {} gas)",
         optimization_time.as_millis(),
         optimization_result.savings
     );
@@ -412,10 +412,10 @@ async fn test_phase2_performance_validation() {
     // let wasm_stats = wasm_engine.get_stats(); // WASM disabled
     let gas_stats = gas_engine.get_stats();
 
-    println!("✅ Performance: Memory efficiency validated");
-    // println!("   📊 WASM stats: {:?}", wasm_stats); // WASM disabled
+    println!(" Performance: Memory efficiency validated");
+    // println!("    WASM stats: {:?}", wasm_stats); // WASM disabled
     println!(
-        "   📊 Gas stats keys: {:?}",
+        "    Gas stats keys: {:?}",
         gas_stats.keys().collect::<Vec<_>>()
     );
 
@@ -425,7 +425,7 @@ async fn test_phase2_performance_validation() {
         "Total performance test should be < 5 seconds"
     );
 
-    println!("🎉 PHASE 2 PERFORMANCE: ALL BENCHMARKS PASSED!");
+    println!(" PHASE 2 PERFORMANCE: ALL BENCHMARKS PASSED!");
     println!(
         "   ⏱️ Total performance validation: {}ms",
         total_performance_time.as_millis()
@@ -435,7 +435,7 @@ async fn test_phase2_performance_validation() {
 /// Final Phase 2 validation summary
 #[tokio::test]
 async fn phase2_final_validation_summary() {
-    println!("\n🚀 PHASE 2: EXECUTION LAYER - FINAL VALIDATION");
+    println!("\n PHASE 2: EXECUTION LAYER - FINAL VALIDATION");
     println!("================================================");
 
     let start_time = Instant::now();
@@ -447,7 +447,7 @@ async fn phase2_final_validation_summary() {
     // let wasm_config = WasmExecutionConfig::default();
     // let wasm_engine = WasmExecutionEngine::new(wasm_config);
     // match wasm_engine {
-    //     Ok(_) => validated_components.push("✅ WASM Virtual Machine - PRODUCTION READY"),
+    //     Ok(_) => validated_components.push(" WASM Virtual Machine - PRODUCTION READY"),
     //     Err(_) => validated_components.push("❌ WASM Virtual Machine - FAILED"),
     // }
     validated_components.push("⚠️  WASM Virtual Machine - DISABLED for future implementation");
@@ -457,7 +457,7 @@ async fn phase2_final_validation_summary() {
     let contract_config = SmartContractEngineConfig::default();
     let contract_engine = SmartContractEngine::new(storage, contract_config).await;
     match contract_engine {
-        Ok(_) => validated_components.push("✅ Smart Contract Engine - PRODUCTION READY"),
+        Ok(_) => validated_components.push(" Smart Contract Engine - PRODUCTION READY"),
         Err(_) => validated_components.push("❌ Smart Contract Engine - FAILED"),
     }
 
@@ -468,12 +468,12 @@ async fn phase2_final_validation_summary() {
         default_gas_limit: arthachain_node::evm::DEFAULT_GAS_LIMIT,
         precompiles: std::collections::HashMap::new(),
     };
-    validated_components.push("✅ EVM Compatibility Layer - PRODUCTION READY");
+    validated_components.push(" EVM Compatibility Layer - PRODUCTION READY");
 
     // 2.4 Gas Optimization System
     let gas_config = GasOptimizationConfig::default();
     let gas_engine = GasOptimizationEngine::new(gas_config);
-    validated_components.push("✅ Gas Optimization System - PRODUCTION READY");
+    validated_components.push(" Gas Optimization System - PRODUCTION READY");
 
     let total_time = start_time.elapsed();
 
@@ -482,7 +482,7 @@ async fn phase2_final_validation_summary() {
         println!("   {}", component);
     }
 
-    println!("\n📊 PHASE 2 CAPABILITIES:");
+    println!("\n PHASE 2 CAPABILITIES:");
     println!("   🔧 WebAssembly Contract Execution");
     println!("   🔧 Ethereum Virtual Machine Compatibility");
     println!("   🔧 Multi-Runtime Smart Contract Support");
@@ -492,25 +492,25 @@ async fn phase2_final_validation_summary() {
     println!("   🔧 Cross-Contract Interoperability");
     println!("   🔧 Advanced Security Features");
 
-    println!("\n⚡ PERFORMANCE METRICS:");
+    println!("\n PERFORMANCE METRICS:");
     println!("   📈 WASM Execution: DISABLED for future implementation");
     println!("   📈 Gas Optimization: < 100ms optimization time");
     println!("   📈 Contract Deployment: Full validation and optimization");
     println!("   📈 Multi-Runtime Support: EVM compatibility (WASM disabled)");
 
-    println!("\n🎯 PRODUCTION READINESS:");
-    println!("   ✅ Security: Comprehensive validation and sandboxing");
-    println!("   ✅ Performance: Optimized execution and gas management");
-    println!("   ✅ Scalability: Multi-runtime and optimization support");
-    println!("   ✅ Compatibility: Full EVM support (WASM disabled for future implementation)");
+    println!("\n PRODUCTION READINESS:");
+    println!("    Security: Comprehensive validation and sandboxing");
+    println!("    Performance: Optimized execution and gas management");
+    println!("    Scalability: Multi-runtime and optimization support");
+    println!("    Compatibility: Full EVM support (WASM disabled for future implementation)");
 
-    println!("\n🏆 PHASE 2 EXECUTION LAYER: 100% COMPLETE!");
-    println!("🚀 Ready for Production Deployment!");
+    println!("\n PHASE 2 EXECUTION LAYER: COMPLETE!");
+    println!(" Ready for Production Deployment!");
     println!("⏱️ Validation completed in: {}ms", total_time.as_millis());
 
     // Final assertions
     assert!(
-        validated_components.iter().all(|c| c.contains("✅")),
+        validated_components.iter().all(|c| c.contains("")),
         "All components must be validated"
     );
     assert!(
@@ -518,5 +518,5 @@ async fn phase2_final_validation_summary() {
         "Validation should complete quickly"
     );
 
-    println!("\n🎉 BLOCKCHAIN EXECUTION LAYER: FULLY OPERATIONAL!");
+    println!("\n BLOCKCHAIN EXECUTION LAYER: FULLY OPERATIONAL!");
 }

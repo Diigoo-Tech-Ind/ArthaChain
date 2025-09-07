@@ -28,7 +28,7 @@ async fn test_phase2_gas_optimization_core() {
     };
 
     let gas_engine = GasOptimizationEngine::new(config);
-    println!("✅ Gas Optimization Engine: Created successfully");
+    println!(" Gas Optimization Engine: Created successfully");
 
     // Test Gas Optimization Functionality
     let contract_address = Address::from_bytes(b"test_contract_12345").unwrap();
@@ -49,12 +49,12 @@ async fn test_phase2_gas_optimization_core() {
     );
     let result = optimization_result.unwrap();
 
-    println!("✅ Gas Optimization Results:");
-    println!("   📊 Original Gas: {}", result.original_gas);
-    println!("   📊 Optimized Gas: {}", result.optimized_gas);
-    println!("   📊 Gas Savings: {}", result.savings);
-    println!("   📊 Strategy: {:?}", result.strategy);
-    println!("   📊 Confidence: {:.2}%", result.confidence * 100.0);
+    println!(" Gas Optimization Results:");
+    println!("    Original Gas: {}", result.original_gas);
+    println!("    Optimized Gas: {}", result.optimized_gas);
+    println!("    Gas Savings: {}", result.savings);
+    println!("    Strategy: {:?}", result.strategy);
+    println!("    Confidence: {:.2}%", result.confidence * 100.0);
 
     assert!(
         result.optimized_gas <= result.original_gas,
@@ -80,7 +80,7 @@ async fn test_phase2_gas_optimization_core() {
         .update_pattern(&contract_address, "test_function", 1_300_000, true)
         .await;
 
-    println!("✅ Pattern Learning: Updated with 3 execution patterns");
+    println!(" Pattern Learning: Updated with 3 execution patterns");
 
     // Test Second Optimization (with learned patterns)
     let second_optimization = gas_engine
@@ -93,12 +93,12 @@ async fn test_phase2_gas_optimization_core() {
         .await
         .unwrap();
 
-    println!("✅ Learned Optimization:");
+    println!(" Learned Optimization:");
     println!(
-        "   📊 Second optimization gas: {}",
+        "    Second optimization gas: {}",
         second_optimization.optimized_gas
     );
-    println!("   📊 Additional savings: {}", second_optimization.savings);
+    println!("    Additional savings: {}", second_optimization.savings);
 
     // Test Different Optimization Strategies
     let strategies = vec![
@@ -110,7 +110,7 @@ async fn test_phase2_gas_optimization_core() {
     ];
 
     for strategy in strategies {
-        println!("✅ Strategy {:?}: Available and functional", strategy);
+        println!(" Strategy {:?}: Available and functional", strategy);
     }
 
     // Test Statistics and Analytics
@@ -125,14 +125,14 @@ async fn test_phase2_gas_optimization_core() {
     );
     assert!(stats.contains_key("cache_size"), "Should track cache size");
 
-    println!("✅ Analytics:");
+    println!(" Analytics:");
     for (key, value) in &stats {
-        println!("   📊 {}: {:?}", key, value);
+        println!("    {}: {:?}", key, value);
     }
 
     // Test Cache Operations
     gas_engine.clear_cache();
-    println!("✅ Cache Management: Clear operation successful");
+    println!(" Cache Management: Clear operation successful");
 
     let total_time = start_time.elapsed();
     println!(
@@ -142,7 +142,7 @@ async fn test_phase2_gas_optimization_core() {
 
     assert!(total_time.as_millis() < 1000, "Should complete quickly");
 
-    println!("🎉 Gas Optimization System: 100% FUNCTIONAL!");
+    println!(" Gas Optimization System: 100% FUNCTIONAL!");
 }
 
 /// Test Phase 2 Smart Contract Engine Types and Structures
@@ -163,7 +163,7 @@ async fn test_phase2_smart_contract_structures() {
     ];
 
     for runtime in runtimes {
-        println!("✅ Contract Runtime: {:?} - Available", runtime);
+        println!(" Contract Runtime: {:?} - Available", runtime);
 
         // Test serialization/deserialization
         let serialized = serde_json::to_string(&runtime).unwrap();
@@ -183,7 +183,7 @@ async fn test_phase2_smart_contract_structures() {
     ];
 
     for level in optimization_levels {
-        println!("✅ Optimization Level: {:?} - Available", level);
+        println!(" Optimization Level: {:?} - Available", level);
     }
 
     // Test Execution Priorities
@@ -195,14 +195,14 @@ async fn test_phase2_smart_contract_structures() {
     ];
 
     for priority in priorities {
-        println!("✅ Execution Priority: {:?} - Available", priority);
+        println!(" Execution Priority: {:?} - Available", priority);
     }
 
     // Test priority ordering
     assert!(ExecutionPriority::Critical > ExecutionPriority::High);
     assert!(ExecutionPriority::High > ExecutionPriority::Normal);
     assert!(ExecutionPriority::Normal > ExecutionPriority::Low);
-    println!("✅ Priority Ordering: Correctly implemented");
+    println!(" Priority Ordering: Correctly implemented");
 
     // Test Contract Execution Request Structure
     let deployer = Address::from_bytes(b"deployer_test_123456").unwrap();
@@ -223,7 +223,7 @@ async fn test_phase2_smart_contract_structures() {
     assert_eq!(execution_request.gas_limit, 500_000);
     assert_eq!(execution_request.priority, ExecutionPriority::Normal);
 
-    println!("✅ Contract Execution Request: Structure validated");
+    println!(" Contract Execution Request: Structure validated");
 
     // Test Engine Configuration
     let engine_config = SmartContractEngineConfig {
@@ -241,9 +241,9 @@ async fn test_phase2_smart_contract_structures() {
     assert!(engine_config.enable_optimization);
     assert!(engine_config.enable_analytics);
 
-    println!("✅ Smart Contract Engine Config: All settings validated");
+    println!(" Smart Contract Engine Config: All settings validated");
 
-    println!("🎉 Smart Contract Engine Structures: 100% COMPLETE!");
+    println!(" Smart Contract Engine Structures: COMPLETE!");
 }
 
 /// Test Phase 2 EVM Compatibility Types
@@ -256,13 +256,13 @@ async fn test_phase2_evm_compatibility() {
     assert_eq!(arthachain_node::evm::DEFAULT_GAS_LIMIT, 21_000);
     assert_eq!(arthachain_node::evm::NATIVE_TO_GAS_CONVERSION_RATE, 1);
 
-    println!("✅ EVM Constants: All values correct");
+    println!(" EVM Constants: All values correct");
 
     // Test EVM Address Type
     let evm_address = arthachain_node::evm::EvmAddress::from([0u8; 20]);
     assert_eq!(evm_address.as_bytes().len(), 20);
 
-    println!("✅ EVM Address: 20-byte address format validated");
+    println!(" EVM Address: 20-byte address format validated");
 
     // Test EVM Config Structure
     let evm_config = arthachain_node::evm::EvmConfig {
@@ -275,7 +275,7 @@ async fn test_phase2_evm_compatibility() {
     assert_eq!(evm_config.chain_id, 1337);
     assert_eq!(evm_config.default_gas_price, 20_000_000_000);
 
-    println!("✅ EVM Config: Configuration structure validated");
+    println!(" EVM Config: Configuration structure validated");
 
     // Test EVM Transaction Structure
     let evm_tx = arthachain_node::evm::EvmTransaction {
@@ -293,7 +293,7 @@ async fn test_phase2_evm_compatibility() {
     assert_eq!(evm_tx.gas_limit, 21000u64.into());
     assert_eq!(evm_tx.gas_price, 20_000_000_000u64.into());
 
-    println!("✅ EVM Transaction: Structure and types validated");
+    println!(" EVM Transaction: Structure and types validated");
 
     // Test EVM Error Types
     let evm_errors = vec![
@@ -309,10 +309,10 @@ async fn test_phase2_evm_compatibility() {
     ];
 
     for error_type in evm_errors {
-        println!("✅ EVM Error Type: {} - Defined", error_type);
+        println!(" EVM Error Type: {} - Defined", error_type);
     }
 
-    println!("🎉 EVM Compatibility Layer: 100% COMPLETE!");
+    println!(" EVM Compatibility Layer: COMPLETE!");
 }
 
 /// Test Phase 2 WASM Support Types
@@ -339,7 +339,7 @@ async fn test_phase2_wasm_support() {
     // ];
 
     // for error_type in wasm_error_types {
-    //     println!("✅ WASM Error Type: {} - Defined", error_type);
+    //     println!(" WASM Error Type: {} - Defined", error_type);
     // }
 
     // Test basic WASM functionality without complex dependencies - DISABLED
@@ -351,7 +351,7 @@ async fn test_phase2_wasm_support() {
 /// Final Phase 2 Completion Summary
 #[tokio::test]
 async fn test_phase2_final_completion_summary() {
-    println!("\n🚀 PHASE 2: EXECUTION LAYER - FINAL COMPLETION SUMMARY");
+    println!("\n PHASE 2: EXECUTION LAYER - FINAL COMPLETION SUMMARY");
     println!("======================================================");
 
     let start_time = Instant::now();
@@ -359,29 +359,29 @@ async fn test_phase2_final_completion_summary() {
     // Component Checklist
     let mut completed_components = Vec::new();
 
-    // 2.1 WASM Virtual Machine ✅
-    completed_components.push("✅ 2.1 WASM Virtual Machine - Production Ready");
+    // 2.1 WASM Virtual Machine 
+    completed_components.push(" 2.1 WASM Virtual Machine - Production Ready");
     completed_components.push("   📋 WASM Engine with Wasmtime Integration");
     completed_components.push("   📋 Host Function Interface System");
     completed_components.push("   📋 Gas Metering and Memory Management");
     completed_components.push("   📋 Security Sandboxing and Validation");
 
-    // 2.2 Smart Contract Engine ✅
-    completed_components.push("✅ 2.2 Smart Contract Engine - Production Ready");
+    // 2.2 Smart Contract Engine 
+    completed_components.push(" 2.2 Smart Contract Engine - Production Ready");
     completed_components.push("   📋 Multi-Runtime Support (WASM + EVM)");
     completed_components.push("   📋 Contract Lifecycle Management");
     completed_components.push("   📋 Execution Analytics and Monitoring");
     completed_components.push("   📋 Concurrent Execution Control");
 
-    // 2.3 EVM Compatibility Layer ✅
-    completed_components.push("✅ 2.3 EVM Compatibility Layer - Production Ready");
+    // 2.3 EVM Compatibility Layer 
+    completed_components.push(" 2.3 EVM Compatibility Layer - Production Ready");
     completed_components.push("   📋 Ethereum Address and Transaction Support");
     completed_components.push("   📋 EVM Bytecode Execution Engine");
     completed_components.push("   📋 Precompiled Contract System");
     completed_components.push("   📋 Gas Price and Limit Management");
 
-    // 2.4 Gas Optimization System ✅
-    completed_components.push("✅ 2.4 Gas Optimization System - Production Ready");
+    // 2.4 Gas Optimization System 
+    completed_components.push(" 2.4 Gas Optimization System - Production Ready");
     completed_components.push("   📋 AI-Driven Optimization Strategies");
     completed_components.push("   📋 Machine Learning Pattern Recognition");
     completed_components.push("   📋 Real-time Adaptive Optimization");
@@ -409,7 +409,7 @@ async fn test_phase2_final_completion_summary() {
     assert!(optimization.is_ok(), "Core optimization should work");
     let result = optimization.unwrap();
 
-    println!("\n⚡ PERFORMANCE VALIDATION:");
+    println!("\n PERFORMANCE VALIDATION:");
     println!(
         "   📈 Gas Optimization: {} → {} gas (saved {})",
         result.original_gas, result.optimized_gas, result.savings
@@ -418,17 +418,17 @@ async fn test_phase2_final_completion_summary() {
     println!("   📈 Confidence Level: {:.1}%", result.confidence * 100.0);
     println!("   📈 Strategy Used: {:?}", result.strategy);
 
-    println!("\n🎯 PRODUCTION READINESS CHECKLIST:");
-    println!("   ✅ Security: Comprehensive validation and sandboxing");
-    println!("   ✅ Performance: Optimized execution and gas management");
-    println!("   ✅ Scalability: Multi-runtime and concurrent execution");
-    println!("   ✅ Compatibility: Full EVM and WASM support");
-    println!("   ✅ Analytics: Real-time monitoring and optimization");
-    println!("   ✅ Reliability: Error handling and fault tolerance");
-    println!("   ✅ Flexibility: Multiple optimization strategies");
-    println!("   ✅ Intelligence: AI-driven adaptive optimization");
+    println!("\n PRODUCTION READINESS CHECKLIST:");
+    println!("    Security: Comprehensive validation and sandboxing");
+    println!("    Performance: Optimized execution and gas management");
+    println!("    Scalability: Multi-runtime and concurrent execution");
+    println!("    Compatibility: Full EVM and WASM support");
+    println!("    Analytics: Real-time monitoring and optimization");
+    println!("    Reliability: Error handling and fault tolerance");
+    println!("    Flexibility: Multiple optimization strategies");
+    println!("    Intelligence: AI-driven adaptive optimization");
 
-    println!("\n🏗️ ARCHITECTURE HIGHLIGHTS:");
+    println!("\n ARCHITECTURE HIGHLIGHTS:");
     println!("   🔧 Modular Design: Components work independently and together");
     println!("   🔧 Feature Flags: Conditional compilation for different deployments");
     println!("   🔧 Mock Systems: Fallback implementations for missing features");
@@ -437,7 +437,7 @@ async fn test_phase2_final_completion_summary() {
     println!("   🔧 Caching: Intelligent caching for performance optimization");
     println!("   🔧 Analytics: Built-in metrics and performance tracking");
 
-    println!("\n📊 TECHNICAL ACHIEVEMENTS:");
+    println!("\n TECHNICAL ACHIEVEMENTS:");
     println!("   🎨 Clean Code: Rust best practices and idiomatic patterns");
     println!("   🎨 Documentation: Comprehensive inline documentation");
     println!("   🎨 Testing: Integration tests for all major components");
@@ -447,8 +447,8 @@ async fn test_phase2_final_completion_summary() {
 
     let total_time = start_time.elapsed();
 
-    println!("\n🏆 PHASE 2 EXECUTION LAYER: 100% COMPLETE!");
-    println!("🚀 READY FOR PRODUCTION DEPLOYMENT!");
+    println!("\n PHASE 2 EXECUTION LAYER: COMPLETE!");
+    println!(" READY FOR PRODUCTION DEPLOYMENT!");
     println!(
         "⏱️ Final validation completed in: {}ms",
         total_time.as_millis()
@@ -468,7 +468,7 @@ async fn test_phase2_final_completion_summary() {
         "Should complete validation quickly"
     );
 
-    println!("\n🎉 BLOCKCHAIN EXECUTION LAYER: FULLY OPERATIONAL!");
-    println!("💰 READY FOR $5M INVESTMENT DEPLOYMENT!");
-    println!("🌟 ARTHACHAIN PHASE 2: COMPLETE SUCCESS!");
+    println!("\n BLOCKCHAIN EXECUTION LAYER: FULLY OPERATIONAL!");
+    println!(" READY FOR INVESTMENT DEPLOYMENT!");
+    println!(" ARTHACHAIN PHASE 2: COMPLETE SUCCESS!");
 }

@@ -63,7 +63,7 @@ async fn test_byzantine_fault_tolerance_33_percent() {
     }
 
     assert_eq!(manager.get_current_view(), target_view);
-    println!("✅ Byzantine fault tolerance test passed: 33% malicious nodes handled");
+    println!(" Byzantine fault tolerance test passed: 33% malicious nodes handled");
 }
 
 /// Test view change timeout mechanism
@@ -97,7 +97,7 @@ async fn test_view_change_timeout() {
         "Timeout should trigger view change attempt"
     );
 
-    println!("✅ View change timeout test passed");
+    println!(" View change timeout test passed");
 }
 
 /// Test leader election across multiple view changes
@@ -146,7 +146,7 @@ async fn test_leader_election_rotation() {
         }
     }
 
-    println!("✅ Leader election rotation test passed");
+    println!(" Leader election rotation test passed");
 }
 
 /// Test view change message validation
@@ -190,7 +190,7 @@ async fn test_view_change_message_validation() {
         .await;
     assert!(result.is_err(), "Invalid validator should be rejected");
 
-    println!("✅ View change message validation test passed");
+    println!(" View change message validation test passed");
 }
 
 /// Test concurrent view change requests
@@ -255,7 +255,7 @@ async fn test_concurrent_view_changes() {
         "View should be updated to target view"
     );
 
-    println!("✅ Concurrent view change test passed");
+    println!(" Concurrent view change test passed");
 }
 
 /// Test view change under network partition simulation
@@ -307,5 +307,5 @@ async fn test_view_change_network_partition() {
         successful_changes, 5,
         "All connected validators should validate successfully"
     );
-    println!("✅ Network partition recovery test passed");
+    println!(" Network partition recovery test passed");
 }

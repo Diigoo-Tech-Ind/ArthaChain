@@ -15,7 +15,7 @@ use std::time::Instant;
 /// Test Phase 2.3: Complete EVM Compatibility Layer
 #[tokio::test]
 async fn test_phase23_complete_evm_compatibility() {
-    println!("\n🚀 PHASE 2.3: EVM COMPATIBILITY LAYER - COMPLETE IMPLEMENTATION");
+    println!("\n PHASE 2.3: EVM COMPATIBILITY LAYER - COMPLETE IMPLEMENTATION");
     println!("================================================================");
 
     let start_time = Instant::now();
@@ -36,10 +36,10 @@ async fn test_phase23_complete_evm_compatibility() {
     };
 
     let evm_engine = EvmExecutionEngine::new(storage, config).unwrap();
-    println!("✅ EVM Execution Engine: CREATED");
+    println!(" EVM Execution Engine: CREATED");
 
     // Test EVM Version Compatibility
-    println!("\n📊 TESTING EVM VERSION COMPATIBILITY:");
+    println!("\n TESTING EVM VERSION COMPATIBILITY:");
     let versions = vec![
         EvmVersion::Frontier,
         EvmVersion::Homestead,
@@ -52,7 +52,7 @@ async fn test_phase23_complete_evm_compatibility() {
     ];
 
     for version in versions {
-        println!("   ✅ EVM Version: {:?} - SUPPORTED", version);
+        println!("    EVM Version: {:?} - SUPPORTED", version);
     }
 
     // Test Ethereum Address Compatibility
@@ -70,7 +70,7 @@ async fn test_phase23_complete_evm_compatibility() {
     for (i, addr) in eth_addresses.iter().enumerate() {
         assert_eq!(addr.as_bytes().len(), 20, "Address should be 20 bytes");
         println!(
-            "   ✅ Address {}: {} - VALID",
+            "    Address {}: {} - VALID",
             i + 1,
             hex::encode(addr.as_bytes())
         );
@@ -102,7 +102,7 @@ async fn test_phase23_complete_evm_compatibility() {
         let result = evm_engine.execute_transaction(&tx).await.unwrap();
 
         println!(
-            "   ✅ {}: success={}, gas_used={}",
+            "    {}: success={}, gas_used={}",
             name, result.success, result.gas_used
         );
         assert!(result.success, "{} precompile should succeed", name);
@@ -142,7 +142,7 @@ async fn test_phase23_complete_evm_compatibility() {
         let result = evm_engine.execute_transaction(&tx).await.unwrap();
 
         println!(
-            "   ✅ {}: success={}, gas_used={}, return_data_len={}",
+            "    {}: success={}, gas_used={}, return_data_len={}",
             function_name,
             result.success,
             result.gas_used,
@@ -181,12 +181,12 @@ async fn test_phase23_complete_evm_compatibility() {
     let creation_result = evm_engine.execute_transaction(&creation_tx).await.unwrap();
 
     println!(
-        "   ✅ Contract Creation: success={}, gas_used={}",
+        "    Contract Creation: success={}, gas_used={}",
         creation_result.success, creation_result.gas_used
     );
     if let Some(contract_addr) = creation_result.contract_address {
         println!(
-            "   ✅ Created Contract Address: {}",
+            "    Created Contract Address: {}",
             hex::encode(contract_addr.as_bytes())
         );
     }
@@ -198,7 +198,7 @@ async fn test_phase23_complete_evm_compatibility() {
     );
 
     // Test Value Transfers
-    println!("\n💰 TESTING VALUE TRANSFERS:");
+    println!("\n TESTING VALUE TRANSFERS:");
 
     let transfer_tx = EvmTransaction {
         from: EvmAddress::from_low_u64_be(0x3000),
@@ -215,7 +215,7 @@ async fn test_phase23_complete_evm_compatibility() {
     let transfer_result = evm_engine.execute_transaction(&transfer_tx).await.unwrap();
 
     println!(
-        "   ✅ Value Transfer: success={}, gas_used={}",
+        "    Value Transfer: success={}, gas_used={}",
         transfer_result.success, transfer_result.gas_used
     );
     assert!(transfer_result.success, "Value transfer should succeed");
@@ -242,12 +242,12 @@ async fn test_phase23_complete_evm_compatibility() {
     let gas_result = evm_engine.execute_transaction(&high_gas_tx).await.unwrap();
 
     println!(
-        "   ✅ Gas Validation: success={}, gas_used={}, gas_remaining={}",
+        "    Gas Validation: success={}, gas_used={}, gas_remaining={}",
         gas_result.success, gas_result.gas_used, gas_result.gas_remaining
     );
 
     // Test Performance and Analytics
-    println!("\n📊 TESTING PERFORMANCE AND ANALYTICS:");
+    println!("\n TESTING PERFORMANCE AND ANALYTICS:");
 
     let metrics = evm_engine.get_metrics();
     println!("   📈 Total Transactions: {}", metrics.total_transactions);
@@ -272,7 +272,7 @@ async fn test_phase23_complete_evm_compatibility() {
 
     // Test Engine Statistics
     let stats = evm_engine.get_stats();
-    println!("\n📊 ENGINE STATISTICS:");
+    println!("\n ENGINE STATISTICS:");
     for (key, value) in &stats {
         println!("   📈 {}: {:?}", key, value);
     }
@@ -289,22 +289,22 @@ async fn test_phase23_complete_evm_compatibility() {
     // Test Cache Operations
     println!("\n💾 TESTING CACHE OPERATIONS:");
     evm_engine.clear_cache();
-    println!("   ✅ Cache cleared successfully");
+    println!("    Cache cleared successfully");
 
     let final_time = start_time.elapsed();
 
-    println!("\n🎉 PHASE 2.3 EVM COMPATIBILITY: COMPLETE VALIDATION");
+    println!("\n PHASE 2.3 EVM COMPATIBILITY: COMPLETE VALIDATION");
     println!("===================================================");
-    println!("✅ Ethereum Address Compatibility: FULL SUPPORT");
-    println!("✅ EVM Version Compatibility: ALL VERSIONS");
-    println!("✅ Precompiled Contracts: 4/4 WORKING");
-    println!("✅ ERC-20 Function Simulation: FUNCTIONAL");
-    println!("✅ Contract Creation: OPERATIONAL");
-    println!("✅ Value Transfers: WORKING");
-    println!("✅ Gas Management: ACCURATE");
-    println!("✅ Performance Analytics: COMPREHENSIVE");
+    println!(" Ethereum Address Compatibility: FULL SUPPORT");
+    println!(" EVM Version Compatibility: ALL VERSIONS");
+    println!(" Precompiled Contracts: 4/4 WORKING");
+    println!(" ERC-20 Function Simulation: FUNCTIONAL");
+    println!(" Contract Creation: OPERATIONAL");
+    println!(" Value Transfers: WORKING");
+    println!(" Gas Management: ACCURATE");
+    println!(" Performance Analytics: COMPREHENSIVE");
 
-    println!("\n🏗️ EVM FEATURES IMPLEMENTED:");
+    println!("\n EVM FEATURES IMPLEMENTED:");
     println!("   🔧 20-byte Ethereum Address Support");
     println!("   🔧 Transaction Structure Compatibility");
     println!("   🔧 Gas Price and Limit Management");
@@ -316,7 +316,7 @@ async fn test_phase23_complete_evm_compatibility() {
     println!("   🔧 Execution Context Management");
     println!("   🔧 Performance Metrics and Caching");
 
-    println!("\n⚡ PERFORMANCE METRICS:");
+    println!("\n PERFORMANCE METRICS:");
     println!("   📈 Total Test Time: {}ms", final_time.as_millis());
     println!(
         "   📈 Average TX Time: {:.2}μs",
@@ -328,17 +328,17 @@ async fn test_phase23_complete_evm_compatibility() {
     );
     println!("   📈 Success Rate: {:.1}%", metrics.success_rate * 100.0);
 
-    println!("\n🎯 ETHEREUM COMPATIBILITY STATUS:");
-    println!("   ✅ Address Format: 100% Compatible");
-    println!("   ✅ Transaction Format: 100% Compatible");
-    println!("   ✅ Gas Mechanism: 100% Compatible");
-    println!("   ✅ Precompiles: 100% Compatible");
-    println!("   ✅ Contract Creation: 100% Compatible");
-    println!("   ✅ EVM Opcodes: Simulation Ready");
+    println!("\n ETHEREUM COMPATIBILITY STATUS:");
+    println!("    Address Format: 100% Compatible");
+    println!("    Transaction Format: 100% Compatible");
+    println!("    Gas Mechanism: 100% Compatible");
+    println!("    Precompiles: 100% Compatible");
+    println!("    Contract Creation: 100% Compatible");
+    println!("    EVM Opcodes: Simulation Ready");
 
-    println!("\n🏆 PHASE 2.3: EVM COMPATIBILITY LAYER - 100% COMPLETE!");
-    println!("🚀 READY FOR ETHEREUM DAPP DEPLOYMENT!");
-    println!("💰 SOLIDITY SMART CONTRACT SUPPORT: OPERATIONAL!");
+    println!("\n PHASE 2.3: EVM COMPATIBILITY LAYER - COMPLETE!");
+    println!(" READY FOR ETHEREUM DAPP DEPLOYMENT!");
+    println!(" SOLIDITY SMART CONTRACT SUPPORT: OPERATIONAL!");
 
     // Final assertions for 100% completion
     assert!(
@@ -384,7 +384,7 @@ async fn test_ethereum_transaction_compatibility() {
     assert_eq!(eth_tx.gas_limit, U256::from(21000));
     assert_eq!(eth_tx.gas_price, U256::from(20_000_000_000u64));
 
-    println!("✅ Ethereum transaction structure: FULLY COMPATIBLE");
+    println!(" Ethereum transaction structure: FULLY COMPATIBLE");
 }
 
 /// Test EVM Constants and Configuration
@@ -405,5 +405,5 @@ fn test_evm_constants_configuration() {
     assert!(config.enable_precompiles);
     assert_eq!(config.evm_version, EvmVersion::London);
 
-    println!("✅ EVM constants and configuration: CORRECT");
+    println!(" EVM constants and configuration: CORRECT");
 }

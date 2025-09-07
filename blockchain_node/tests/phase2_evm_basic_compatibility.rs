@@ -8,7 +8,7 @@ use std::time::Instant;
 /// Test Phase 2.3: Basic EVM Compatibility
 #[test]
 fn test_phase23_evm_basic_compatibility() {
-    println!("\n🚀 PHASE 2.3: EVM COMPATIBILITY LAYER - BASIC TEST");
+    println!("\n PHASE 2.3: EVM COMPATIBILITY LAYER - BASIC TEST");
     println!("==================================================");
 
     let start_time = Instant::now();
@@ -25,9 +25,9 @@ fn test_phase23_evm_basic_compatibility() {
     assert_eq!(addr2.as_bytes().len(), 20);
     assert_eq!(addr3.as_bytes().len(), 20);
 
-    println!("   ✅ H160 Address: 0x{}", hex::encode(addr1.as_bytes()));
-    println!("   ✅ H160 Address: 0x{}", hex::encode(addr2.as_bytes()));
-    println!("   ✅ H160 Address: 0x{}", hex::encode(addr3.as_bytes()));
+    println!("    H160 Address: 0x{}", hex::encode(addr1.as_bytes()));
+    println!("    H160 Address: 0x{}", hex::encode(addr2.as_bytes()));
+    println!("    H160 Address: 0x{}", hex::encode(addr3.as_bytes()));
 
     // Test U256 (256-bit integers)
     let value1 = U256::from(1_000_000_000_000_000_000u64); // 1 ETH
@@ -35,8 +35,8 @@ fn test_phase23_evm_basic_compatibility() {
     let gas_price = U256::from(20_000_000_000u64); // 20 gwei
 
     assert_eq!(value1, value2);
-    println!("   ✅ U256 Value: {} wei (1 ETH)", value1);
-    println!("   ✅ U256 Gas Price: {} wei (20 gwei)", gas_price);
+    println!("    U256 Value: {} wei (1 ETH)", value1);
+    println!("    U256 Gas Price: {} wei (20 gwei)", gas_price);
 
     // Test H256 (256-bit hashes)
     let hash1 = H256::zero();
@@ -45,8 +45,8 @@ fn test_phase23_evm_basic_compatibility() {
     assert_eq!(hash1.as_bytes().len(), 32);
     assert_eq!(hash2.as_bytes().len(), 32);
 
-    println!("   ✅ H256 Hash: 0x{}", hex::encode(&hash1.as_bytes()[..8]));
-    println!("   ✅ H256 Hash: 0x{}", hex::encode(&hash2.as_bytes()[..8]));
+    println!("    H256 Hash: 0x{}", hex::encode(&hash1.as_bytes()[..8]));
+    println!("    H256 Hash: 0x{}", hex::encode(&hash2.as_bytes()[..8]));
 
     // Test Gas Calculations
     println!("\n⛽ Testing Gas Calculations...");
@@ -70,7 +70,7 @@ fn test_phase23_evm_basic_compatibility() {
     ];
 
     for (name, gas, cost) in gas_scenarios {
-        println!("   ✅ {}: {} gas = {} wei", name, gas, cost);
+        println!("    {}: {} gas = {} wei", name, gas, cost);
         assert!(gas >= base_gas);
     }
 
@@ -86,7 +86,7 @@ fn test_phase23_evm_basic_compatibility() {
 
     for (func, selector) in selectors {
         assert_eq!(selector.len(), 4);
-        println!("   ✅ {}: 0x{}", func, hex::encode(selector));
+        println!("    {}: 0x{}", func, hex::encode(selector));
     }
 
     // Test Precompiled Contract Addresses
@@ -103,7 +103,7 @@ fn test_phase23_evm_basic_compatibility() {
     for (name, addr_num) in precompiles {
         let precompile_addr = H160::from_low_u64_be(addr_num);
         println!(
-            "   ✅ {}: 0x{}",
+            "    {}: 0x{}",
             name,
             hex::encode(&precompile_addr.as_bytes()[16..])
         );
@@ -111,7 +111,7 @@ fn test_phase23_evm_basic_compatibility() {
     }
 
     // Test Wei Conversions
-    println!("\n💰 Testing Wei Conversions...");
+    println!("\n Testing Wei Conversions...");
 
     let wei = U256::from(1);
     let gwei = U256::from(1_000_000_000);
@@ -120,23 +120,23 @@ fn test_phase23_evm_basic_compatibility() {
     assert_eq!(gwei, U256::from(10u128).pow(U256::from(9)));
     assert_eq!(ether, U256::from(10u128).pow(U256::from(18)));
 
-    println!("   ✅ 1 wei = {}", wei);
-    println!("   ✅ 1 gwei = {} wei", gwei);
-    println!("   ✅ 1 ether = {} wei", ether);
+    println!("    1 wei = {}", wei);
+    println!("    1 gwei = {} wei", gwei);
+    println!("    1 ether = {} wei", ether);
 
     let total_time = start_time.elapsed();
 
-    println!("\n🎉 PHASE 2.3 EVM COMPATIBILITY: COMPLETE");
+    println!("\n PHASE 2.3 EVM COMPATIBILITY: COMPLETE");
     println!("=========================================");
-    println!("✅ Ethereum Address Format (H160): WORKING");
-    println!("✅ Ethereum Values (U256): WORKING");
-    println!("✅ Ethereum Hashes (H256): WORKING");
-    println!("✅ Gas Calculations: WORKING");
-    println!("✅ ERC-20 Selectors: WORKING");
-    println!("✅ Precompile Addresses: WORKING");
-    println!("✅ Wei Conversions: WORKING");
+    println!(" Ethereum Address Format (H160): WORKING");
+    println!(" Ethereum Values (U256): WORKING");
+    println!(" Ethereum Hashes (H256): WORKING");
+    println!(" Gas Calculations: WORKING");
+    println!(" ERC-20 Selectors: WORKING");
+    println!(" Precompile Addresses: WORKING");
+    println!(" Wei Conversions: WORKING");
 
-    println!("\n🏗️ EVM COMPATIBILITY ACHIEVED:");
+    println!("\n EVM COMPATIBILITY ACHIEVED:");
     println!("   🔧 20-byte Ethereum addresses");
     println!("   🔧 256-bit arithmetic");
     println!("   🔧 256-bit hash support");
@@ -145,12 +145,12 @@ fn test_phase23_evm_basic_compatibility() {
     println!("   🔧 Precompiled contract addressing");
     println!("   🔧 Ethereum unit conversions");
 
-    println!("\n⚡ PERFORMANCE:");
+    println!("\n PERFORMANCE:");
     println!("   📈 Test Time: {}ms", total_time.as_millis());
     println!("   📈 All Checks: PASSED");
 
-    println!("\n🏆 PHASE 2.3: EVM COMPATIBILITY LAYER - 100% COMPLETE!");
-    println!("🚀 READY FOR ETHEREUM DAPP INTEGRATION!");
+    println!("\n PHASE 2.3: EVM COMPATIBILITY LAYER - COMPLETE!");
+    println!(" READY FOR ETHEREUM DAPP INTEGRATION!");
 
     // Final assertions
     assert!(total_time.as_millis() < 100);
@@ -191,5 +191,5 @@ fn test_ethereum_transaction_structure() {
     assert_eq!(tx.gas_limit, U256::from(21000));
     assert_eq!(tx.data.len(), 4);
 
-    println!("✅ Ethereum transaction structure: COMPATIBLE");
+    println!(" Ethereum transaction structure: COMPATIBLE");
 }

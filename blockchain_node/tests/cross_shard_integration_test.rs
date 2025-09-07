@@ -77,7 +77,7 @@ async fn test_cross_shard_transaction_with_proof() {
         "Transaction should start in Prepare phase"
     );
 
-    println!("✅ Cross-shard transaction with Merkle proof test passed");
+    println!(" Cross-shard transaction with Merkle proof test passed");
 }
 
 /// Test Merkle proof caching and performance
@@ -122,7 +122,7 @@ async fn test_merkle_proof_caching() {
         // Cache hit should be faster (though this is timing-dependent)
         if duration2 < duration1 {
             println!(
-                "✅ Cache hit detected: {}μs vs {}μs",
+                " Cache hit detected: {}μs vs {}μs",
                 duration2.as_micros(),
                 duration1.as_micros()
             );
@@ -138,7 +138,7 @@ async fn test_merkle_proof_caching() {
         "All transaction hashes should be cached"
     );
 
-    println!("✅ Merkle proof caching test passed");
+    println!(" Merkle proof caching test passed");
 }
 
 /// Test atomic cross-shard transaction rollback
@@ -189,7 +189,7 @@ async fn test_atomic_transaction_rollback() {
     println!("Messages sent during test: {}", message_count);
 
     coordinator.stop().unwrap();
-    println!("✅ Atomic transaction rollback test passed");
+    println!(" Atomic transaction rollback test passed");
 }
 
 /// Test concurrent cross-shard transactions
@@ -246,7 +246,7 @@ async fn test_concurrent_cross_shard_transactions() {
     );
 
     println!(
-        "✅ Concurrent cross-shard transactions test passed: {} txs",
+        " Concurrent cross-shard transactions test passed: {} txs",
         successful_txs
     );
 }
@@ -283,7 +283,7 @@ async fn test_malicious_proof_detection() {
         assert!(!coordinator.validate_merkle_proof(&proof).unwrap());
     }
 
-    println!("✅ Malicious proof detection test passed");
+    println!(" Malicious proof detection test passed");
 }
 
 /// Test cross-shard transaction with multiple participants
@@ -335,7 +335,7 @@ async fn test_multi_shard_atomic_transaction() {
         "Multi-shard atomic transaction should process successfully"
     );
 
-    println!("✅ Multi-shard atomic transaction test passed");
+    println!(" Multi-shard atomic transaction test passed");
 }
 
 /// Benchmark proof verification performance
@@ -395,5 +395,5 @@ async fn benchmark_proof_verification_performance() {
         "Warm verification should be < 50ms"
     );
 
-    println!("✅ Proof verification performance benchmark passed");
+    println!(" Proof verification performance benchmark passed");
 }

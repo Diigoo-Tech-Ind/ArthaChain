@@ -483,7 +483,7 @@ impl ComprehensiveTestingSuite {
 
     /// Run comprehensive testing suite
     pub async fn run_comprehensive_tests(&mut self) -> Result<ComprehensiveTestResults> {
-        info!("🚀 Starting Comprehensive Testing Suite for $10M Investment Validation");
+        info!(" Starting Comprehensive Testing Suite for $10M Investment Validation");
         let start_time = Instant::now();
 
         // Initialize test environment
@@ -527,10 +527,10 @@ impl ComprehensiveTestingSuite {
         self.cleanup_test_environment().await?;
 
         info!(
-            "✅ Comprehensive Testing Suite completed in {:?}",
+            " Comprehensive Testing Suite completed in {:?}",
             total_duration
         );
-        info!("📊 Overall Success: {}", overall_success);
+        info!(" Overall Success: {}", overall_success);
 
         Ok(results)
     }
@@ -547,7 +547,7 @@ impl ComprehensiveTestingSuite {
         // Create test nodes
         self.create_test_nodes().await?;
 
-        info!("✅ Test environment initialized");
+        info!(" Test environment initialized");
         Ok(())
     }
 
@@ -856,7 +856,7 @@ impl ComprehensiveTestingSuite {
 
     /// Run load tests
     async fn run_load_tests(&self) -> Result<LoadTestResults> {
-        info!("⚡ Running Load Tests");
+        info!(" Running Load Tests");
         let start_time = Instant::now();
 
         let target_tps = self.config.load_test_config.target_tps;
@@ -925,7 +925,7 @@ impl ComprehensiveTestingSuite {
             >= (target_tps as f64 * self.config.load_test_config.performance_threshold) as u64
             && !memory_leak_detected;
 
-        info!("📊 Load Test Results:");
+        info!(" Load Test Results:");
         info!("  Target TPS: {}, Achieved: {}", target_tps, achieved_tps);
         info!("  Peak TPS: {}, Achieved: {}", peak_tps, peak_achieved);
         info!("  Average Latency: {:?}", average_latency);
@@ -1020,7 +1020,7 @@ impl ComprehensiveTestingSuite {
 
     /// Run security tests
     async fn run_security_tests(&self) -> Result<SecurityTestResults> {
-        info!("🛡️ Running Security Tests");
+        info!(" Running Security Tests");
         let mut vulnerabilities = Vec::new();
         let mut attack_results = HashMap::new();
 
@@ -1230,7 +1230,7 @@ impl ComprehensiveTestingSuite {
 
     /// Run integration tests
     async fn run_integration_tests(&self) -> Result<IntegrationTestResults> {
-        info!("🔗 Running Integration Tests");
+        info!(" Running Integration Tests");
 
         let mut scenario_results = HashMap::new();
 
@@ -1266,7 +1266,7 @@ impl ComprehensiveTestingSuite {
             && cross_chain_passed
             && production_sim_passed;
 
-        info!("🔗 Integration Test Results:");
+        info!(" Integration Test Results:");
         info!(
             "  E2E Scenarios Passed: {}/{}",
             scenario_results.values().filter(|&&r| r).count(),
@@ -1310,7 +1310,7 @@ impl ComprehensiveTestingSuite {
                 Ok(true)
             }
             E2eScenario::NodeValidation => {
-                info!("✅ Testing node validation");
+                info!(" Testing node validation");
                 // Test validator node operations
                 Ok(true)
             }
@@ -1336,7 +1336,7 @@ impl ComprehensiveTestingSuite {
 
     /// Test cross-chain integration
     async fn test_cross_chain_integration(&self) -> Result<bool> {
-        info!("🌉 Testing cross-chain integration");
+        info!(" Testing cross-chain integration");
 
         // Test cross-chain bridge functionality
         // This would test actual bridge protocols in a real implementation
@@ -1345,7 +1345,7 @@ impl ComprehensiveTestingSuite {
 
     /// Simulate production environment
     async fn simulate_production_environment(&self) -> Result<bool> {
-        info!("🏭 Simulating production environment");
+        info!(" Simulating production environment");
 
         // Test under production-like conditions
         // This would include realistic network conditions, load patterns, etc.
@@ -1354,7 +1354,7 @@ impl ComprehensiveTestingSuite {
 
     /// Run performance benchmarks
     async fn run_performance_benchmarks(&self) -> Result<BenchmarkResults> {
-        info!("📊 Running Performance Benchmarks");
+        info!(" Running Performance Benchmarks");
 
         let consensus_benchmark = if self.config.benchmark_config.consensus_benchmarks {
             self.benchmark_consensus_performance().await?
@@ -1427,7 +1427,7 @@ impl ComprehensiveTestingSuite {
 
     /// Benchmark consensus performance
     async fn benchmark_consensus_performance(&self) -> Result<PerformanceBenchmark> {
-        info!("⚡ Benchmarking consensus performance");
+        info!(" Benchmarking consensus performance");
 
         let iterations = self.config.benchmark_config.iterations;
         let mut latencies = Vec::new();
@@ -1619,7 +1619,7 @@ impl ComprehensiveTestingSuite {
         // Clear test nodes
         self.test_nodes.write().await.clear();
 
-        info!("✅ Test environment cleaned up");
+        info!(" Test environment cleaned up");
         Ok(())
     }
 }
@@ -1646,34 +1646,34 @@ async fn test_comprehensive_testing_suite() {
 
     let results = test_suite.run_comprehensive_tests().await.unwrap();
 
-    println!("🎯 COMPREHENSIVE TEST RESULTS FOR $10M INVESTMENT:");
+    println!(" COMPREHENSIVE TEST RESULTS FOR $10M INVESTMENT:");
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    println!("📊 Overall Success: {}", results.overall_success);
+    println!(" Overall Success: {}", results.overall_success);
     println!("⏱️  Total Duration: {:?}", results.total_duration);
     println!("");
 
     println!("🔒 Byzantine Fault Tolerance:");
     println!(
-        "  ✅ Consensus Success Rate: {:.1}%",
+        "   Consensus Success Rate: {:.1}%",
         results.byzantine_results.consensus_success_rate * 100.0
     );
     println!(
-        "  🎯 Fault Detection Accuracy: {:.1}%",
+        "   Fault Detection Accuracy: {:.1}%",
         results.byzantine_results.fault_detection_accuracy * 100.0
     );
     println!(
-        "  🚀 Partition Recovery Time: {:?}",
+        "   Partition Recovery Time: {:?}",
         results.byzantine_results.partition_recovery_time
     );
     println!(
-        "  🛡️  Network Resilience Score: {:.1}/10",
+        "    Network Resilience Score: {:.1}/10",
         results.byzantine_results.network_resilience_score
     );
     println!("");
 
-    println!("⚡ Load Testing Performance:");
+    println!(" Load Testing Performance:");
     println!(
-        "  🎯 Target TPS: 100,000 | Achieved: {}",
+        "   Target TPS: 100,000 | Achieved: {}",
         results.load_test_results.achieved_tps
     );
     println!(
@@ -1694,7 +1694,7 @@ async fn test_comprehensive_testing_suite() {
     );
     println!("");
 
-    println!("🛡️ Security Testing:");
+    println!(" Security Testing:");
     println!(
         "  🔍 Penetration Test: {}",
         if results.security_test_results.penetration_test_passed {
@@ -1721,7 +1721,7 @@ async fn test_comprehensive_testing_suite() {
     );
     println!("");
 
-    println!("🔗 Integration Testing:");
+    println!(" Integration Testing:");
     println!(
         "  🌐 Multi-node Test: {}",
         if results.integration_test_results.multi_node_test_passed {
@@ -1731,7 +1731,7 @@ async fn test_comprehensive_testing_suite() {
         }
     );
     println!(
-        "  🌉 Cross-chain Test: {}",
+        "   Cross-chain Test: {}",
         if results.integration_test_results.cross_chain_test_passed {
             "PASSED"
         } else {
@@ -1739,7 +1739,7 @@ async fn test_comprehensive_testing_suite() {
         }
     );
     println!(
-        "  🏭 Production Simulation: {}",
+        "   Production Simulation: {}",
         if results
             .integration_test_results
             .production_simulation_passed
@@ -1751,9 +1751,9 @@ async fn test_comprehensive_testing_suite() {
     );
     println!("");
 
-    println!("📊 Performance Benchmarks:");
+    println!(" Performance Benchmarks:");
     println!(
-        "  ⚡ Consensus: {:.0} rounds/sec",
+        "   Consensus: {:.0} rounds/sec",
         results.benchmark_results.consensus_performance.throughput
     );
     println!(
@@ -1775,9 +1775,9 @@ async fn test_comprehensive_testing_suite() {
     println!("");
 
     if results.overall_success {
-        println!("✅ 🎉 BLOCKCHAIN IS READY FOR $10M INVESTMENT! 🎉");
+        println!("  BLOCKCHAIN IS READY FOR $10M INVESTMENT! ");
         println!("💎 All enterprise-grade tests passed successfully");
-        println!("🚀 Production-ready for institutional deployment");
+        println!(" Production-ready for institutional deployment");
     } else {
         println!("❌ ⚠️ INVESTMENT NOT RECOMMENDED ⚠️");
         println!("🔧 Critical issues found that need resolution");
@@ -1819,7 +1819,7 @@ async fn test_quick_validation() {
     let mut test_suite = ComprehensiveTestingSuite::new(config).unwrap();
     let results = test_suite.run_comprehensive_tests().await.unwrap();
 
-    println!("🚀 Quick Validation Results:");
+    println!(" Quick Validation Results:");
     println!("  Overall Success: {}", results.overall_success);
     println!("  Duration: {:?}", results.total_duration);
 

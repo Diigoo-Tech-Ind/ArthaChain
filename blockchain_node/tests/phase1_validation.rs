@@ -29,7 +29,7 @@ async fn test_merkle_proof_system() {
     assert!(cache.get(&tx_hashes[0]).is_some(), "Proof should be cached");
     assert_eq!(cache.size(), 1, "Cache should have 1 item");
 
-    println!("✅ Merkle proof system test passed");
+    println!(" Merkle proof system test passed");
 }
 
 /// Test view change manager
@@ -61,7 +61,7 @@ async fn test_view_change_manager() {
     let current_view = manager.get_current_view();
     assert_eq!(current_view, 0, "Initial view should be 0");
 
-    println!("✅ View change manager test passed");
+    println!(" View change manager test passed");
 }
 
 /// Test cross-shard coordinator basic functionality
@@ -93,7 +93,7 @@ async fn test_cross_shard_coordinator() {
     // Test cache clearing
     coordinator.clear_proof_cache();
 
-    println!("✅ Cross-shard coordinator test passed");
+    println!(" Cross-shard coordinator test passed");
 }
 
 /// Test performance of proof verification
@@ -135,7 +135,7 @@ async fn test_proof_verification_performance() {
         "Proof verification should be < 10ms"
     );
 
-    println!("✅ Proof verification performance test passed");
+    println!(" Proof verification performance test passed");
 }
 
 /// Test Byzantine fault tolerance calculation
@@ -186,13 +186,13 @@ async fn test_byzantine_fault_tolerance() {
         );
     }
 
-    println!("✅ Byzantine fault tolerance calculation test passed");
+    println!(" Byzantine fault tolerance calculation test passed");
 }
 
 /// Integration test summary
 #[tokio::test]
 async fn phase1_integration_summary() {
-    println!("\n🚀 PHASE 1 INTEGRATION TEST SUMMARY");
+    println!("\n PHASE 1 INTEGRATION TEST SUMMARY");
     println!("=====================================");
 
     // Test all major components work together
@@ -237,11 +237,11 @@ async fn phase1_integration_summary() {
 
     let total_time = start.elapsed();
 
-    println!("📊 Integration Test Results:");
-    println!("   ✅ Merkle proof generation and verification: PASSED");
-    println!("   ✅ Proven transaction validation: PASSED");
-    println!("   ✅ View change manager initialization: PASSED");
-    println!("   ✅ Byzantine fault tolerance setup: PASSED");
+    println!(" Integration Test Results:");
+    println!("    Merkle proof generation and verification: PASSED");
+    println!("    Proven transaction validation: PASSED");
+    println!("    View change manager initialization: PASSED");
+    println!("    Byzantine fault tolerance setup: PASSED");
     println!("   ⏱️ Total integration time: {}ms", total_time.as_millis());
 
     assert!(
@@ -249,6 +249,6 @@ async fn phase1_integration_summary() {
         "Integration should complete < 1 second"
     );
 
-    println!("\n🏆 PHASE 1 CORE FUNCTIONALITY VALIDATED");
+    println!("\n PHASE 1 CORE FUNCTIONALITY VALIDATED");
     println!("All critical consensus and cross-shard components working correctly!");
 }

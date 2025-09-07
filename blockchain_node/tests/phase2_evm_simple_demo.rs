@@ -9,7 +9,7 @@ use std::time::Instant;
 /// Test Phase 2.3: EVM Compatibility Types and Constants
 #[test]
 fn test_phase23_evm_compatibility_demo() {
-    println!("\n🚀 PHASE 2.3: EVM COMPATIBILITY LAYER - DEMO");
+    println!("\n PHASE 2.3: EVM COMPATIBILITY LAYER - DEMO");
     println!("============================================");
 
     let start_time = Instant::now();
@@ -21,17 +21,17 @@ fn test_phase23_evm_compatibility_demo() {
     assert_eq!(arthachain_node::evm::DEFAULT_GAS_LIMIT, 21_000);
     assert_eq!(arthachain_node::evm::NATIVE_TO_GAS_CONVERSION_RATE, 1);
 
-    println!("✅ EVM Constants:");
+    println!(" EVM Constants:");
     println!(
-        "   📊 Default Gas Price: {} wei (20 gwei)",
+        "    Default Gas Price: {} wei (20 gwei)",
         arthachain_node::evm::DEFAULT_GAS_PRICE
     );
     println!(
-        "   📊 Default Gas Limit: {}",
+        "    Default Gas Limit: {}",
         arthachain_node::evm::DEFAULT_GAS_LIMIT
     );
     println!(
-        "   📊 Native to Gas Rate: {}",
+        "    Native to Gas Rate: {}",
         arthachain_node::evm::NATIVE_TO_GAS_CONVERSION_RATE
     );
 
@@ -51,24 +51,24 @@ fn test_phase23_evm_compatibility_demo() {
     for (i, addr) in addresses.iter().enumerate() {
         assert_eq!(addr.as_bytes().len(), 20, "Address should be 20 bytes");
         println!(
-            "   ✅ Address {}: 0x{} - VALID",
+            "    Address {}: 0x{} - VALID",
             i + 1,
             hex::encode(addr.as_bytes())
         );
     }
 
     // Test Ethereum Types
-    println!("\n💰 Testing Ethereum Types...");
+    println!("\n Testing Ethereum Types...");
 
     // Test U256 (256-bit unsigned integer)
     let amount = U256::from_dec_str("1000000000000000000").unwrap(); // 1 ETH in wei
     assert_eq!(amount, U256::from(10u128).pow(U256::from(18)));
-    println!("   ✅ U256 Amount: {} wei (1 ETH)", amount);
+    println!("    U256 Amount: {} wei (1 ETH)", amount);
 
     // Test H256 (256-bit hash)
     let hash = H256::from_slice(&[0xff; 32]);
     assert_eq!(hash.as_bytes().len(), 32);
-    println!("   ✅ H256 Hash: 0x{}", hex::encode(hash.as_bytes()));
+    println!("    H256 Hash: 0x{}", hex::encode(hash.as_bytes()));
 
     // Test Gas Calculations
     println!("\n⛽ Testing Gas Calculations...");
@@ -85,7 +85,7 @@ fn test_phase23_evm_compatibility_demo() {
         let total_cost = gas_price * U256::from(gas_cost);
 
         println!(
-            "   ✅ {}: {} gas, {} wei cost",
+            "    {}: {} gas, {} wei cost",
             scenario, gas_cost, total_cost
         );
         assert!(gas_cost >= 21_000, "Gas should include base cost");
@@ -111,16 +111,16 @@ fn test_phase23_evm_compatibility_demo() {
     assert_eq!(evm_transaction.gas_limit, U256::from(100_000));
 
     println!(
-        "   ✅ Transaction From: 0x{}",
+        "    Transaction From: 0x{}",
         hex::encode(evm_transaction.from.as_bytes())
     );
     println!(
-        "   ✅ Transaction To: 0x{}",
+        "    Transaction To: 0x{}",
         hex::encode(evm_transaction.to.unwrap().as_bytes())
     );
-    println!("   ✅ Transaction Value: {} wei", evm_transaction.value);
-    println!("   ✅ Transaction Gas Limit: {}", evm_transaction.gas_limit);
-    println!("   ✅ Transaction Nonce: {}", evm_transaction.nonce);
+    println!("    Transaction Value: {} wei", evm_transaction.value);
+    println!("    Transaction Gas Limit: {}", evm_transaction.gas_limit);
+    println!("    Transaction Nonce: {}", evm_transaction.nonce);
 
     // Test EVM Configuration
     println!("\n⚙️ Testing EVM Configuration...");
@@ -135,12 +135,12 @@ fn test_phase23_evm_compatibility_demo() {
     assert_eq!(evm_config.chain_id, 201766);
     assert_eq!(evm_config.default_gas_price, 20_000_000_000);
 
-    println!("   ✅ Chain ID: {}", evm_config.chain_id);
+    println!("    Chain ID: {}", evm_config.chain_id);
     println!(
-        "   ✅ Default Gas Price: {} wei",
+        "    Default Gas Price: {} wei",
         evm_config.default_gas_price
     );
-    println!("   ✅ Default Gas Limit: {}", evm_config.default_gas_limit);
+    println!("    Default Gas Limit: {}", evm_config.default_gas_limit);
 
     // Test Function Selectors (ERC-20)
     println!("\n🪙 Testing ERC-20 Function Selectors...");
@@ -153,7 +153,7 @@ fn test_phase23_evm_compatibility_demo() {
     ];
 
     for (function_name, selector) in function_selectors {
-        println!("   ✅ {}: 0x{}", function_name, hex::encode(selector));
+        println!("    {}: 0x{}", function_name, hex::encode(selector));
         assert_eq!(selector.len(), 4, "Function selector should be 4 bytes");
     }
 
@@ -175,7 +175,7 @@ fn test_phase23_evm_compatibility_demo() {
     for (name, address) in precompiles {
         let precompile_addr = H160::from_low_u64_be(address);
         println!(
-            "   ✅ {}: 0x{}",
+            "    {}: 0x{}",
             name,
             hex::encode(precompile_addr.as_bytes())
         );
@@ -184,17 +184,17 @@ fn test_phase23_evm_compatibility_demo() {
 
     let total_time = start_time.elapsed();
 
-    println!("\n🎉 PHASE 2.3 EVM COMPATIBILITY: DEMONSTRATION COMPLETE");
+    println!("\n PHASE 2.3 EVM COMPATIBILITY: DEMONSTRATION COMPLETE");
     println!("======================================================");
-    println!("✅ Ethereum Address Format: 20-byte H160 support");
-    println!("✅ Ethereum Types: U256, H256 compatibility");
-    println!("✅ Gas Mechanism: Price and limit calculations");
-    println!("✅ Transaction Structure: Complete EVM transaction");
-    println!("✅ EVM Configuration: Chain ID and parameters");
-    println!("✅ Function Selectors: ERC-20 standard support");
-    println!("✅ Precompiled Contracts: Standard Ethereum addresses");
+    println!(" Ethereum Address Format: 20-byte H160 support");
+    println!(" Ethereum Types: U256, H256 compatibility");
+    println!(" Gas Mechanism: Price and limit calculations");
+    println!(" Transaction Structure: Complete EVM transaction");
+    println!(" EVM Configuration: Chain ID and parameters");
+    println!(" Function Selectors: ERC-20 standard support");
+    println!(" Precompiled Contracts: Standard Ethereum addresses");
 
-    println!("\n🏗️ EVM COMPATIBILITY FEATURES:");
+    println!("\n EVM COMPATIBILITY FEATURES:");
     println!("   🔧 20-byte Ethereum addresses (H160)");
     println!("   🔧 256-bit unsigned integers (U256)");
     println!("   🔧 256-bit hash values (H256)");
@@ -204,29 +204,29 @@ fn test_phase23_evm_compatibility_demo() {
     println!("   🔧 Precompiled contract addressing");
     println!("   🔧 Chain ID configuration");
 
-    println!("\n⚡ PERFORMANCE METRICS:");
+    println!("\n PERFORMANCE METRICS:");
     println!("   📈 Test execution time: {}ms", total_time.as_millis());
     println!("   📈 Address validations: 4/4 passed");
     println!("   📈 Type compatibility: 100%");
     println!("   📈 Configuration checks: 100%");
 
-    println!("\n🎯 ETHEREUM COMPATIBILITY STATUS:");
-    println!("   ✅ Data Types: 100% Compatible");
-    println!("   ✅ Address Format: 100% Compatible");
-    println!("   ✅ Transaction Format: 100% Compatible");
-    println!("   ✅ Gas Calculations: 100% Compatible");
-    println!("   ✅ Function Selectors: 100% Compatible");
-    println!("   ✅ Precompile Addresses: 100% Compatible");
+    println!("\n ETHEREUM COMPATIBILITY STATUS:");
+    println!("    Data Types: 100% Compatible");
+    println!("    Address Format: 100% Compatible");
+    println!("    Transaction Format: 100% Compatible");
+    println!("    Gas Calculations: 100% Compatible");
+    println!("    Function Selectors: 100% Compatible");
+    println!("    Precompile Addresses: 100% Compatible");
 
-    println!("\n🏆 PHASE 2.3: EVM COMPATIBILITY LAYER - FOUNDATION READY!");
-    println!("🚀 ETHEREUM DAPP SUPPORT: TYPE SYSTEM COMPLETE!");
-    println!("💰 SOLIDITY INTEGRATION: INTERFACE READY!");
+    println!("\n PHASE 2.3: EVM COMPATIBILITY LAYER - FOUNDATION READY!");
+    println!(" ETHEREUM DAPP SUPPORT: TYPE SYSTEM COMPLETE!");
+    println!(" SOLIDITY INTEGRATION: INTERFACE READY!");
 
     // Final assertions
     assert!(total_time.as_millis() < 1000, "Should complete quickly");
     assert_eq!(addresses.len(), 4, "Should test multiple addresses");
 
-    println!("\n✨ Phase 2.3 EVM Compatibility: SUCCESSFULLY DEMONSTRATED!");
+    println!("\n Phase 2.3 EVM Compatibility: SUCCESSFULLY DEMONSTRATED!");
 }
 
 /// Test EVM Error Types
@@ -248,10 +248,10 @@ fn test_evm_error_types() {
     ];
 
     for error_type in error_types {
-        println!("   ✅ EVM Error Type: {} - DEFINED", error_type);
+        println!("    EVM Error Type: {} - DEFINED", error_type);
     }
 
-    println!("✅ EVM error handling: COMPREHENSIVE");
+    println!(" EVM error handling: COMPREHENSIVE");
 }
 
 /// Test Ethereum Wei Conversions
@@ -268,9 +268,9 @@ fn test_ethereum_wei_conversions() {
     assert_eq!(gwei, U256::from(1_000_000_000));
     assert_eq!(ether, U256::from_dec_str("1000000000000000000").unwrap());
 
-    println!("   ✅ 1 wei = {}", wei);
-    println!("   ✅ 1 gwei = {} wei", gwei);
-    println!("   ✅ 1 ether = {} wei", ether);
+    println!("    1 wei = {}", wei);
+    println!("    1 gwei = {} wei", gwei);
+    println!("    1 ether = {} wei", ether);
 
     // Test gas price calculations
     let gas_price_gwei = 20;
@@ -281,9 +281,9 @@ fn test_ethereum_wei_conversions() {
     );
 
     println!(
-        "   ✅ {} gwei = {} wei (default gas price)",
+        "    {} gwei = {} wei (default gas price)",
         gas_price_gwei, gas_price_wei
     );
 
-    println!("✅ Ethereum unit conversions: ACCURATE");
+    println!(" Ethereum unit conversions: ACCURATE");
 }

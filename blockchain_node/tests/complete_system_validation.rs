@@ -344,5 +344,5 @@ fn test_complete_system_validation() {
         "Should support 8 ecosystem integrations"
     );
 
-    println!("\nSYSTEM VALIDATION: 100% SUCCESSFUL");
+    println!("\nSYSTEM VALIDATION: SUCCESSFUL");
 }

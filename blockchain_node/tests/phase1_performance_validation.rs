@@ -73,7 +73,7 @@ async fn validate_cross_shard_latency_claim() {
     let max_latency = latencies.iter().max().unwrap();
     let min_latency = latencies.iter().min().unwrap();
 
-    println!("✅ Cross-shard latency validation:");
+    println!(" Cross-shard latency validation:");
     println!("   Average: {}ms", avg_latency.as_millis());
     println!("   Maximum: {}ms", max_latency.as_millis());
     println!("   Minimum: {}ms", min_latency.as_millis());
@@ -82,7 +82,7 @@ async fn validate_cross_shard_latency_claim() {
         avg_latency < Duration::from_secs(2),
         "Average latency should be well under 5 seconds"
     );
-    println!("✅ Cross-shard latency claim validated: All transactions < 5 seconds");
+    println!(" Cross-shard latency claim validated: All transactions < 5 seconds");
 }
 
 /// Validate claim: Proof verification <1ms for cached proofs
@@ -127,7 +127,7 @@ async fn validate_proof_verification_performance_claim() {
     let total_duration = start.elapsed();
     let avg_per_verification = total_duration / (iterations * 10);
 
-    println!("✅ Proof verification performance:");
+    println!(" Proof verification performance:");
     println!(
         "   Total time for {} verifications: {}ms",
         iterations * 10,
@@ -146,7 +146,7 @@ async fn validate_proof_verification_performance_claim() {
     );
 
     println!(
-        "✅ Proof verification performance claim validated: {}μs < 1ms",
+        " Proof verification performance claim validated: {}μs < 1ms",
         avg_per_verification.as_micros()
     );
 }
@@ -217,7 +217,7 @@ async fn validate_byzantine_fault_tolerance_claim() {
         test_iterations
     );
 
-    println!("✅ Byzantine fault tolerance claim validated:");
+    println!(" Byzantine fault tolerance claim validated:");
     println!(
         "   Handled {}/{} malicious nodes ({}%)",
         malicious_nodes,
@@ -267,7 +267,7 @@ async fn validate_view_change_timeout_claim() {
     );
 
     println!(
-        "✅ View change timeout claim validated: {}ms < 10 seconds",
+        " View change timeout claim validated: {}ms < 10 seconds",
         timeout_duration.as_millis()
     );
 }
@@ -338,7 +338,7 @@ async fn stress_test_concurrent_operations() {
     let avg_operation_duration = total_duration / num_concurrent_operations as u32;
     let throughput = num_concurrent_operations as f64 / total_test_duration.as_secs_f64();
 
-    println!("✅ Stress test results:");
+    println!(" Stress test results:");
     println!(
         "   Successful operations: {}/{}",
         successful_operations, num_concurrent_operations
@@ -368,7 +368,7 @@ async fn stress_test_concurrent_operations() {
         avg_operation_duration.as_millis()
     );
 
-    println!("✅ Stress test passed: 95%+ success rate, <5s average latency");
+    println!(" Stress test passed: 95%+ success rate, <5s average latency");
 }
 
 /// Validate claim: 99.9% uptime simulation
@@ -446,7 +446,7 @@ async fn validate_uptime_simulation() {
     let uptime_percentage =
         ((total_operations - failed_operations) as f64 / total_operations as f64) * 100.0;
 
-    println!("✅ Uptime simulation results:");
+    println!(" Uptime simulation results:");
     println!("   Total operations: {}", total_operations);
     println!("   Failed operations: {}", failed_operations);
     println!("   Uptime percentage: {:.3}%", uptime_percentage);
@@ -468,7 +468,7 @@ async fn validate_uptime_simulation() {
     );
 
     println!(
-        "✅ 99.9% uptime claim validated: {:.3}% uptime achieved",
+        " 99.9% uptime claim validated: {:.3}% uptime achieved",
         uptime_percentage
     );
 }
@@ -476,7 +476,7 @@ async fn validate_uptime_simulation() {
 /// Performance benchmark summary
 #[tokio::test]
 async fn performance_benchmark_summary() {
-    println!("\n🚀 PHASE 1 PERFORMANCE VALIDATION SUMMARY");
+    println!("\n PHASE 1 PERFORMANCE VALIDATION SUMMARY");
     println!("==========================================");
 
     // Run all performance tests and collect metrics
@@ -498,20 +498,20 @@ async fn performance_benchmark_summary() {
     let cache = ProofCache::new(1000);
     let memory_efficiency = "Efficient LRU cache with 1000 proof capacity";
 
-    println!("📊 Performance Metrics:");
+    println!(" Performance Metrics:");
     println!(
-        "   ✅ Cross-shard transaction setup: {}μs",
+        "    Cross-shard transaction setup: {}μs",
         cross_shard_latency.as_micros()
     );
     println!(
-        "   ✅ Merkle proof verification: {}μs",
+        "    Merkle proof verification: {}μs",
         proof_verification_time.as_micros()
     );
-    println!("   ✅ Memory management: {}", memory_efficiency);
-    println!("   ✅ Byzantine fault tolerance: Up to 33% malicious nodes");
-    println!("   ✅ View change timeout: <10 seconds");
-    println!("   ✅ System uptime: 99.9%+ under normal conditions");
+    println!("    Memory management: {}", memory_efficiency);
+    println!("    Byzantine fault tolerance: Up to 33% malicious nodes");
+    println!("    View change timeout: <10 seconds");
+    println!("    System uptime: 99.9%+ under normal conditions");
 
-    println!("\n🏆 ALL PERFORMANCE CLAIMS VALIDATED");
+    println!("\n ALL PERFORMANCE CLAIMS VALIDATED");
     println!("Phase 1 consensus and cross-shard systems meet production requirements!");
 }

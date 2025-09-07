@@ -66,3 +66,4 @@ blockchain_node/models/security/*.onnx
 caddy_data/
 caddy_config/
 node_data/
+data/blockchain/state.json

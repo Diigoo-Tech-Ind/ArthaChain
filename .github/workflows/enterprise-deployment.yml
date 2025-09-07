@@ -32,6 +32,7 @@ jobs:
   security-scan:
     name: 🔒 Security & Quality Analysis
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -39,14 +40,17 @@ jobs:
         fetch-depth: 0
     
     - name: Setup Rust toolchain
-      uses: actions-rs/toolchain@v1
+      uses: dtolnay/rust-toolchain@stable
       with:
-        toolchain: stable
-        override: true
+        components: clippy, rustfmt
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential pkg-config libssl-dev
     
     - name: Install security tools
       run: |
-        curl -sSf https://raw.githubusercontent.com/rust-lang/rust-clippy/master/rustup/install.sh | sh -s -- -y
         cargo install cargo-audit
         cargo install cargo-tarpaulin
         cargo install cargo-deny
@@ -113,11 +117,11 @@ jobs:
       uses: actions/checkout@v4
     
     - name: Setup Rust toolchain
-      uses: actions-rs/toolchain@v1
+      uses: dtolnay/rust-toolchain@stable
       with:
         toolchain: ${{ matrix.rust-version }}
-        target: ${{ matrix.target }}
-        override: true
+        targets: ${{ matrix.target }}
+        components: clippy, rustfmt
     
     - name: Install dependencies
       run: |

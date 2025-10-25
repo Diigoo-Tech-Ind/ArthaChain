@@ -1313,7 +1313,7 @@ impl<Y: for<'a> Yokeable<'a>, C> Yoke<Y, C> {
 /// # use yoke::Yoke;
 /// # use std::borrow::Cow;
 /// fn borrow_potentially_owned(y: &Yoke<Cow<'static, str>, Rc<[u8]>>) -> Yoke<&'static str, Rc<[u8]>> {
-///    y.map_project_cloned(|cow, _| &*cow)   
+///    y.map_project_cloned(|cow, _| &*cow)
 /// }
 /// ```
 ///
@@ -1326,7 +1326,7 @@ impl<Y: for<'a> Yokeable<'a>, C> Yoke<Y, C> {
 /// # use yoke::Yoke;
 /// # use std::borrow::Cow;
 /// fn borrow_potentially_owned(y: Yoke<Cow<'static, str>, Rc<[u8]>>) -> Yoke<&'static str, Rc<[u8]>> {
-///    y.map_project(|cow, _| &*cow)   
+///    y.map_project(|cow, _| &*cow)
 /// }
 /// ```
 ///
@@ -1348,7 +1348,7 @@ impl<Y: for<'a> Yokeable<'a>, C> Yoke<Y, C> {
 ///
 /// fn map_project_owned(bar: &Yoke<Bar<'static>, Rc<[u8]>>) -> Yoke<&'static str, Rc<[u8]>> {
 ///     // ERROR (but works if you replace owned with string_2)
-///     bar.map_project_cloned(|bar, _| &*bar.owned)   
+///     bar.map_project_cloned(|bar, _| &*bar.owned)
 /// }
 ///
 /// #

@@ -700,13 +700,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Install Rust
       uses: dtolnay/rust-toolchain@stable
       with:
         toolchain: ${{{{ env.RUST_VERSION }}}}
         components: rustfmt, clippy
-    
+
     - name: Cache dependencies
       uses: actions/cache@v4
       with:
@@ -715,27 +715,27 @@ jobs:
           ~/.cargo/git
           target
         key: ${{{{ runner.os }}}}-cargo-${{{{ hashFiles('**/Cargo.lock') }}}}
-    
+
     - name: Run tests
       run: cargo test --verbose --all-features
-    
+
     - name: Run clippy
       run: cargo clippy -- -D warnings --all-features
-    
+
     - name: Check formatting
       run: cargo fmt -- --check
-    
+
     - name: Security audit
       run: |
         cargo install cargo-audit
         cargo audit
-    
+
     - name: Run cargo check
       run: cargo check --all-targets
-    
+
     - name: Run cargo doc
       run: cargo doc --no-deps
-    
+
     - name: Testnet Router Tests
       run: |
         echo "Running testnet router specific tests..."
@@ -747,20 +747,20 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
-    
+
     - name: Login to Container Registry
       uses: docker/login-action@v3
       with:
         registry: ghcr.io
         username: ${{{{ github.actor }}}}
         password: ${{{{ secrets.GITHUB_TOKEN }}}}
-    
+
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
@@ -772,20 +772,20 @@ jobs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
         platforms: linux/amd64,linux/arm64
-    
+
     - name: Security scan
       uses: aquasecurity/trivy-action@master
       with:
         image-ref: ghcr.io/arthachain/blockchain:latest
         format: 'sarif'
         output: 'trivy-results.sarif'
-    
+
     - name: Upload Trivy scan results
       uses: github/codeql-action/upload-sarif@v3
       if: always()
       with:
         sarif_file: 'trivy-results.sarif'
-    
+
     - name: Deploy to Production
       run: |
         echo "Deployment to production completed"
@@ -802,7 +802,7 @@ jobs:
         Ok(())
     }
 
-    /// Generate GitLab CI configuration  
+    /// Generate GitLab CI configuration
     async fn generate_gitlab_ci_config(&self) -> Result<()> {
         let gitlab_ci = format!(
             r#"stages:
@@ -820,7 +820,7 @@ test:
   image: rust:${{RUST_VERSION}}
   script:
     - cargo test --all-features
-    
+
     - cargo fmt -- --check
     - cargo check --all-targets
 
@@ -880,7 +880,7 @@ deploy:
         let jenkinsfile = r#"
 pipeline {
     agent any
-    
+
     stages {
         stage('Test') {
             steps {
@@ -892,7 +892,7 @@ pipeline {
                 sh 'cargo audit'
             }
         }
-        
+
         stage('Build') {
             steps {
                 sh 'docker buildx create --use'
@@ -900,7 +900,7 @@ pipeline {
                 sh 'docker buildx build --platform linux/amd64,linux/arm64 -t arthachain:latest .'
             }
         }
-        
+
         stage('Security') {
             when {
                 branch 'main'
@@ -910,7 +910,7 @@ pipeline {
                 archiveArtifacts artifacts: 'trivy-results.sarif', fingerprint: true
             }
         }
-        
+
         stage('Deploy') {
             when {
                 branch 'main'
@@ -991,7 +991,7 @@ workflows:
     /// Setup automated testing
     async fn setup_automated_testing(&self) -> Result<()> {
         info!("Setting up automated testing");
-        
+
         // Create test configuration for testnet router
         let test_config = r#"# Testnet Router Test Configuration
 [testnet]
@@ -1015,10 +1015,10 @@ enable_quantum_resistance = true
 enable_gas_free_apps = true
 max_gas_free_transactions = 100
 "#;
-        
+
         tokio::fs::write("testnet-test-config.toml", test_config).await?;
         info!("✅ Testnet test configuration created");
-        
+
         Ok(())
     }
 
@@ -1253,7 +1253,7 @@ scrape_configs:
           severity: warning
         annotations:
           summary: "High memory usage detected"
-          
+
       - alert: ConsensusFailure
         expr: rate(arthachain_consensus_failures_total[5m]) > 0.1
         for: 1m
@@ -1261,7 +1261,7 @@ scrape_configs:
           severity: critical
         annotations:
           summary: "Consensus failures detected"
-          
+
       - alert: LowPeerCount
         expr: arthachain_peer_count < 3
         for: 2m

@@ -1184,7 +1184,7 @@ mod tests {
             _ => panic!("`UniformDurationMode` was not serialized/deserialized correctly")
         }
     }
-    
+
     #[test]
     #[cfg(feature = "serde1")]
     fn test_uniform_serialization() {

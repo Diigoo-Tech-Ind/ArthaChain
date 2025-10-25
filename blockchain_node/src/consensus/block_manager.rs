@@ -63,7 +63,7 @@ impl AdaptiveBlockManager {
     pub async fn update_block_metrics(&self, size: usize, time: u64) {
         let mut metrics = self.block_metrics.write().await;
         metrics.update(size, time);
-        
+
         // Adjust block size if needed
         let new_target = metrics.calculate_optimal_size();
         if new_target != metrics.current_target {
@@ -113,13 +113,13 @@ impl BlockMetrics {
     fn update(&mut self, size: usize, time: u64) {
         self.recent_sizes.push(size);
         self.recent_times.push(time);
-        
+
         // Keep only recent history
         if self.recent_sizes.len() > 100 {
             self.recent_sizes.remove(0);
             self.recent_times.remove(0);
         }
-        
+
         // Update congestion level
         self.update_congestion_level();
     }
@@ -128,10 +128,10 @@ impl BlockMetrics {
         if self.recent_times.len() < 2 {
             return;
         }
-        
+
         // Calculate average block time
         let avg_time: f64 = self.recent_times.iter().sum::<u64>() as f64 / self.recent_times.len() as f64;
-        
+
         // Update congestion based on target time
         self.congestion_level = (avg_time - TARGET_BLOCK_TIME as f64) / TARGET_BLOCK_TIME as f64;
         self.congestion_level = self.congestion_level.clamp(-1.0, 1.0);
@@ -141,14 +141,14 @@ impl BlockMetrics {
         if self.recent_sizes.is_empty() {
             return self.current_target;
         }
-        
+
         // Calculate average size
         let avg_size: f64 = self.recent_sizes.iter().sum::<usize>() as f64 / self.recent_sizes.len() as f64;
-        
+
         // Adjust based on congestion
         let adjustment = 1.0 - self.congestion_level * 0.2; // Max 20% adjustment
         let new_size = (avg_size * adjustment) as usize;
-        
+
         // Ensure within bounds
         new_size.clamp(MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)
     }
@@ -193,14 +193,14 @@ impl PeerManager {
         let mut peers: Vec<_> = self.peer_metrics.iter()
             .filter(|(&peer_id, _)| self.active_peers.contains_key(&peer_id))
             .collect();
-        
+
         // Sort by composite score
         peers.sort_by(|a, b| {
             let score_a = self.calculate_peer_score(a.1);
             let score_b = self.calculate_peer_score(b.1);
             score_b.partial_cmp(&score_a).unwrap()
         });
-        
+
         peers.iter()
             .take(count)
             .map(|(&peer_id, _)| peer_id)
@@ -212,12 +212,12 @@ impl PeerManager {
         const LATENCY_WEIGHT: f64 = 0.3;
         const RELIABILITY_WEIGHT: f64 = 0.4;
         const BANDWIDTH_WEIGHT: f64 = 0.3;
-        
+
         // Normalize and combine scores
         let latency_score = 1.0 / (1.0 + metrics.latency / 1000.0); // Convert to seconds
         let reliability_score = metrics.reliability;
         let bandwidth_score = metrics.bandwidth / 1_000_000.0; // Convert to MB/s
-        
+
         LATENCY_WEIGHT * latency_score +
         RELIABILITY_WEIGHT * reliability_score +
         BANDWIDTH_WEIGHT * bandwidth_score
@@ -232,9 +232,9 @@ impl PeerManager {
                 "malicious" => 1.0,
                 _ => 0.2,
             };
-            
+
             metrics.reliability -= penalty;
-            
+
             // Ban peer if reliability drops too low
             if metrics.reliability < 0.2 {
                 self.ban_peer(peer_id);
@@ -247,4 +247,4 @@ impl PeerManager {
         self.peer_metrics.remove(&peer_id);
         self.banned_peers.insert(peer_id);
     }
-} 
+}

@@ -10,19 +10,19 @@ impl Ast {
     pub fn new() -> Self {
         Ast
     }
-    
+
     pub fn new_const(_context: &Context, _symbol: &Symbol) -> Self {
         Ast
     }
-    
+
     pub fn and(_ast1: &Ast, _ast2: &Ast) -> Self {
         Ast
     }
-    
+
     pub fn or(_ast1: &Ast, _ast2: &Ast) -> Self {
         Ast
     }
-    
+
     pub fn not(_ast: &Ast) -> Self {
         Ast
     }
@@ -62,15 +62,15 @@ impl Model {
     pub fn new() -> Self {
         Model
     }
-    
+
     pub fn num_consts(&self) -> usize {
         0
     }
-    
+
     pub fn get_const_decl(&self, _index: usize) -> Option<Symbol> {
         None
     }
-    
+
     pub fn get_const_interp(&self, _constant: &Symbol) -> Option<Ast> {
         None
     }
@@ -101,7 +101,7 @@ impl Symbol {
     pub fn new() -> Self {
         Symbol
     }
-    
+
     pub fn from_string(_context: &Context, _name: &str) -> Self {
         Symbol
     }

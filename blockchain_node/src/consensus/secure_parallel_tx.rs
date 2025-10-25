@@ -450,7 +450,7 @@ impl SecureTxDependencyGraph {
 
             if has_conflict {
                 let other_hash_str = self.hash_tx_id(other_hash);
-                
+
                 // Add edge
                 self.edges.entry(other_hash_str.clone()).or_default().insert(tx_hash_str.clone());
                 self.reverse_edges.entry(tx_hash_str.clone()).or_default().insert(other_hash_str);
@@ -496,7 +496,7 @@ impl SecureTxDependencyGraph {
         self.encrypted_vertices
             .iter()
             .filter(|(tx_id, vertex)| {
-                vertex.status == TxStatus::Pending && 
+                vertex.status == TxStatus::Pending &&
                 !self.reverse_edges.contains_key(&self.hash_tx_id(tx_id))
             })
             .map(|(tx_id, _)| tx_id.clone())
@@ -835,4 +835,4 @@ mod tests {
         let result = processor.add_transaction_secure(tx_id, tx_data, &read_set, &write_set, context).await;
         assert!(result.is_ok());
     }
-} 
+}

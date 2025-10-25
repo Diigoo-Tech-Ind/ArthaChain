@@ -434,7 +434,7 @@ unsafe fn kernel_x86_avx<MA>(k: usize, alpha: T, a: *const T, b: *const T,
     // vperm2 0x30: 00004444 44440000 -> 00000000
     // vperm2 0x12: 00004444 44440000 -> 44444444
     //
-    
+
     let ab0246 = ab[0];
     let ab2064 = ab[1];
     let ab4602 = ab[2]; // reverse order
@@ -460,7 +460,7 @@ unsafe fn kernel_x86_avx<MA>(k: usize, alpha: T, a: *const T, b: *const T,
     //                                             variable
     // X ab00 ab01 ab22 ab23 ab44 ab45 ab66 ab67   ab0246
     // Y ab20 ab21 ab02 ab03 ab64 ab65 ab46 ab47   ab2064
-    // 
+    //
     //   X0   X1   Y2   Y3   X4   X5   Y6   Y7
     // = ab00 ab01 ab02 ab03 ab44 ab45 ab46 ab47   ab0044
 

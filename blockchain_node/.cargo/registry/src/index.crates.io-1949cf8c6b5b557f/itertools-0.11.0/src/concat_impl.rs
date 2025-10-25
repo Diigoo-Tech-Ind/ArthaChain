@@ -10,7 +10,7 @@ use crate::Itertools;
 ///
 /// ```rust
 /// use itertools::concat;
-/// 
+///
 /// let input = vec![vec![1], vec![2, 3], vec![4, 5, 6]];
 /// assert_eq!(concat(input), vec![1, 2, 3, 4, 5, 6]);
 /// ```

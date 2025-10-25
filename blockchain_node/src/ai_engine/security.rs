@@ -4,7 +4,12 @@ use crate::ledger::transaction::Transaction;
 #[cfg(test)] // Only needed for tests
 use crate::ledger::transaction::TransactionType;
 use anyhow::{anyhow, Result};
-use candle_core::Device;
+// candle_core is not available - using fallback
+// use candle_core::Device;
+
+// Placeholder type for candle
+type Device = String;
+
 use log::{debug, info, warn};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -1147,7 +1152,7 @@ impl SecurityAI {
         Ok(vec![health, failure_risk, performance])
     }
 
-    /// Collect engagement metrics for AI inference  
+    /// Collect engagement metrics for AI inference
     async fn collect_engagement_metrics(&self) -> Result<Vec<f32>> {
         let mut metrics = Vec::new();
 

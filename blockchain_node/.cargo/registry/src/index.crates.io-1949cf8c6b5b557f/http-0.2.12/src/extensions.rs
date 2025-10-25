@@ -193,19 +193,19 @@ impl Extensions {
     ///
     /// If an instance of a specific type exists in both, the one in `self` is overwritten with the
     /// one from `other`.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```
     /// # use http::Extensions;
     /// let mut ext_a = Extensions::new();
     /// ext_a.insert(8u8);
     /// ext_a.insert(16u16);
-    /// 
+    ///
     /// let mut ext_b = Extensions::new();
     /// ext_b.insert(4u8);
     /// ext_b.insert("hello");
-    /// 
+    ///
     /// ext_a.extend(ext_b);
     /// assert_eq!(ext_a.len(), 3);
     /// assert_eq!(ext_a.get::<u8>(), Some(&4u8));

@@ -459,7 +459,7 @@ impl<T> HeaderMap<T> {
     /// allocations before `capacity` headers are stored in the map.
     ///
     /// More capacity than requested may be allocated.
-    /// 
+    ///
     /// # Panics
     ///
     /// This method panics if capacity exceeds max `HeaderMap` capacity.

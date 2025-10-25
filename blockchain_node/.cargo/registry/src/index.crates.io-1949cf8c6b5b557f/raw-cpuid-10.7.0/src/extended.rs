@@ -1179,7 +1179,7 @@ impl ProcessorCapacityAndFeatureInfo {
 
     /// Performance time-stamp counter size (in bits).
     ///
-    /// Indicates the size of `MSRC001_0280[PTSC]`.  
+    /// Indicates the size of `MSRC001_0280[PTSC]`.
     ///
     /// # Platforms
     /// ✅ AMD ❌ Intel (reserved=false)

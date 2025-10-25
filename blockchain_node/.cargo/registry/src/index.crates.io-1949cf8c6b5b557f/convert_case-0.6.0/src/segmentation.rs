@@ -189,7 +189,7 @@ impl Boundary {
     /// use Boundary::*;
     /// assert_eq!(
     ///     vec![
-    ///         Underscore, Hyphen, Space, LowerUpper, UpperDigit, 
+    ///         Underscore, Hyphen, Space, LowerUpper, UpperDigit,
     ///         DigitUpper, DigitLower, LowerDigit, Acronym,
     ///     ],
     ///     Boundary::defaults()
@@ -278,7 +278,7 @@ impl Boundary {
     pub fn all() -> Vec<Self> {
         use Boundary::*;
         vec![
-            Hyphen, Underscore, Space, LowerUpper, UpperLower, DigitUpper, UpperDigit, 
+            Hyphen, Underscore, Space, LowerUpper, UpperLower, DigitUpper, UpperDigit,
             DigitLower, LowerDigit, Acronym
         ]
     }
@@ -336,7 +336,7 @@ where
 {
     use std::iter::once;
     // create split_points function that counts off by graphemes into list
-    
+
     let s = s.as_ref();
 
     // Some<bool> means the following

@@ -67,9 +67,7 @@ async fn test_view_change_manager() {
 /// Test cross-shard coordinator basic functionality
 #[tokio::test]
 async fn test_cross_shard_coordinator() {
-    use arthachain_node::consensus::cross_shard::{
-        coordinator::CrossShardCoordinator,
-    };
+    use arthachain_node::consensus::cross_shard::coordinator::CrossShardCoordinator;
     use arthachain_node::network::cross_shard::CrossShardConfig;
     use tokio::sync::mpsc;
 

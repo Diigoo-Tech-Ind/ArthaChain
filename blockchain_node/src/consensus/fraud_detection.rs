@@ -595,8 +595,15 @@ impl FraudDetectionEngine {
                 gas_price: tx.fee,
                 gas_limit: 21000, // Default gas limit
                 data: tx.data.clone(),
-                signature: tx.signature.as_ref().map(|s| s.as_bytes().to_vec()).unwrap_or_default(),
-                timestamp: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(),
+                signature: tx
+                    .signature
+                    .as_ref()
+                    .map(|s| s.as_bytes().to_vec())
+                    .unwrap_or_default(),
+                timestamp: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs(),
                 status: crate::ledger::transaction::TransactionStatus::Pending,
             };
             if let Some(evidence) = self.process_transaction(&tx_converted).await? {
@@ -740,7 +747,9 @@ impl FraudDetectionEngine {
             related_blocks: evidence.block_hashes.clone(),
             data: evidence.evidence_data.clone(),
             description: evidence.description.clone(),
-            reporters: vec![crate::network::types::NodeId("fraud_detection_engine".to_string())],
+            reporters: vec![crate::network::types::NodeId(
+                "fraud_detection_engine".to_string(),
+            )],
             evidence_hash: Vec::new(), // Would be computed by the Byzantine system
         };
 

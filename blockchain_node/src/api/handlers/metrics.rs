@@ -127,7 +127,7 @@ impl MetricsService {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        
+
         Ok(SystemMetrics {
             timestamp,
             cpu_usage_percent: cpu_usage,
@@ -161,7 +161,7 @@ impl MetricsService {
         let chain_difficulty = 0; // Default chain difficulty
         let validator_count = 0; // Default validator count
         let consensus_round = 0; // Default consensus round
-        
+
         Ok(BlockchainMetrics {
             total_blocks,
             total_transactions,
@@ -193,7 +193,7 @@ impl MetricsService {
         let memory_allocation_rate = 0.0; // Default memory allocation rate
         let gc_time = 0.0; // Default garbage collection time
         let network_latency = 0.0; // Default network latency
-        
+
         Ok(PerformanceMetrics {
             average_response_time_ms: avg_response_time,
             requests_per_second: requests_per_sec,
@@ -213,7 +213,7 @@ impl MetricsService {
         let system_metrics = self.get_system_metrics().await?;
         let blockchain_metrics = self.get_blockchain_metrics().await?;
         let performance_metrics = self.get_performance_metrics().await?;
-        
+
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -274,7 +274,7 @@ pub async fn get_metrics(
     };
 
     let service = MetricsService::new(metrics_collector, state);
-    
+
     match service.get_metrics_summary().await {
         Ok(summary) => Ok(Json(summary)),
         Err(e) => {
@@ -318,7 +318,7 @@ pub async fn get_system_metrics(
     };
 
     let service = MetricsService::new(metrics_collector, state);
-    
+
     match service.get_system_metrics().await {
         Ok(metrics) => Ok(Json(metrics)),
         Err(e) => {
@@ -340,7 +340,7 @@ pub async fn get_blockchain_metrics(
     };
 
     let service = MetricsService::new(metrics_collector, state);
-    
+
     match service.get_blockchain_metrics().await {
         Ok(metrics) => Ok(Json(metrics)),
         Err(e) => {
@@ -362,7 +362,7 @@ pub async fn get_performance_metrics(
     };
 
     let service = MetricsService::new(metrics_collector, state);
-    
+
     match service.get_performance_metrics().await {
         Ok(metrics) => Ok(Json(metrics)),
         Err(e) => {

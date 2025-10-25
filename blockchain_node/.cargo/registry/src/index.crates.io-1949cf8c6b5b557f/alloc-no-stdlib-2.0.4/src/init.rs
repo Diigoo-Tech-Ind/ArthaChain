@@ -69,7 +69,7 @@ macro_rules! define_stack_allocator_traits(
         define_stack_allocator_traits!($name, calloc);
     };
     ($name : ident, $freelist_size : tt, calloc) => {
-    
+
         impl<'a, T: 'a> Default for $name<'a, T> {
             fn default() -> Self {
                 return $name::<'a, T>{freelist : static_array!(&mut[]; $freelist_size)};

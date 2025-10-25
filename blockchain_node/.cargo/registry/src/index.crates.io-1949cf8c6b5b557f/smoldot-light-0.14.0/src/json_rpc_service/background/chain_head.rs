@@ -1511,7 +1511,7 @@ impl<TPlat: PlatformRef> ChainHeadFollowTask<TPlat> {
                                             break;
                                         }
                                         runtime_call::RuntimeCall::LogEmit(log) => {
-                                            // Logs are ignored. 
+                                            // Logs are ignored.
                                             runtime_call = log.resume();
                                         }
                                     }

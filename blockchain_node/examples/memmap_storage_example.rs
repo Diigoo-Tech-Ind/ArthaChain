@@ -54,7 +54,10 @@ async fn test_basic_operations(storage: &MemMapStorage) -> Result<()> {
     println!("1. Storing data...");
     let key = b"test_key";
     storage.put(key, &data).await?;
-    println!("   ✅ Data stored with key: {}", String::from_utf8_lossy(key));
+    println!(
+        "   ✅ Data stored with key: {}",
+        String::from_utf8_lossy(key)
+    );
 
     println!("2. Retrieving data...");
     let retrieved = storage.get(key).await?;

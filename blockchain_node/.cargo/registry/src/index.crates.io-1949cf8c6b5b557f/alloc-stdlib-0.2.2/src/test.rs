@@ -108,5 +108,5 @@ fn test_index_ops() {
     assert_eq!(&dat[1..5], &[1u64,2u64,3u64,0u64]);
     assert_eq!(dat.len(), 1024);
     al.free_cell(dat);
-   
+
 }

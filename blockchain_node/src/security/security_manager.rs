@@ -267,7 +267,7 @@ impl RateLimiter {
 
         // Clean old entries and add new request
         let requests = self.request_counts.entry(ip).or_insert_with(VecDeque::new);
-        
+
         // Remove old requests outside the window
         while let Some(&front_time) = requests.front() {
             if now.duration_since(front_time) > window_duration {
@@ -293,7 +293,7 @@ impl RateLimiter {
     /// Clean up old entries
     pub fn cleanup(&mut self) {
         let now = Instant::now();
-        
+
         // Clean banned IPs
         self.banned_ips.retain(|_, ban_time| {
             ban_time.elapsed().as_secs() < self.config.timeout_secs
@@ -384,9 +384,9 @@ impl DoSProtection {
         let (count, _) = self.suspicious_activity
             .entry(ip)
             .or_insert((0, Instant::now()));
-        
+
         *count += 1;
-        
+
         if *count >= self.config.suspicious_threshold {
             self.banned_ips.insert(ip, Instant::now());
             warn!("Auto-banning IP {} due to suspicious activity", ip);
@@ -481,7 +481,7 @@ impl RBACManager {
     pub fn create_session(&mut self, user_id: String, role: String) -> String {
         let token = uuid::Uuid::new_v4().to_string();
         let now = SystemTime::now();
-        
+
         let session = UserSession {
             user_id: user_id.clone(),
             role,
@@ -709,4 +709,4 @@ mod tests {
         // Third connection should be rejected
         assert!(!protection.is_connection_allowed(ip));
     }
-} 
+}

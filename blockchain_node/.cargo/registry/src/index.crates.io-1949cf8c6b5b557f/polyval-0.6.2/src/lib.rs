@@ -37,7 +37,7 @@
 //! --cfg polyval_armv8
 //! ```
 //!
-//! On Linux and macOS when the ARMv8 features are enabled, support for `PMULL`  
+//! On Linux and macOS when the ARMv8 features are enabled, support for `PMULL`
 //! intrinsics is autodetected at runtime. On other platforms the `crypto`
 //! target feature must be enabled via RUSTFLAGS.
 //!

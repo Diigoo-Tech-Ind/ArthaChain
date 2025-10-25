@@ -54,7 +54,7 @@ use core::{marker::PhantomData, ops::Range};
 /// const fn format_number(number: u32,slice: &mut [u8]) -> Result<usize, Error> {
 ///     let mut len = 0;
 ///     let mut writer = StrWriterMut::from_custom_cleared(slice, &mut len);
-///     
+///
 ///     try_!(writec!(writer, "{0} in binary is {0:#b}", number));
 ///
 ///     Ok(len)
@@ -611,7 +611,7 @@ impl<'w, E> StrWriterMut<'w, E> {
     ///     &[0..14, 14..31, 31..48],
     ///     &mut writer.make_formatter(FormattingFlags::new().set_binary())
     /// )?;
-    ///    
+    ///
     /// assert_eq!(writer.as_str(), "[0..1110, 1110..11111, 11111..110000]");
     ///
     /// # Ok::<(), Error>(())
@@ -664,7 +664,7 @@ impl<'w, E> StrWriterMut<'w, E> {
     /// let mut writer = StrWriterMut::new(&mut buffer);
     ///
     /// range_debug_fmt(&[[3, 5], [8, 13]], writer.reborrow())?;
-    ///    
+    ///
     /// assert_eq!(writer.as_str(), "[[11, 101], [1000, 1101]]");
     ///
     /// # Ok::<(), Error>(())

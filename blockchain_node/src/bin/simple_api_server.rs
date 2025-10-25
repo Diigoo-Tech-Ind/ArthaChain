@@ -1,23 +1,23 @@
 use axum::{
-    routing::{get, post},
-    http::StatusCode,
-    Json, Router,
-    response::Html,
     extract::Path,
+    http::StatusCode,
+    response::Html,
+    routing::{get, post},
+    Json, Router,
 };
+use chrono::{DateTime, Utc};
 use serde_json::{json, Value};
-use std::net::SocketAddr;
 use std::collections::HashMap;
+use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::sync::RwLock;
-use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 // Import blockchain types
 use arthachain_node::ledger::block::{Block, BlockHeader, BlsPublicKey};
-use arthachain_node::types::Hash;
 use arthachain_node::ledger::state::State;
+use arthachain_node::types::Hash;
 
 // Real blockchain data structures - using imported Block from arthachain_node
 
@@ -76,7 +76,7 @@ impl BlockchainState {
             total_transactions: 0,
             start_time: Utc::now(),
         };
-        
+
         // Create genesis block
         let genesis_block = Block {
             header: BlockHeader {
@@ -91,9 +91,9 @@ impl BlockchainState {
             transactions: Vec::new(),
             signature: None,
         };
-        
+
         state.blocks.push(genesis_block);
-        
+
         // Create some initial accounts
         let account1 = Account {
             address: "0x742d354363663443303533323932356133623844".to_string(),
@@ -104,7 +104,7 @@ impl BlockchainState {
             transaction_count: 0,
             last_activity: Utc::now(),
         };
-        
+
         let account2 = Account {
             address: "0x1234567890abcdef1234567890abcdef12345678".to_string(),
             balance: "500000000000000000000".to_string(), // 500 tokens
@@ -114,54 +114,54 @@ impl BlockchainState {
             transaction_count: 0,
             last_activity: Utc::now(),
         };
-        
+
         state.accounts.insert(account1.address.clone(), account1);
         state.accounts.insert(account2.address.clone(), account2);
-        
+
         state
     }
-    
+
     fn add_transaction(&mut self, tx: Transaction) -> Result<String, String> {
         // Validate transaction
         if !self.validate_transaction(&tx) {
             return Err("Invalid transaction".to_string());
         }
-        
+
         // Add to mempool
         self.mempool.push(tx.clone());
         self.total_transactions += 1;
-        
+
         Ok(tx.hash.clone())
     }
-    
+
     fn validate_transaction(&self, tx: &Transaction) -> bool {
         // Check if sender has sufficient balance
         if let Some(account) = self.accounts.get(&tx.from) {
             let balance: u128 = account.balance.parse().unwrap_or(0);
             let value: u128 = tx.value.parse().unwrap_or(0);
             let gas_cost = tx.gas as u128 * tx.gas_price.parse::<u128>().unwrap_or(0);
-            
+
             if balance < value + gas_cost {
                 return false;
             }
         } else {
             return false;
         }
-        
+
         // Check nonce
         if let Some(account) = self.accounts.get(&tx.from) {
             if tx.nonce != account.nonce {
                 return false;
             }
         }
-        
+
         true
     }
-    
+
     fn mine_block(&mut self) -> Block {
         let previous_block = &self.blocks[self.blocks.len() - 1];
         let new_height = previous_block.header.height + 1;
-        
+
         // Create new block
         let block = Block {
             header: BlockHeader {
@@ -176,23 +176,22 @@ impl BlockchainState {
             transactions: vec![], // Empty transactions for now
             signature: None,
         };
-        
+
         // Add block to chain
         self.blocks.push(block.clone());
         self.current_height = new_height;
-        
+
         block
     }
-    
+
     fn calculate_merkle_root(&self, transactions: &[Transaction]) -> String {
         if transactions.is_empty() {
-            return "0x0000000000000000000000000000000000000000000000000000000000000000".to_string();
+            return "0x0000000000000000000000000000000000000000000000000000000000000000"
+                .to_string();
         }
-        
-        let mut hashes: Vec<String> = transactions.iter()
-            .map(|tx| tx.hash.clone())
-            .collect();
-        
+
+        let mut hashes: Vec<String> = transactions.iter().map(|tx| tx.hash.clone()).collect();
+
         while hashes.len() > 1 {
             let mut new_hashes = Vec::new();
             for chunk in hashes.chunks(2) {
@@ -205,85 +204,94 @@ impl BlockchainState {
             }
             hashes = new_hashes;
         }
-        
+
         hashes[0].clone()
     }
-    
+
     fn process_transaction(&mut self, tx: &Transaction) {
         // Update sender account
         if let Some(sender) = self.accounts.get_mut(&tx.from) {
             let balance: u128 = sender.balance.parse().unwrap_or(0);
             let value: u128 = tx.value.parse().unwrap_or(0);
             let gas_cost = tx.gas as u128 * tx.gas_price.parse::<u128>().unwrap_or(0);
-            
+
             sender.balance = (balance - value - gas_cost).to_string();
             sender.nonce += 1;
             sender.transaction_count += 1;
             sender.last_activity = Utc::now();
         }
-        
+
         // Update receiver account
         if let Some(receiver) = self.accounts.get_mut(&tx.to) {
             let balance: u128 = receiver.balance.parse().unwrap_or(0);
             let value: u128 = tx.value.parse().unwrap_or(0);
-            
+
             receiver.balance = (balance + value).to_string();
             receiver.last_activity = Utc::now();
         }
     }
-    
+
     fn get_uptime(&self) -> String {
         let duration = Utc::now() - self.start_time;
         let seconds = duration.num_seconds();
         let hours = seconds / 3600;
         let minutes = (seconds % 3600) / 60;
         let secs = seconds % 60;
-        
+
         format!("{}h {}m {}s", hours, minutes, secs)
     }
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let port = std::env::var("PORT").unwrap_or_else(|_| "1900".to_string()).parse::<u16>()?;
-    
+    let port = std::env::var("PORT")
+        .unwrap_or_else(|_| "1900".to_string())
+        .parse::<u16>()?;
+
     println!("🚀 Starting ArthaChain API Server on port {}", port);
-    
+
     // Use the comprehensive testnet_router with all 90+ APIs
+    use arthachain_node::api::handlers::faucet;
     use arthachain_node::api::testnet_router::create_testnet_router;
+    use arthachain_node::gas_free::GasFreeManager;
     use arthachain_node::ledger::state::State as BlockchainState;
     use arthachain_node::transaction::mempool::Mempool;
-    use arthachain_node::gas_free::GasFreeManager;
-    use arthachain_node::api::handlers::faucet;
-    
+
     // Initialize blockchain state and components
     let config = arthachain_node::config::Config::default();
     let blockchain_state = Arc::new(RwLock::new(State::new(&config).unwrap()));
     let mempool = Arc::new(RwLock::new(Mempool::new(10000)));
-    let faucet_service = Arc::new(faucet::Faucet::new(&config, blockchain_state.clone(), None).await.unwrap());
+    let faucet_service = Arc::new(
+        faucet::Faucet::new(&config, blockchain_state.clone(), None)
+            .await
+            .unwrap(),
+    );
     let gas_free_manager = Arc::new(GasFreeManager::new());
-    
+
     // Start mining worker
     let state_clone = blockchain_state.clone();
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(10));
         loop {
             interval.tick().await;
-            
+
             // Mine a new block
             let state = state_clone.read().await;
             let current_height = state.get_height().unwrap_or(0);
             let latest_block_hash = state.get_latest_block_hash().unwrap_or_default();
-            
+
             // Create a new block
             let new_height = current_height + 1;
             let timestamp = chrono::Utc::now().timestamp() as u64;
-            
+
             // Convert latest block hash to Hash type
-            let prev_hash = if latest_block_hash == "0000000000000000000000000000000000000000000000000000000000000000" {
+            let prev_hash = if latest_block_hash
+                == "0000000000000000000000000000000000000000000000000000000000000000"
+            {
                 Hash::from_data(&[0u8; 32])
             } else {
-                let hash_bytes = hex::decode(latest_block_hash.trim_start_matches("0x")).unwrap_or_default();
+                let hash_bytes =
+                    hex::decode(latest_block_hash.trim_start_matches("0x")).unwrap_or_default();
                 if hash_bytes.len() == 32 {
                     let mut array = [0u8; 32];
                     array.copy_from_slice(&hash_bytes);
@@ -292,7 +300,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     Hash::from_data(&hash_bytes)
                 }
             };
-            
+
             // Create block header
             let header = BlockHeader {
                 previous_hash: prev_hash,
@@ -303,14 +311,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 nonce: 0,
                 difficulty: 1000000,
             };
-            
+
             // Create the block
             let block = Block {
                 header,
                 transactions: vec![], // Empty transactions for now
                 signature: None,
             };
-            
+
             // Add block to state
             if let Err(e) = state.add_block(block) {
                 eprintln!("❌ Failed to add block: {}", e);
@@ -319,24 +327,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     });
-    
+
     // Create the comprehensive router with all 90+ APIs
     let app = create_testnet_router(blockchain_state, mempool, faucet_service, gas_free_manager);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     let listener = TcpListener::bind(addr).await?;
-    
+
     println!("✅ ArthaChain API Server listening on {}", addr);
     println!("📊 Health check: http://localhost:{}/health", port);
     println!("🌐 API docs: http://localhost:{}/", port);
     println!("⛏️  Auto-mining enabled (every 10 seconds)");
-    
+
     axum::serve(listener, app).await?;
     Ok(())
 }
 
 async fn root() -> Html<&'static str> {
-    Html(r#"
+    Html(
+        r#"
     <!DOCTYPE html>
     <html>
     <head>
@@ -358,9 +367,9 @@ async fn root() -> Html<&'static str> {
             <div class="status">
                 <strong>Status:</strong> Running | <strong>Network:</strong> Testnet | <strong>Consensus:</strong> Active
             </div>
-            
+
             <p>Welcome to the ArthaChain blockchain API server. This is a fully functional blockchain node with real transaction processing, mining, and account management.</p>
-            
+
             <h2>📋 Available Endpoints:</h2>
             <div class="endpoint">
                 <span class="method">GET</span> <span class="url">/health</span>
@@ -390,7 +399,7 @@ async fn root() -> Html<&'static str> {
                 <span class="method">POST</span> <span class="url">/api/v1/mine</span>
                 <div class="description">Manually trigger block mining</div>
             </div>
-            
+
             <h2>🔧 Features:</h2>
             <ul>
                 <li>✅ Real transaction processing and validation</li>
@@ -404,7 +413,8 @@ async fn root() -> Html<&'static str> {
         </div>
     </body>
     </html>
-    "#)
+    "#,
+    )
 }
 
 async fn health() -> Json<Value> {
@@ -449,7 +459,7 @@ async fn get_blocks(state: axum::extract::State<Arc<RwLock<BlockchainState>>>) -
             "difficulty": block.header.difficulty
         })
     }).collect();
-    
+
     Json(json!({
         "blocks": blocks,
         "total": blocks.len(),
@@ -457,9 +467,11 @@ async fn get_blocks(state: axum::extract::State<Arc<RwLock<BlockchainState>>>) -
     }))
 }
 
-async fn get_transactions(state: axum::extract::State<Arc<RwLock<BlockchainState>>>) -> Json<Value> {
+async fn get_transactions(
+    state: axum::extract::State<Arc<RwLock<BlockchainState>>>,
+) -> Json<Value> {
     let state = state.read().await;
-    
+
     // Get confirmed transactions
     let mut all_transactions = Vec::new();
     for block in &state.blocks {
@@ -478,7 +490,7 @@ async fn get_transactions(state: axum::extract::State<Arc<RwLock<BlockchainState
             }));
         }
     }
-    
+
     // Get pending transactions
     for tx in &state.mempool {
         all_transactions.push(json!({
@@ -494,7 +506,7 @@ async fn get_transactions(state: axum::extract::State<Arc<RwLock<BlockchainState
             "timestamp": tx.timestamp.to_rfc3339()
         }));
     }
-    
+
     Json(json!({
         "transactions": all_transactions,
         "total": all_transactions.len(),
@@ -503,9 +515,12 @@ async fn get_transactions(state: axum::extract::State<Arc<RwLock<BlockchainState
     }))
 }
 
-async fn get_account(state: axum::extract::State<Arc<RwLock<BlockchainState>>>, Path(address): Path<String>) -> Json<Value> {
+async fn get_account(
+    state: axum::extract::State<Arc<RwLock<BlockchainState>>>,
+    Path(address): Path<String>,
+) -> Json<Value> {
     let state = state.read().await;
-    
+
     if let Some(account) = state.accounts.get(&address) {
         Json(json!({
             "address": account.address,
@@ -524,25 +539,35 @@ async fn get_account(state: axum::extract::State<Arc<RwLock<BlockchainState>>>, 
     }
 }
 
-async fn submit_transaction(state: axum::extract::State<Arc<RwLock<BlockchainState>>>, Json(payload): Json<Value>) -> (StatusCode, Json<Value>) {
+async fn submit_transaction(
+    state: axum::extract::State<Arc<RwLock<BlockchainState>>>,
+    Json(payload): Json<Value>,
+) -> (StatusCode, Json<Value>) {
     let mut state = state.write().await;
-    
+
     // Extract transaction data from payload
-    let from = payload["from"].as_str().unwrap_or("0x742d354363663443303533323932356133623844");
-    let to = payload["to"].as_str().unwrap_or("0x1234567890abcdef1234567890abcdef12345678");
+    let from = payload["from"]
+        .as_str()
+        .unwrap_or("0x742d354363663443303533323932356133623844");
+    let to = payload["to"]
+        .as_str()
+        .unwrap_or("0x1234567890abcdef1234567890abcdef12345678");
     let value = payload["value"].as_str().unwrap_or("1000000000000000000");
     let gas = payload["gas"].as_u64().unwrap_or(21000);
     let gas_price = payload["gas_price"].as_str().unwrap_or("20000000000");
-    
+
     // Get sender account nonce
     let nonce = if let Some(account) = state.accounts.get(from) {
         account.nonce
     } else {
-        return (StatusCode::BAD_REQUEST, Json(json!({
-            "error": "Sender account not found"
-        })));
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": "Sender account not found"
+            })),
+        );
     };
-    
+
     // Create real transaction
     let transaction = Transaction {
         hash: format!("0x{}", Uuid::new_v4().to_string().replace("-", "")),
@@ -558,42 +583,56 @@ async fn submit_transaction(state: axum::extract::State<Arc<RwLock<BlockchainSta
         timestamp: Utc::now(),
         block_height: None,
     };
-    
+
     // Add to mempool
     match state.add_transaction(transaction.clone()) {
-        Ok(_) => (StatusCode::OK, Json(json!({
-            "success": true,
-            "tx_hash": transaction.hash,
-            "message": "Transaction submitted to mempool",
-            "nonce": nonce,
-            "gas_estimate": gas
-        }))),
-        Err(e) => (StatusCode::BAD_REQUEST, Json(json!({
-            "error": e,
-            "tx_hash": transaction.hash
-        })))
+        Ok(_) => (
+            StatusCode::OK,
+            Json(json!({
+                "success": true,
+                "tx_hash": transaction.hash,
+                "message": "Transaction submitted to mempool",
+                "nonce": nonce,
+                "gas_estimate": gas
+            })),
+        ),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": e,
+                "tx_hash": transaction.hash
+            })),
+        ),
     }
 }
 
-async fn mine_block(state: axum::extract::State<Arc<RwLock<BlockchainState>>>) -> (StatusCode, Json<Value>) {
+async fn mine_block(
+    state: axum::extract::State<Arc<RwLock<BlockchainState>>>,
+) -> (StatusCode, Json<Value>) {
     let mut state = state.write().await;
-    
+
     if state.mempool.is_empty() {
-        return (StatusCode::BAD_REQUEST, Json(json!({
-            "error": "No transactions in mempool to mine"
-        })));
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": "No transactions in mempool to mine"
+            })),
+        );
     }
-    
+
     let block = state.mine_block();
-    
-    (StatusCode::OK, Json(json!({
-        "success": true,
-        "block": {
-            "height": block.header.height,
-            "hash": block.hash().unwrap_or_default().to_evm_hex(),
-            "transactions": block.transactions.len(),
-            "timestamp": DateTime::from_timestamp(block.header.timestamp as i64, 0).unwrap_or_default().to_rfc3339()
-        },
-        "message": "Block mined successfully"
-    })))
+
+    (
+        StatusCode::OK,
+        Json(json!({
+            "success": true,
+            "block": {
+                "height": block.header.height,
+                "hash": block.hash().unwrap_or_default().to_evm_hex(),
+                "transactions": block.transactions.len(),
+                "timestamp": DateTime::from_timestamp(block.header.timestamp as i64, 0).unwrap_or_default().to_rfc3339()
+            },
+            "message": "Block mined successfully"
+        })),
+    )
 }

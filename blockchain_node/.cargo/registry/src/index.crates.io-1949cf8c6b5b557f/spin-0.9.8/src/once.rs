@@ -461,7 +461,7 @@ impl<T, R> Once<T, R> {
         }
     }
 
-    /// Returns a the inner value if the [`Once`] has been initialized.  
+    /// Returns a the inner value if the [`Once`] has been initialized.
     /// # Safety
     ///
     /// This is *extremely* unsafe if the `Once` has not already been initialized because a reference to uninitialized

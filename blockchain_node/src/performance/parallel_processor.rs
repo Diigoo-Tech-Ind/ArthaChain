@@ -30,6 +30,17 @@ pub struct ShardMetrics {
     pub current_load: AtomicU64,
 }
 
+impl Clone for ShardMetrics {
+    fn clone(&self) -> Self {
+        Self {
+            transactions_processed: AtomicU64::new(self.transactions_processed.load(std::sync::atomic::Ordering::Relaxed)),
+            blocks_created: AtomicU64::new(self.blocks_created.load(std::sync::atomic::Ordering::Relaxed)),
+            average_processing_time: AtomicU64::new(self.average_processing_time.load(std::sync::atomic::Ordering::Relaxed)),
+            current_load: AtomicU64::new(self.current_load.load(std::sync::atomic::Ordering::Relaxed)),
+        }
+    }
+}
+
 /// Types of processing tasks
 #[derive(Debug, Clone)]
 pub enum ProcessingTask {
@@ -49,8 +60,7 @@ pub enum ProcessingTask {
     },
     UpdateMetrics {
         shard_id: u64,
-        // TODO: Fix when ShardMetrics can be cloned
-        // metrics: ShardMetrics,
+        metrics: ShardMetrics,
     },
 }
 
@@ -197,9 +207,10 @@ impl ParallelProcessor {
                         )
                         .await;
                     }
-                    ProcessingTask::UpdateMetrics { shard_id, .. } => {
-                        // TODO: Update shard metrics when ShardMetrics can be cloned
-                        println!("Updating metrics for shard {}", shard_id);
+                    ProcessingTask::UpdateMetrics { shard_id, metrics } => {
+                        // Update shard metrics
+                        Self::update_shard_metrics(shard_id, metrics, &shard_distribution).await;
+                        println!("Updated metrics for shard {}", shard_id);
                     }
                 }
 
@@ -340,9 +351,8 @@ impl ParallelProcessor {
 
     /// Get shard distribution metrics
     pub async fn get_shard_distribution(&self) -> HashMap<u64, ShardMetrics> {
-        // Since ShardMetrics can't be cloned, we'll return an empty HashMap for now
-        // TODO: Implement proper cloning or return a different structure
-        HashMap::new()
+        let shards = self.shard_distribution.read().await;
+        shards.clone()
     }
 
     /// Get worker count

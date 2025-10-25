@@ -45,7 +45,7 @@ impl WordCase {
 /// a delimeter.
 ///
 /// The `Random` and `PseudoRandom` patterns are used for their respective cases
-/// and are only available in the "random" feature. 
+/// and are only available in the "random" feature.
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub enum Pattern {
     /// Lowercase patterns make all words lowercase.
@@ -131,7 +131,7 @@ pub enum Pattern {
 
     /// Random patterns will lowercase or uppercase each letter
     /// uniformly randomly.  This uses the `rand` crate and is only available with the "random"
-    /// feature.  This example will not pass the assertion due to randomness, but it used as an 
+    /// feature.  This example will not pass the assertion due to randomness, but it used as an
     /// example of what output is possible.
     /// ```should_panic
     /// use convert_case::Pattern;
@@ -150,7 +150,7 @@ pub enum Pattern {
     /// more "random looking" words.  A consequence of this algorithm for randomization
     /// is that there will never be three consecutive letters that are all lowercase
     /// or all uppercase.  This uses the `rand` crate and is only available with the "random"
-    /// feature.  This example will not pass the assertion due to randomness, but it used as an 
+    /// feature.  This example will not pass the assertion due to randomness, but it used as an
     /// example of what output is possible.
     /// ```should_panic
     /// use convert_case::Pattern;

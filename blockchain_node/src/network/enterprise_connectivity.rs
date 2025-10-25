@@ -103,7 +103,7 @@ pub enum ConnectionType {
     Direct,
     /// Full cone NAT
     FullCone,
-    /// Restricted cone NAT  
+    /// Restricted cone NAT
     RestrictedCone,
     /// Port restricted cone NAT
     PortRestrictedCone,

@@ -1,5 +1,5 @@
 //! A Dominator Tree represented as mappings of Blocks to their immediate dominator.
-//! Computed using Keith D. Cooper's "Simple, Fast Dominator Algorithm."   
+//! Computed using Keith D. Cooper's "Simple, Fast Dominator Algorithm."
 //! This version have been used in Cranelift for a very long time
 //! and should be quite stable. Used as a baseline i.e. in verification.
 

@@ -12,7 +12,7 @@ fn test_phase3_all_components_complete() {
 
     let start_time = Instant::now();
 
-    // Phase 3.1: Advanced Security & Monitoring 
+    // Phase 3.1: Advanced Security & Monitoring
     println!(" Phase 3.1: Advanced Security & Monitoring System");
 
     let security_features = vec![
@@ -138,16 +138,8 @@ fn test_phase3_all_components_complete() {
             "Multi-level scalability support",
             "",
         ),
-        (
-            "Network Resilience",
-            "Fault-tolerant network protocols",
-            "",
-        ),
-        (
-            "Analytics Coverage",
-            "Comprehensive monitoring system",
-            "",
-        ),
+        ("Network Resilience", "Fault-tolerant network protocols", ""),
+        ("Analytics Coverage", "Comprehensive monitoring system", ""),
         ("Interoperability", "Multi-chain ecosystem support", ""),
         ("Fault Tolerance", "Self-healing system components", ""),
         (
@@ -294,7 +286,7 @@ fn test_network_protocol_enhancements() {
     println!(" Network protocols: ADVANCED");
 }
 
-/// Test Analytics & Diagnostics System  
+/// Test Analytics & Diagnostics System
 #[test]
 fn test_analytics_diagnostics_system() {
     println!("🧪 Testing Analytics & Diagnostics System...");

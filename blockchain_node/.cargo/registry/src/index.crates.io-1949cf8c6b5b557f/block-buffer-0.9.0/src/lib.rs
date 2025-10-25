@@ -71,7 +71,7 @@ impl<BlockSize: ArrayLength<u8>> BlockBuffer<BlockSize> {
         // process its data without copying into the buffer
         let n_blocks = input.len()/self.size();
         let (left, right) = input.split_at(n_blocks*self.size());
-        // SAFETY: we guarantee that `blocks` does not point outside of `input` 
+        // SAFETY: we guarantee that `blocks` does not point outside of `input`
         let blocks = unsafe {
             slice::from_raw_parts(
                 left.as_ptr() as *const GenericArray<u8, BlockSize>,

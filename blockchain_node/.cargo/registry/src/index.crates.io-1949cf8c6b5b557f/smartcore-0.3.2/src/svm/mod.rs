@@ -219,7 +219,7 @@ impl Kernel for PolynomialKernel {
     fn apply(&self, x_i: &Vec<f64>, x_j: &Vec<f64>) -> Result<f64, Failed> {
         if self.gamma.is_none() || self.coef0.is_none() || self.degree.is_none() {
             return Err(Failed::because(
-                FailedError::ParametersError, "gamma, coef0, degree should be set, 
+                FailedError::ParametersError, "gamma, coef0, degree should be set,
                                                         use {Kernel}::default().with_{parameter}(..)")
             );
         }
@@ -233,7 +233,7 @@ impl Kernel for SigmoidKernel {
     fn apply(&self, x_i: &Vec<f64>, x_j: &Vec<f64>) -> Result<f64, Failed> {
         if self.gamma.is_none() || self.coef0.is_none() {
             return Err(Failed::because(
-                FailedError::ParametersError, "gamma, coef0, degree should be set, 
+                FailedError::ParametersError, "gamma, coef0, degree should be set,
                                                         use {Kernel}::default().with_{parameter}(..)")
             );
         }

@@ -1,26 +1,26 @@
 use anyhow::Result;
-use arthachain_node::{
-    config::Config,
-    ledger::state::State,
-    transaction::Mempool,
+use arthachain_node::{config::Config, ledger::state::State, transaction::Mempool};
+use axum::{
+    extract::Path,
+    routing::{get, post},
+    Json, Router,
 };
-use std::sync::Arc;
-use tokio::sync::RwLock;
-use axum::{Router, Json, extract::Path, routing::{get, post}};
 use serde_json::Value;
 use std::path::PathBuf;
+use std::sync::Arc;
 use tokio::fs;
+use tokio::sync::RwLock;
 
 /// ArthaChain Global Node
 #[tokio::main]
 async fn main() -> Result<()> {
     println!("🚀 ArthaChain Global Node Starting...");
-    
+
     // Fixed ports for global access
-    let api_port = 1910;  // ArthaChain global API port
+    let api_port = 1910; // ArthaChain global API port
     let p2p_port = 8084;
     let metrics_port = 9184;
-    
+
     println!("📋 Configuration:");
     println!("   API Port: {}", api_port);
     println!("   P2P Port: {}", p2p_port);
@@ -30,12 +30,12 @@ async fn main() -> Result<()> {
     let config = Config::default();
     let _state = Arc::new(RwLock::new(State::new(&config)?));
     let _mempool = Arc::new(RwLock::new(Mempool::new(10000)));
-    
+
     println!("✅ Blockchain state initialized");
 
     // Create API router
     let app = Router::new()
-        .route("/", get(|| async { 
+        .route("/", get(|| async {
             r#"
             <!DOCTYPE html>
             <html>
@@ -46,16 +46,16 @@ async fn main() -> Result<()> {
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <style>
                     * { margin: 0; padding: 0; box-sizing: border-box; }
-                    body { 
-                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+                    body {
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
                         background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
                         color: #ffffff;
                         min-height: 100vh;
                     }
-                    .container { 
-                        max-width: 1200px; 
-                        margin: 0 auto; 
-                        padding: 20px; 
+                    .container {
+                        max-width: 1200px;
+                        margin: 0 auto;
+                        padding: 20px;
                     }
                     .header {
                         text-align: center;
@@ -96,9 +96,9 @@ async fn main() -> Result<()> {
                         color: #FFD700;
                         font-style: italic;
                     }
-                    .section { 
-                        margin: 30px 0; 
-                        padding: 25px; 
+                    .section {
+                        margin: 30px 0;
+                        padding: 25px;
                         background: rgba(255, 255, 255, 0.05);
                         border: 1px solid rgba(255, 215, 0, 0.2);
                         border-radius: 15px;
@@ -111,11 +111,11 @@ async fn main() -> Result<()> {
                         border-bottom: 2px solid #FFD700;
                         padding-bottom: 10px;
                     }
-                    .endpoint { 
-                        background: rgba(255, 255, 255, 0.08); 
-                        padding: 20px; 
-                        margin: 15px 0; 
-                        border-radius: 10px; 
+                    .endpoint {
+                        background: rgba(255, 255, 255, 0.08);
+                        padding: 20px;
+                        margin: 15px 0;
+                        border-radius: 10px;
                         border-left: 4px solid #FFD700;
                         transition: all 0.3s ease;
                     }
@@ -123,24 +123,24 @@ async fn main() -> Result<()> {
                         background: rgba(255, 255, 255, 0.12);
                         transform: translateX(5px);
                     }
-                    .method { 
-                        display: inline-block; 
-                        background: linear-gradient(45deg, #FFD700, #FFA500); 
-                        color: #000000; 
-                        padding: 8px 15px; 
-                        border-radius: 20px; 
-                        font-size: 12px; 
+                    .method {
+                        display: inline-block;
+                        background: linear-gradient(45deg, #FFD700, #FFA500);
+                        color: #000000;
+                        padding: 8px 15px;
+                        border-radius: 20px;
+                        font-size: 12px;
                         font-weight: bold;
                         margin-right: 15px;
                     }
-                    .url { 
-                        font-family: 'Courier New', monospace; 
-                        color: #FFD700; 
+                    .url {
+                        font-family: 'Courier New', monospace;
+                        color: #FFD700;
                         font-size: 1.1em;
                     }
-                    .description { 
-                        color: #C0C0C0; 
-                        margin-top: 10px; 
+                    .description {
+                        color: #C0C0C0;
+                        margin-top: 10px;
                         font-size: 0.95em;
                     }
                     .status-grid {
@@ -192,35 +192,35 @@ async fn main() -> Result<()> {
                         <p class="subtitle">Next-Generation Blockchain with AI-Native Features</p>
                         <p class="tagline">Quantum Resistance • Ultra-High Performance • Global Scale</p>
                     </div>
-                    
+
                     <div class="section">
                         <h2>📡 API Endpoints</h2>
-                        
+
                         <div class="endpoint">
                             <span class="method">GET</span>
                             <span class="url">/health</span>
                             <div class="description">Check node health and status</div>
                         </div>
-                        
+
                         <div class="endpoint">
                             <span class="method">GET</span>
                             <span class="url">/api/v1/node/id</span>
                             <div class="description">Get unique node identifier</div>
                         </div>
-                        
+
                         <div class="endpoint">
                             <span class="method">GET</span>
                             <span class="url">/api/v1/blockchain/height</span>
                             <div class="description">Get current blockchain height</div>
                         </div>
-                        
+
                         <div class="endpoint">
                             <span class="method">GET</span>
                             <span class="url">/api/v1/blockchain/status</span>
                             <div class="description">Get blockchain status and metrics</div>
                         </div>
                     </div>
-                    
+
                     <div class="section">
                         <h2>🔧 Node Information</h2>
                         <div class="status-grid">
@@ -242,7 +242,7 @@ async fn main() -> Result<()> {
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="section">
                         <h2>🌐 Network Details</h2>
                         <div class="status-grid">
@@ -265,12 +265,12 @@ async fn main() -> Result<()> {
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="footer">
                     <p>🚀 ArthaChain Global Node • Built with Rust & Axum</p>
                     <p>⚡ Powered by Next-Generation Blockchain Technology</p>
                 </div>
-                
+
                 <script>
                     // Load node information
                     async function loadNodeInfo() {
@@ -279,17 +279,17 @@ async fn main() -> Result<()> {
                             const healthResponse = await fetch('/health');
                             const healthData = await healthResponse.json();
                             document.getElementById('nodeStatus').textContent = healthData.status;
-                            
+
                             // Load node ID
                             const nodeIdResponse = await fetch('/api/v1/node/id');
                             const nodeIdData = await nodeIdResponse.json();
                             document.getElementById('nodeId').textContent = nodeIdData.node_id;
-                            
+
                             // Load blockchain height
                             const heightResponse = await fetch('/api/v1/blockchain/height');
                             const heightData = await heightResponse.json();
                             document.getElementById('blockHeight').textContent = heightData.height;
-                            
+
                         } catch (error) {
                             console.error('Error loading node info:', error);
                             document.getElementById('nodeStatus').textContent = 'Error';
@@ -297,10 +297,10 @@ async fn main() -> Result<()> {
                             document.getElementById('blockHeight').textContent = 'Error';
                         }
                     }
-                    
+
                     // Load info on page load
                     loadNodeInfo();
-                    
+
                     // Refresh every 30 seconds
                     setInterval(loadNodeInfo, 30000);
                 </script>
@@ -322,7 +322,10 @@ async fn main() -> Result<()> {
     println!("🚀 ArthaChain Global Node starting...");
     println!("📡 API listening on http://{} (Global access)", addr);
     println!("🌐 P2P listening on 0.0.0.0:{} (Global access)", p2p_port);
-    println!("📊 Metrics available on http://0.0.0.0:{} (Global access)", metrics_port);
+    println!(
+        "📊 Metrics available on http://0.0.0.0:{} (Global access)",
+        metrics_port
+    );
     println!("🎯 Ready for global deployment!");
 
     // Start the server
@@ -334,17 +337,20 @@ async fn main() -> Result<()> {
 /// Serve logo files
 async fn serve_logo(Path(filename): Path<String>) -> Result<Vec<u8>, axum::http::StatusCode> {
     let logo_path = format!("blockchain_node/assets/logos/{}", filename);
-    
+
     match fs::read(&logo_path).await {
         Ok(contents) => {
             // Set appropriate content type based on file extension
-            let _content_type = match PathBuf::from(&filename).extension().and_then(|s| s.to_str()) {
+            let _content_type = match PathBuf::from(&filename)
+                .extension()
+                .and_then(|s| s.to_str())
+            {
                 Some("png") => "image/png",
                 Some("svg") => "image/svg+xml",
                 Some("jpg") | Some("jpeg") => "image/jpeg",
                 _ => "application/octet-stream",
             };
-            
+
             // For now, just return the content
             // In a real implementation, you'd set the content-type header
             Ok(contents)
@@ -356,7 +362,7 @@ async fn serve_logo(Path(filename): Path<String>) -> Result<Vec<u8>, axum::http:
 /// Serve icon files
 async fn serve_icon(Path(filename): Path<String>) -> Result<Vec<u8>, axum::http::StatusCode> {
     let icon_path = format!("blockchain_node/assets/icons/{}", filename);
-    
+
     match fs::read(&icon_path).await {
         Ok(contents) => Ok(contents),
         Err(_) => Err(axum::http::StatusCode::NOT_FOUND),

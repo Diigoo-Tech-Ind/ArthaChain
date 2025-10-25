@@ -12,7 +12,7 @@ use crate::Pattern;
 ///
 /// Then calling [`convert`](Converter::convert) on a `Converter` will apply a case conversion
 /// defined by those fields.  The `Converter` struct is what is used underneath those functions
-/// available in the `Casing` struct.  
+/// available in the `Casing` struct.
 ///
 /// You can use `Converter` when you need more specificity on conversion
 /// than those provided in `Casing`, or if it is simply more convenient or explicit.

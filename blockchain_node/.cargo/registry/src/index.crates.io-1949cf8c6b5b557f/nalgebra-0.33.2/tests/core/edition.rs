@@ -271,7 +271,7 @@ fn remove_columns() {
     assert_eq!(m.clone().remove_column(0), expected_a1);
     assert_eq!(m.clone().remove_column(4), expected_a2);
     assert_eq!(m.clone().remove_column(2), expected_a3);
-    
+
     let expected_b1 = expected_b1.map(Box::new);
     let expected_b2 = expected_b2.map(Box::new);
     let expected_b3 = expected_b3.map(Box::new);
@@ -317,7 +317,7 @@ fn remove_columns_at() {
         41, 43, 45,
         51, 53, 55
     ]);
-    
+
     assert_eq!(m.remove_columns_at(&[1,3]), expected2);
 
     let m = DMatrix::from_row_slice(5, 5, &[
@@ -333,7 +333,7 @@ fn remove_columns_at() {
         22, 23,
         32, 33,
         42, 43,
-        52, 53, 
+        52, 53,
     ]);
 
     assert_eq!(m.remove_columns_at(&[0,3,4]), expected3);
@@ -428,7 +428,7 @@ fn remove_rows_at() {
         31, 32, 33, 34, 35,
         51, 52, 53, 54, 55
     ]);
-    
+
     assert_eq!(m.remove_rows_at(&[1,3]), expected2);
 
     let m = DMatrix::from_row_slice(5, 5, &[
@@ -609,7 +609,7 @@ fn resize() {
         11, 12, 13, 14, 15, 42,
         21, 22, 23, 24, 25, 42,
         31, 32, 33, 34, 35, 42]);
-        
+
     let del_colls = DMatrix::from_row_slice(3, 4, &[
         11, 12, 13, 14,
         21, 22, 23, 24,

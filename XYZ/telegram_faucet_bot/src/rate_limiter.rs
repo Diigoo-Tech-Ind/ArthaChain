@@ -11,9 +11,9 @@ pub struct RateLimiter {
 }
 
 impl RateLimiter {
-    /// Create a new rate limiter with default 24-hour cooldown
+    /// Create a new rate limiter with default 5-minute cooldown for unlimited test tokens
     pub fn new() -> Self {
-        Self::with_cooldown(Duration::from_secs(24 * 60 * 60)) // 24 hours
+        Self::with_cooldown(Duration::from_secs(5 * 60)) // 5 minutes
     }
 
     /// Create a new rate limiter with custom cooldown

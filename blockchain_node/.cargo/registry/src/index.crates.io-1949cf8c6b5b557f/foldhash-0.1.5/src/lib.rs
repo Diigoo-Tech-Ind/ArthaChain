@@ -10,7 +10,7 @@
 //!
 //! - You expect foldhash to have a consistent output across versions or
 //!   platforms, such as for persistent file formats or communication protocols.
-//!   
+//!
 //! - You are relying on foldhash's properties for any kind of security.
 //!   Foldhash is **not appropriate for any cryptographic purpose**.
 //!

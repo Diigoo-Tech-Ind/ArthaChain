@@ -1,6 +1,6 @@
 use anyhow::Result;
-use arthachain_node::network::cross_shard::{CrossShardConfig, CrossShardTransaction};
 use arthachain_node::consensus::cross_shard::integration::EnhancedCrossShardManager;
+use arthachain_node::network::cross_shard::{CrossShardConfig, CrossShardTransaction};
 use std::sync::Arc;
 use tokio::time::Duration;
 

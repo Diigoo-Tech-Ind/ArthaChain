@@ -5,8 +5,8 @@ use axum::{
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use std::net::SocketAddr;
+use std::sync::Arc;
 use tokio::sync::RwLock;
 use tower_http::cors::{Any, CorsLayer};
 

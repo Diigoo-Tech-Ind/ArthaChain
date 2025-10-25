@@ -1,5 +1,5 @@
 //! Hex literals without proc macros.
-//! 
+//!
 //! This crate implements minimalistic hex literal macros without use of proc macros.
 //! The advantages are much faster compile times, ability to work with non-literal const values and
 //! easier auditing.
@@ -44,7 +44,7 @@
 //!
 //! * 1.41.1+ - the MSRV, use in const contexts is impossible, only the [`hex!`] macro is available.
 //! * 1.46.0+ - usage in const contexts is available and (regardless of cargo features) correctness
-//!             of input is checked at compile time. 
+//!             of input is checked at compile time.
 //! * 1.57+ - nicer error messages for bad inputs (regardless of cargo features)
 //!
 //! ## Cargo features

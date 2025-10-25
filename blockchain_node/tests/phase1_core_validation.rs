@@ -48,12 +48,10 @@ async fn test_merkle_proof_core() {
     println!(" Merkle Proof System: PASSED");
 }
 
-/// Quick test of cross-shard coordinator - CORE FUNCTIONALITY  
+/// Quick test of cross-shard coordinator - CORE FUNCTIONALITY
 #[tokio::test]
 async fn test_cross_shard_core() {
-    use arthachain_node::consensus::cross_shard::{
-        coordinator::CrossShardCoordinator,
-    };
+    use arthachain_node::consensus::cross_shard::coordinator::CrossShardCoordinator;
     use arthachain_node::network::cross_shard::CrossShardConfig;
     use tokio::sync::mpsc;
 

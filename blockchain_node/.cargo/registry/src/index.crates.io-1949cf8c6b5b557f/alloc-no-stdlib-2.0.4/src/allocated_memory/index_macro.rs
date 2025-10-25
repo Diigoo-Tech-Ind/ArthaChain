@@ -10,7 +10,7 @@ macro_rules! define_index_ops_mut {
                 ::core::ops::Index::index(&**self, index)
             }
         }
-                
+
         impl<$T> ::core::ops::IndexMut<usize> for $MemoryType
         {
             #[inline]
@@ -18,8 +18,8 @@ macro_rules! define_index_ops_mut {
                 ::core::ops::IndexMut::index_mut(&mut **self, index)
             }
         }
-        
-                
+
+
         impl<$T> ::core::ops::Index<::core::ops::Range<usize>> for $MemoryType
         {
             type Output = [T];
@@ -28,7 +28,7 @@ macro_rules! define_index_ops_mut {
         ::core::ops::Index::index(&**self, index)
             }
         }
-        
+
         impl<$T> ::core::ops::IndexMut<::core::ops::Range<usize>> for $MemoryType
         {
             #[inline]
@@ -37,15 +37,15 @@ macro_rules! define_index_ops_mut {
             }
         }
 
-        
+
         impl<$T> ::core::ops::Deref for $MemoryType {
             type Target = [T];
-            
+
             fn deref(&self) -> &[T] {
                 self.slice()
             }
         }
-        
+
         impl<T> ::core::ops::DerefMut for $MemoryType {
             fn deref_mut(&mut self) -> &mut [T] {
                 self.slice_mut()
@@ -62,7 +62,7 @@ macro_rules! define_index_ops_mut {
                 ::core::ops::Index::index(&**self, index)
             }
         }
-        
+
         impl<'a, $T> ::core::ops::IndexMut<usize> for $MemoryType
         {
             #[inline]
@@ -70,19 +70,19 @@ macro_rules! define_index_ops_mut {
                 ::core::ops::IndexMut::index_mut(&mut **self, index)
             }
         }
-        
-        
+
+
         impl<'a, $T> ::core::ops::Index<::core::ops::Range<usize>> for $MemoryType
         {
             type Output = [T];
-            
+
             #[inline]
             fn index(&self, index: ::core::ops::Range<usize>) -> &Self::Output {
                 ::core::ops::Index::index(&**self, index)
             }
         }
-        
-        
+
+
         impl<'a, $T> ::core::ops::IndexMut<::core::ops::Range<usize>> for $MemoryType
         {
             #[inline]
@@ -94,7 +94,7 @@ macro_rules! define_index_ops_mut {
 
         impl<'a, $T> ::core::ops::Deref for $MemoryType {
             type Target = [T];
-            
+
             fn deref(&self) -> &[T] {
                 self.slice()
             }
@@ -118,26 +118,26 @@ macro_rules! define_index_ops {
                 ::core::ops::Index::index(&**self, index)
             }
         }
-        
-        
+
+
         impl<$T> ::core::ops::Index<::core::ops::Range<usize>> for $MemoryType
         {
             type Output = [T];
-            
+
             #[inline]
             fn index(&self, index: ::core::ops::Range<usize>) -> &Self::Output {
                 ::core::ops::Index::index(&**self, index)
             }
         }
-        
+
         impl<$T> ::core::ops::Deref for $MemoryType {
             type Target = [T];
-            
+
             fn deref(&self) -> &[T] {
                 self.slice()
             }
         }
-        
+
     };
     ($T0: tt, $T:ident, $MemoryType:ty) => {
         impl<'a, $T> ::core::ops::Index<usize> for $MemoryType
@@ -149,21 +149,21 @@ macro_rules! define_index_ops {
                 ::core::ops::Index::index(&**self, index)
             }
         }
-        
+
         impl<'a, $T> ::core::ops::Index<::core::ops::Range<usize>> for $MemoryType
         {
             type Output = [T];
-            
+
             #[inline]
             fn index(&self, index: ::core::ops::Range<usize>) -> &Self::Output {
                 ::core::ops::Index::index(&**self, index)
             }
         }
-        
-        
+
+
         impl<'a, $T> ::core::ops::Deref for $MemoryType {
             type Target = [T];
-            
+
             fn deref(&self) -> &[T] {
                 self.slice()
             }

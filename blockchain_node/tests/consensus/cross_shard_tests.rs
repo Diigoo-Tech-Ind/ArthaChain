@@ -13,7 +13,7 @@ use std::time::Duration;
 async fn setup_test_environment() -> (CrossShardManager, mpsc::Sender<CrossShardMessage>) {
     let (tx, rx) = mpsc::channel(100);
     let reputation_manager = Arc::new(ReputationManager::new(10));
-    
+
     let manager = CrossShardManager::new(
         0, // shard_id
         3, // total_shards
@@ -194,9 +194,9 @@ async fn test_concurrent_finalization_requests() {
     let (mut manager, tx) = setup_test_environment().await;
     let block_hash_1 = vec![1, 2, 3, 4];
     let block_hash_2 = vec![5, 6, 7, 8];
-    
+
     let tx_clone = tx.clone();
-    
+
     // Spawn task for first finalization request
     tokio::spawn(async move {
         tx_clone.send(CrossShardMessage::FinalizationRequest {
@@ -235,7 +235,7 @@ async fn test_concurrent_finalization_requests() {
 async fn test_reputation_impact() {
     let (mut manager, tx) = setup_test_environment().await;
     let block_hash = vec![1, 2, 3, 4];
-    
+
     // Initialize consensus state
     tx.send(CrossShardMessage::FinalizationRequest {
         shard_id: 1,
@@ -269,7 +269,7 @@ async fn test_reputation_impact() {
 async fn test_max_recovery_attempts() {
     let (mut manager, tx) = setup_test_environment().await;
     let block_hash = vec![1, 2, 3, 4];
-    
+
     // Initialize consensus state
     tx.send(CrossShardMessage::FinalizationRequest {
         shard_id: 1,
@@ -304,7 +304,7 @@ async fn test_max_recovery_attempts() {
 async fn test_invalid_message_sequence() {
     let (mut manager, tx) = setup_test_environment().await;
     let block_hash = vec![1, 2, 3, 4];
-    
+
     // Send finalization response without a request first
     tx.send(CrossShardMessage::FinalizationResponse {
         shard_id: 1,
@@ -328,7 +328,7 @@ async fn test_invalid_message_sequence() {
 async fn test_duplicate_finalization_responses() {
     let (mut manager, tx) = setup_test_environment().await;
     let block_hash = vec![1, 2, 3, 4];
-    
+
     // Initialize consensus state
     tx.send(CrossShardMessage::FinalizationRequest {
         shard_id: 1,
@@ -357,4 +357,4 @@ async fn test_duplicate_finalization_responses() {
     // Verify only one signature was counted
     let consensus = manager.get_consensus_state(&block_hash).await.unwrap();
     assert_eq!(consensus.signatures.len(), 1);
-} 
+}

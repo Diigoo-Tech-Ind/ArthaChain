@@ -488,7 +488,7 @@ unsafe fn align_ptr<T>(mut align_to: usize, mut ptr: *mut T) -> *mut T {
 }
 
 /// Call the GEMM kernel with a "masked" output C.
-/// 
+///
 /// Simply redirect the MR by NR kernel output to the passed
 /// in `mask_buf`, and copy the non masked region to the real
 /// C.

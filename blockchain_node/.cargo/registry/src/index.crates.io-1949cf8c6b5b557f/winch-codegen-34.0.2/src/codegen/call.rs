@@ -37,7 +37,7 @@
 //! │  are used as function arguments.                 │
 //! │                                                  │
 //! ├──────────────────────────────────────────────────┤ ---> The Wasm value stack at this point in time would look like:
-//! │                                                  │      
+//! │                                                  │
 //! │   Stack space created by spilling locals and     |
 //! │   registers at the callsite.                     │
 //! │                                                  │

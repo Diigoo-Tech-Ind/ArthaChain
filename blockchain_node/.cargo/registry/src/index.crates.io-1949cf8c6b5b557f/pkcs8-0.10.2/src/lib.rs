@@ -48,7 +48,7 @@
 //!       - SHA-1 based PRF with HMAC-SHA1, when the `sha1` feature of this crate is enabled.
 //!   - Symmetric encryption: AES-128-CBC, AES-192-CBC, or AES-256-CBC
 //!     (best available options for PKCS#5v2)
-//!  
+//!
 //! ## Legacy DES-CBC and DES-EDE3-CBC (3DES) support (optional)
 //! When the `des-insecure` and/or `3des` features are enabled this crate provides support for
 //! private keys encrypted with with DES-CBC and DES-EDE3-CBC (3DES or Triple DES) symmetric

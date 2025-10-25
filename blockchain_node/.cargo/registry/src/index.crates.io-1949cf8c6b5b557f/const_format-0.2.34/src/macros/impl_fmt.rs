@@ -36,7 +36,7 @@
 ///
 ///     impl[] Tupled<bool>;
 ///     impl Tupled<Option<bool>>;
-///     
+///
 ///     pub const fn const_debug_fmt(&self, fmt: &mut Formatter<'_>) -> Result<(), Error> {
 ///         let mut fmt = fmt.debug_tuple("Tupled");
 ///
@@ -82,7 +82,7 @@
 ///
 /// impl_fmt!{
 ///     impl Enum;
-///     
+///
 ///     pub const fn const_debug_fmt(&self, fmt: &mut Formatter<'_>) -> Result<(), Error> {
 ///         match self {
 ///             Self::Braced{ord} => {

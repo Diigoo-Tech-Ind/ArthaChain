@@ -169,11 +169,7 @@ fn test_complete_system_validation() {
     println!("==================================");
 
     let readiness_criteria = vec![
-        (
-            "Core Blockchain",
-            "Consensus, transactions, state",
-            "READY",
-        ),
+        ("Core Blockchain", "Consensus, transactions, state", "READY"),
         (
             "Smart Contracts",
             "WASM/EVM execution, optimization",

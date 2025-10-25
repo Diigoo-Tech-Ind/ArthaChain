@@ -204,7 +204,7 @@
 //! // input: ab_bb_b
 //!
 //! identifier = @{ "a" ~ ("b"|"_")* ~ "b" }
-//! // matches:      a     b_bb_b       nothing -> error!      
+//! // matches:      a     b_bb_b       nothing -> error!
 //!
 //! identifier = @{ "a" ~ ("_"* ~ "b")* }
 //! // matches:      a     b, _bb, _b   in three repetitions

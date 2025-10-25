@@ -6,7 +6,7 @@ sol!(
         {
             "inputs": [
                 { "name": "bar", "type": "uint256" },
-                { 
+                {
                     "internalType": "struct MyStruct",
                     "name": "baz",
                     "type": "tuple",

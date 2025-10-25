@@ -10,7 +10,7 @@
 //!     use crate::web3::api::Namespace;
 //!
 //!     let transport = web3::transports::Http::new("http://localhost:8545")?;
-//!     
+//!
 //!     let ens = web3::contract::ens::Ens::new(transport);
 //!
 //!     let address = ens.eth_address("vitalik.eth").await.unwrap();

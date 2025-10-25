@@ -42,28 +42,28 @@ impl TxDependencyGraph {
     /// Add a transaction to the graph
     pub fn add_transaction(&mut self, tx: TxVertex) -> Result<()> {
         let tx_id = tx.tx_hash.clone();
-        
+
         // Update dependencies based on read/write conflicts
         self.update_dependencies(&tx)?;
-        
+
         // Insert vertex
         self.vertices.insert(tx_id.clone(), tx);
-        
+
         // Initialize edge lists if not present
         self.edges.entry(tx_id.clone()).or_insert_with(HashSet::new);
         self.reverse_edges.entry(tx_id).or_insert_with(HashSet::new);
-        
+
         Ok(())
     }
 
     /// Update dependencies for a new transaction
     fn update_dependencies(&mut self, new_tx: &TxVertex) -> Result<()> {
         let new_tx_id = &new_tx.tx_hash;
-        
+
         for (existing_tx_id, existing_tx) in &self.vertices {
             // Check for conflicts
             let conflicts = self.detect_conflicts(new_tx, existing_tx);
-            
+
             if !conflicts.is_empty() {
                 // Add dependency edge based on conflict type and priority
                 match self.resolve_conflict_priority(new_tx, existing_tx, &conflicts) {
@@ -81,7 +81,7 @@ impl TxDependencyGraph {
                 }
             }
         }
-        
+
         Ok(())
     }
 
@@ -104,22 +104,22 @@ impl TxDependencyGraph {
     /// Detect conflicts between two transactions
     fn detect_conflicts(&self, tx1: &TxVertex, tx2: &TxVertex) -> Vec<ConflictType> {
         let mut conflicts = Vec::new();
-        
+
         // Read-Write conflict
         if !tx1.read_set.is_disjoint(&tx2.write_set) {
             conflicts.push(ConflictType::ReadWrite);
         }
-        
+
         // Write-Read conflict
         if !tx1.write_set.is_disjoint(&tx2.read_set) {
             conflicts.push(ConflictType::WriteRead);
         }
-        
+
         // Write-Write conflict
         if !tx1.write_set.is_disjoint(&tx2.write_set) {
             conflicts.push(ConflictType::WriteWrite);
         }
-        
+
         conflicts
     }
 
@@ -132,7 +132,7 @@ impl TxDependencyGraph {
         if tx2.priority > tx1.priority {
             return ConflictResolution::NewTxWaits;
         }
-        
+
         // Timestamp-based resolution (older transactions have priority)
         if tx1.timestamp < tx2.timestamp {
             return ConflictResolution::ExistingTxWaits;
@@ -140,12 +140,12 @@ impl TxDependencyGraph {
         if tx2.timestamp < tx1.timestamp {
             return ConflictResolution::NewTxWaits;
         }
-        
+
         // For write-write conflicts, use abort strategy
         if conflicts.contains(&ConflictType::WriteWrite) {
             return ConflictResolution::Abort;
         }
-        
+
         // Default: new transaction waits
         ConflictResolution::NewTxWaits
     }
@@ -155,7 +155,7 @@ impl TxDependencyGraph {
         self.vertices
             .iter()
             .filter(|(tx_id, vertex)| {
-                vertex.status == TxStatus::Pending && 
+                vertex.status == TxStatus::Pending &&
                 self.reverse_edges.get(*tx_id).map_or(true, |deps| deps.is_empty())
             })
             .map(|(tx_id, _)| tx_id.clone())
@@ -168,17 +168,17 @@ impl TxDependencyGraph {
         if let Some(vertex) = self.vertices.get_mut(tx_id) {
             vertex.status = TxStatus::Completed;
         }
-        
+
         // Remove outgoing edges (dependents are now free)
         if let Some(dependents) = self.edges.remove(tx_id) {
             for dependent in dependents {
                 self.remove_edge(tx_id, &dependent);
             }
         }
-        
+
         // Remove from reverse edges
         self.reverse_edges.remove(tx_id);
-        
+
         Ok(())
     }
 
@@ -186,7 +186,7 @@ impl TxDependencyGraph {
     pub fn has_deadlock(&self) -> bool {
         let mut visited = HashSet::new();
         let mut rec_stack = HashSet::new();
-        
+
         for tx_id in self.vertices.keys() {
             if !visited.contains(tx_id) {
                 if self.has_cycle_util(tx_id, &mut visited, &mut rec_stack) {
@@ -194,7 +194,7 @@ impl TxDependencyGraph {
                 }
             }
         }
-        
+
         false
     }
 
@@ -202,7 +202,7 @@ impl TxDependencyGraph {
     fn has_cycle_util(&self, tx_id: &TxId, visited: &mut HashSet<TxId>, rec_stack: &mut HashSet<TxId>) -> bool {
         visited.insert(tx_id.clone());
         rec_stack.insert(tx_id.clone());
-        
+
         if let Some(neighbors) = self.edges.get(tx_id) {
             for neighbor in neighbors {
                 if !visited.contains(neighbor) {
@@ -214,7 +214,7 @@ impl TxDependencyGraph {
                 }
             }
         }
-        
+
         rec_stack.remove(tx_id);
         false
     }
@@ -224,29 +224,29 @@ impl TxDependencyGraph {
         let mut in_degree = HashMap::new();
         let mut queue = VecDeque::new();
         let mut result = Vec::new();
-        
+
         // Calculate in-degrees
         for tx_id in self.vertices.keys() {
             in_degree.insert(tx_id.clone(), 0);
         }
-        
+
         for edges in self.edges.values() {
             for to in edges {
                 *in_degree.get_mut(to).unwrap() += 1;
             }
         }
-        
+
         // Find nodes with in-degree 0
         for (tx_id, &degree) in &in_degree {
             if degree == 0 {
                 queue.push_back(tx_id.clone());
             }
         }
-        
+
         // Process queue
         while let Some(tx_id) = queue.pop_front() {
             result.push(tx_id.clone());
-            
+
             if let Some(neighbors) = self.edges.get(&tx_id) {
                 for neighbor in neighbors {
                     let degree = in_degree.get_mut(neighbor).unwrap();
@@ -257,11 +257,11 @@ impl TxDependencyGraph {
                 }
             }
         }
-        
+
         if result.len() != self.vertices.len() {
             return Err(anyhow!("Cycle detected in dependency graph"));
         }
-        
+
         Ok(result)
     }
 }
@@ -532,13 +532,13 @@ impl ParallelTxProcessor {
     /// Add a transaction to the processing queue
     pub async fn add_transaction(&self, tx: TxVertex) -> Result<()> {
         let mut graph = self.graph.write().await;
-        
+
         // Update metrics
         {
             let mut metrics = self.metrics.write().await;
             metrics.total_transactions += 1;
         }
-        
+
         graph.add_transaction(tx)?;
         Ok(())
     }
@@ -546,17 +546,17 @@ impl ParallelTxProcessor {
     /// Add multiple transactions as a batch
     pub async fn add_transaction_batch(&self, transactions: Vec<TxVertex>) -> Result<()> {
         let mut graph = self.graph.write().await;
-        
+
         for tx in transactions {
             graph.add_transaction(tx)?;
         }
-        
+
         // Update metrics
         {
             let mut metrics = self.metrics.write().await;
             metrics.total_transactions += graph.vertices.len() as u64;
         }
-        
+
         Ok(())
     }
 
@@ -564,7 +564,7 @@ impl ParallelTxProcessor {
     pub async fn get_ready_transactions(&self) -> Vec<TxId> {
         let graph = self.graph.read().await;
         let mut ready_txs = graph.get_ready_transactions();
-        
+
         // Apply conflict resolution strategy
         match self.conflict_resolution {
             ConflictResolutionStrategy::FCFS => {
@@ -596,7 +596,7 @@ impl ParallelTxProcessor {
                 });
             }
         }
-        
+
         ready_txs
     }
 
@@ -604,11 +604,11 @@ impl ParallelTxProcessor {
     pub async fn execute_transactions(&self) -> Result<Vec<ExecutionResult>> {
         let start_time = Instant::now();
         let ready_txs = self.get_ready_transactions().await;
-        
+
         if ready_txs.is_empty() {
             return Ok(Vec::new());
         }
-        
+
         // Check for deadlocks
         {
             let graph = self.graph.read().await;
@@ -618,35 +618,35 @@ impl ParallelTxProcessor {
                 return Err(anyhow!("Deadlock detected in transaction dependency graph"));
             }
         }
-        
+
         // Limit parallel execution
         let batch_size = ready_txs.len().min(self.max_parallel_txs);
         let batch: Vec<_> = ready_txs.into_iter().take(batch_size).collect();
-        
+
         // Update peak parallelism
         {
             let mut metrics = self.metrics.write().await;
             metrics.peak_parallelism = metrics.peak_parallelism.max(batch.len());
         }
-        
+
         // Execute transactions in parallel
         let mut handles = Vec::new();
-        
+
         for tx_id in batch {
             let graph = self.graph.clone();
             let semaphore = self.execution_semaphore.clone();
             let timeout = self.execution_timeout;
             let retry_config = self.retry_config.clone();
-            
+
             let handle = tokio::spawn(async move {
                 let _permit = semaphore.acquire().await.unwrap();
-                
+
                 // Get transaction details
                 let tx_vertex = {
                     let graph_read = graph.read().await;
                     graph_read.vertices.get(&tx_id).cloned()
                 };
-                
+
                 if let Some(mut tx) = tx_vertex {
                     // Mark as executing
                     {
@@ -655,10 +655,10 @@ impl ParallelTxProcessor {
                             vertex.status = TxStatus::Executing;
                         }
                     }
-                    
+
                     // Execute with retry logic
                     let result = Self::execute_with_retry(&tx_id, &mut tx, timeout, retry_config).await;
-                    
+
                     // Update transaction status
                     {
                         let mut graph_write = graph.write().await;
@@ -666,13 +666,13 @@ impl ParallelTxProcessor {
                             vertex.status = result.status.clone();
                             vertex.retry_count = result.retry_count;
                         }
-                        
+
                         // Mark as completed if successful
                         if result.status == TxStatus::Completed {
                             let _ = graph_write.complete_transaction(&tx_id);
                         }
                     }
-                    
+
                     result
                 } else {
                     ExecutionResult {
@@ -686,20 +686,20 @@ impl ParallelTxProcessor {
                     }
                 }
             });
-            
+
             handles.push(handle);
         }
-        
+
         // Wait for all executions to complete
         let results = join_all(handles).await
             .into_iter()
             .collect::<Result<Vec<_>, _>>()?;
-        
+
         // Update metrics
         {
             let mut metrics = self.metrics.write().await;
             let execution_time = start_time.elapsed();
-            
+
             for result in &results {
                 match result.status {
                     TxStatus::Completed => metrics.completed_transactions += 1,
@@ -709,19 +709,19 @@ impl ParallelTxProcessor {
                 }
                 metrics.total_retries += result.retry_count as u64;
             }
-            
+
             // Update average execution time
             let total_exec_time: u64 = results.iter().map(|r| r.execution_time_ms).sum();
             if !results.is_empty() {
                 metrics.avg_execution_time_ms = total_exec_time as f64 / results.len() as f64;
             }
-            
+
             // Calculate throughput
             if execution_time.as_millis() > 0 {
                 metrics.throughput_tps = (results.len() as f64 * 1000.0) / execution_time.as_millis() as f64;
             }
         }
-        
+
         Ok(results)
     }
 
@@ -734,13 +734,13 @@ impl ParallelTxProcessor {
     ) -> ExecutionResult {
         let mut retry_count = 0;
         let mut last_error = None;
-        
+
         while retry_count <= retry_config.max_retries {
             let start_time = Instant::now();
-            
+
             // Execute transaction with timeout
             let execution_result = timeout(timeout, Self::execute_single_transaction(tx_id, tx)).await;
-            
+
             match execution_result {
                 Ok(Ok(result_data)) => {
                     // Success
@@ -757,18 +757,18 @@ impl ParallelTxProcessor {
                 Ok(Err(e)) => {
                     // Execution error
                     last_error = Some(e.to_string());
-                    
+
                     // Check if retryable
                     if retry_count < retry_config.max_retries && Self::is_retryable_error(&e) {
                         retry_count += 1;
                         tx.retry_count = retry_count;
-                        
+
                         // Calculate delay
                         let delay_ms = std::cmp::min(
                             retry_config.base_delay_ms * (retry_config.backoff_multiplier.powi(retry_count as i32) as u64),
                             retry_config.max_delay_ms,
                         );
-                        
+
                         tokio::time::sleep(Duration::from_millis(delay_ms)).await;
                         continue;
                     }
@@ -780,7 +780,7 @@ impl ParallelTxProcessor {
                 }
             }
         }
-        
+
         // All retries exhausted or non-retryable error
         ExecutionResult {
             tx_id: tx_id.clone(),
@@ -803,14 +803,14 @@ impl ParallelTxProcessor {
             TransactionType::ContractDeployment => Duration::from_millis(500),
             TransactionType::CrossShard => Duration::from_millis(1000),
         };
-        
+
         tokio::time::sleep(exec_time).await;
-        
+
         // Simulate occasional failures for testing retry logic
         if tx_id.len() % 17 == 0 {
             return Err(anyhow!("Simulated execution error"));
         }
-        
+
         // Return mock result
         Ok(format!("Result for tx: {}", hex::encode(tx_id)).into_bytes())
     }
@@ -818,7 +818,7 @@ impl ParallelTxProcessor {
     /// Check if an error is retryable
     fn is_retryable_error(error: &anyhow::Error) -> bool {
         let error_str = error.to_string().to_lowercase();
-        
+
         // Define retryable error patterns
         error_str.contains("timeout") ||
         error_str.contains("network") ||
@@ -866,41 +866,41 @@ impl ParallelTxProcessor {
     pub async fn cleanup_completed_transactions(&self) -> Result<u64> {
         let mut graph = self.graph.write().await;
         let mut removed_count = 0;
-        
+
         let completed_txs: Vec<TxId> = graph.vertices
             .iter()
             .filter(|(_, vertex)| vertex.status == TxStatus::Completed)
             .map(|(tx_id, _)| tx_id.clone())
             .collect();
-        
+
         for tx_id in completed_txs {
             graph.vertices.remove(&tx_id);
             graph.edges.remove(&tx_id);
             graph.reverse_edges.remove(&tx_id);
             removed_count += 1;
         }
-        
+
         Ok(removed_count)
     }
 
     /// Abort a transaction
     pub async fn abort_transaction(&self, tx_id: &TxId) -> Result<()> {
         let mut graph = self.graph.write().await;
-        
+
         if let Some(vertex) = graph.vertices.get_mut(tx_id) {
             vertex.status = TxStatus::Aborted;
-            
+
             // Update metrics
             {
                 let mut metrics = self.metrics.write().await;
                 metrics.aborted_transactions += 1;
             }
-            
+
             // Remove from graph
             graph.vertices.remove(tx_id);
             graph.edges.remove(tx_id);
             graph.reverse_edges.remove(tx_id);
-            
+
             Ok(())
         } else {
             Err(anyhow!("Transaction not found"))
@@ -911,12 +911,12 @@ impl ParallelTxProcessor {
     pub async fn run_continuous_processing(&self) -> Result<()> {
         loop {
             let results = self.execute_transactions().await?;
-            
+
             if results.is_empty() {
                 // No ready transactions, wait before next check
                 tokio::time::sleep(Duration::from_millis(100)).await;
             }
-            
+
             // Cleanup completed transactions periodically
             if rand::random::<f64>() < 0.1 {
                 let _ = self.cleanup_completed_transactions().await;
@@ -951,10 +951,10 @@ impl TransactionGraph {
             write_set: write_set.clone(),
             dependencies: HashSet::new(),
         };
-        
+
         self.vertices.insert(tx_hash.clone(), vertex);
         self.edges.insert(tx_hash.clone(), HashSet::new());
-        
+
         self.update_dependencies(&tx_hash).await?;
         Ok(())
     }
@@ -1008,7 +1008,7 @@ mod tests {
     #[tokio::test]
     async fn test_dependency_graph() {
         let mut graph = TxDependencyGraph::new();
-        
+
         // Create transactions with conflicting read/write sets
         let tx1 = TxVertex::new(
             vec![1, 2, 3],
@@ -1016,25 +1016,25 @@ mod tests {
             HashSet::from([vec![1], vec![2]]),
             HashSet::from([vec![3]]),
         ).with_priority(1);
-        
+
         let tx2 = TxVertex::new(
             vec![4, 5, 6],
             vec![4, 5, 6],
             HashSet::from([vec![3]]), // Conflicts with tx1's write set
             HashSet::from([vec![4]]),
         ).with_priority(2);
-        
+
         graph.add_transaction(tx1).unwrap();
         graph.add_transaction(tx2).unwrap();
-        
+
         // Check dependencies
         let ready_txs = graph.get_ready_transactions();
         assert!(!ready_txs.is_empty());
-        
+
         // Complete first transaction
         let first_tx = ready_txs[0].clone();
         graph.complete_transaction(&first_tx).unwrap();
-        
+
         // Check if second transaction is now ready
         let ready_txs_after = graph.get_ready_transactions();
         assert!(ready_txs_after.len() >= 1);
@@ -1043,7 +1043,7 @@ mod tests {
     #[tokio::test]
     async fn test_parallel_processor() {
         let processor = ParallelTxProcessor::new(4, ConflictResolutionStrategy::Priority);
-        
+
         // Add test transactions
         let tx1 = TxVertex::new(
             vec![1],
@@ -1051,21 +1051,21 @@ mod tests {
             HashSet::new(),
             HashSet::from([vec![1]]),
         ).with_priority(10);
-        
+
         let tx2 = TxVertex::new(
             vec![2],
             vec![2],
             HashSet::new(),
             HashSet::from([vec![2]]),
         ).with_priority(5);
-        
+
         processor.add_transaction(tx1).await.unwrap();
         processor.add_transaction(tx2).await.unwrap();
-        
+
         // Execute transactions
         let results = processor.execute_transactions().await.unwrap();
         assert!(!results.is_empty());
-        
+
         // Check metrics
         let metrics = processor.get_metrics().await;
         assert!(metrics.total_transactions >= 2);
@@ -1074,14 +1074,14 @@ mod tests {
     #[tokio::test]
     async fn test_deadlock_detection() {
         let mut graph = TxDependencyGraph::new();
-        
+
         // Create circular dependency
         let tx1 = TxVertex::new(vec![1], vec![1], HashSet::from([vec![1]]), HashSet::from([vec![2]]));
         let tx2 = TxVertex::new(vec![2], vec![2], HashSet::from([vec![2]]), HashSet::from([vec![1]]));
-        
+
         graph.add_transaction(tx1).unwrap();
         graph.add_transaction(tx2).unwrap();
-        
+
         // Should detect deadlock
         assert!(graph.has_deadlock());
     }
@@ -1089,24 +1089,24 @@ mod tests {
     #[tokio::test]
     async fn test_conflict_resolution() {
         let processor = ParallelTxProcessor::new(2, ConflictResolutionStrategy::ShortestJobFirst);
-        
+
         let fast_tx = TxVertex::new(
             vec![1],
             vec![1],
             HashSet::new(),
             HashSet::from([vec![1]]),
         ).with_exec_time(100);
-        
+
         let slow_tx = TxVertex::new(
             vec![2],
             vec![2],
             HashSet::new(),
             HashSet::from([vec![2]]),
         ).with_exec_time(1000);
-        
+
         processor.add_transaction(slow_tx).await.unwrap();
         processor.add_transaction(fast_tx).await.unwrap();
-        
+
         let ready_txs = processor.get_ready_transactions().await;
         // Fast transaction should come first
         let graph = processor.graph.read().await;
@@ -1126,20 +1126,20 @@ mod tests {
     #[tokio::test]
     async fn test_transaction_graph_legacy() {
         let mut graph = TransactionGraph::new();
-        
+
         let read_set1 = HashSet::from([vec![1, 2]]);
         let write_set1 = HashSet::from([vec![3, 4]]);
-        
+
         let read_set2 = HashSet::from([vec![3]]); // Conflicts with write_set1
         let write_set2 = HashSet::from([vec![5]]);
-        
+
         graph.add_transaction(vec![1, 2, 3], read_set1, write_set1).await.unwrap();
         graph.add_transaction(vec![4, 5, 6], read_set2, write_set2).await.unwrap();
-        
+
         // Check that dependencies were established
         let tx1_vertex = graph.vertices.get(&vec![1, 2, 3]).unwrap();
         let tx2_vertex = graph.vertices.get(&vec![4, 5, 6]).unwrap();
-        
+
         assert!(!tx1_vertex.dependencies.is_empty() || !tx2_vertex.dependencies.is_empty());
     }
-} 
+}

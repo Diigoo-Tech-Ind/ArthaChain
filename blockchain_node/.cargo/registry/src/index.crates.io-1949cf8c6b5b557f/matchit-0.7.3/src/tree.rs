@@ -129,7 +129,7 @@ impl<T> Node<T> {
                     // make sure the wildcard matches
                     if prefix.len() < current.prefix.len()
                         || current.prefix != prefix[..current.prefix.len()]
-                        // catch-alls cannot have children 
+                        // catch-alls cannot have children
                         || current.node_type == NodeType::CatchAll
                         // check for longer wildcard, e.g. :name and :names
                         || (current.prefix.len() < prefix.len()

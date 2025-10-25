@@ -3,25 +3,25 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tonic::transport::Server;
 
-use crate::ledger::state::State;
 use super::service::ArthaChainServiceImpl;
+use crate::ledger::state::State;
+
+// Include the generated gRPC code
+pub mod arthachain {
+    tonic::include_proto!("arthachain");
+}
 
 /// Start the gRPC server
 pub async fn start_grpc_server(port: u16, state: Arc<RwLock<State>>) -> Result<()> {
-    let addr: std::net::SocketAddr = format!("0.0.0.0:{}", port).parse()?;
-    
-    println!("🚀 Starting ArthaChain gRPC Server on port {}", port);
-    
     let service = ArthaChainServiceImpl::new(state);
+    let addr = format!("0.0.0.0:{}", port).parse()?;
     
-    // TODO: Add the actual gRPC service once proto compilation is working
-    // Server::builder()
-    //     .add_service(ArthaChainServiceServer::new(service))
-    //     .serve(addr)
-    //     .await?;
+    log::info!("Starting ArthaChain gRPC server on {}", addr);
     
-    // Placeholder - just print that the server would start
-    println!("gRPC server would start on {}", addr);
+    Server::builder()
+        .add_service(arthachain::artha_chain_service_server::ArthaChainServiceServer::new(service))
+        .serve(addr)
+        .await?;
     
     Ok(())
 }

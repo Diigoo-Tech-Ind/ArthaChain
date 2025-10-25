@@ -40,7 +40,7 @@ litemap_impl!(not(feature = "alloc"), S);
 
 #[cfg(feature = "alloc")]
 impl<K, V> LiteMap<K, V> {
-    /// Construct a new [`LiteMap`] backed by Vec    
+    /// Construct a new [`LiteMap`] backed by Vec
     pub const fn new_vec() -> Self {
         Self {
             values: alloc::vec::Vec::new(),

@@ -464,7 +464,7 @@ impl<A, B> EitherOrBoth<A, B> {
 impl<T> EitherOrBoth<T, T> {
     /// Return either value of left, right, or apply a function `f` to both values if both are present.
     /// The input function has to return the same type as both Right and Left carry.
-    /// 
+    ///
     /// # Examples
     /// ```
     /// # use itertools::EitherOrBoth;

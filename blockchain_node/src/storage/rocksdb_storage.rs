@@ -189,7 +189,7 @@ impl Storage for RocksDbStorage {
         // RocksDB handles closing automatically on drop
         Ok(())
     }
-    
+
     fn as_any(&self) -> &dyn Any {
         self
     }

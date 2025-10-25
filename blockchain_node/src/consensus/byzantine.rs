@@ -337,19 +337,19 @@ impl ByzantineManager {
         // For now, just return Ok since this is a complex async lifetime issue
         // In a real implementation, this would be restructured to avoid the lifetime issue
         info!("Message handler would be started here");
-        
+
         // Note: This is a temporary fix. In a real implementation, we would:
         // 1. Move the receiver out of the struct
         // 2. Use a different async pattern
         // 3. Or restructure the ownership model
-        
+
         Ok(())
     }
 
     /// Temporary method to handle messages (placeholder)
     async fn handle_message_placeholder(&self, message: ConsensusMessageType) -> Result<()> {
         // Placeholder implementation
-                match message {
+        match message {
             ConsensusMessageType::Propose { .. } => {
                 info!("Received proposal message");
             }
@@ -369,7 +369,7 @@ impl ByzantineManager {
                 info!("Received view change message");
             }
         }
-        
+
         Ok(())
     }
 
@@ -378,7 +378,7 @@ impl ByzantineManager {
         // For now, just return Ok since this is a complex async lifetime issue
         // In a real implementation, this would be restructured to avoid the lifetime issue
         info!("Round timeout checker would be started here");
-        
+
         Ok(())
     }
 
@@ -386,7 +386,7 @@ impl ByzantineManager {
     async fn handle_timeout_placeholder(&self) -> Result<()> {
         // Placeholder implementation
         info!("Handling timeout");
-        
+
         Ok(())
     }
 
@@ -394,7 +394,7 @@ impl ByzantineManager {
     async fn send_heartbeat_placeholder(&self) -> Result<()> {
         // Placeholder implementation
         info!("Sending heartbeat");
-        
+
         Ok(())
     }
 
@@ -412,28 +412,35 @@ impl ByzantineManager {
 
         // Store round information
         let round = ConsensusRound {
-                                    block_hash: block_hash.clone(),
+            block_hash: block_hash.clone(),
             height,
             status: ConsensusStatus::Initial,
-                                    start_time: Instant::now(),
-                                    pre_votes: HashMap::new(),
-                                    pre_commits: HashMap::new(),
-                                    commits: HashMap::new(),
+            start_time: Instant::now(),
+            pre_votes: HashMap::new(),
+            pre_commits: HashMap::new(),
+            commits: HashMap::new(),
         };
 
-        self.active_rounds.write().await.insert(block_hash.clone(), round);
+        self.active_rounds
+            .write()
+            .await
+            .insert(block_hash.clone(), round);
 
         // Create propose message
         let propose = ConsensusMessageType::Propose {
             block_data,
             height,
-                            block_hash: block_hash.clone(),
+            block_hash: block_hash.clone(),
         };
 
         // Broadcast proposal to all validators
         let validators_guard = self.validators.read().await;
         for validator in validators_guard.iter() {
-            if let Err(e) = self.tx_sender.send((propose.clone(), validator.clone())).await {
+            if let Err(e) = self
+                .tx_sender
+                .send((propose.clone(), validator.clone()))
+                .await
+            {
                 error!("Failed to send proposal: {}", e);
             }
         }
@@ -491,14 +498,34 @@ impl ByzantineManager {
         };
 
         // Store the evidence
-        self.faults.write().await.entry(node_id.clone()).or_insert_with(Vec::new).push(evidence.clone());
+        self.faults
+            .write()
+            .await
+            .entry(node_id.clone())
+            .or_insert_with(Vec::new)
+            .push(evidence.clone());
 
         // Report to reputation manager
-        if let Err(e) = self.reputation_manager.update_score(&node_id.0, 0, crate::consensus::reputation::ReputationUpdateReason::ByzantineBehavior, -10.0).await {
-            error!("Failed to report Byzantine behavior to reputation manager: {}", e);
+        if let Err(e) = self
+            .reputation_manager
+            .update_score(
+                &node_id.0,
+                0,
+                crate::consensus::reputation::ReputationUpdateReason::ByzantineBehavior,
+                -10.0,
+            )
+            .await
+        {
+            error!(
+                "Failed to report Byzantine behavior to reputation manager: {}",
+                e
+            );
         }
 
-        info!("Byzantine fault reported: {:?} from node {}", fault_type, node_id);
+        info!(
+            "Byzantine fault reported: {:?} from node {}",
+            fault_type, node_id
+        );
 
         Ok(())
     }
@@ -557,7 +584,7 @@ impl ByzantineManager {
                 proposer.clone(),
                 self.node_id.clone(),
                 vec![block_hash.clone()],
-                        block_hash,
+                block_hash,
                 "Invalid block structure".to_string(),
             )
             .await?;
@@ -573,7 +600,7 @@ impl ByzantineManager {
                 proposer.clone(),
                 self.node_id.clone(),
                 vec![block_hash.clone()],
-                        block_hash,
+                block_hash,
                 "Block contains invalid transactions".to_string(),
             )
             .await?;
@@ -657,7 +684,8 @@ impl ByzantineManager {
                 // Broadcast heartbeat to all validators
                 for validator in validators.iter() {
                     if validator != &node_id {
-                        if let Err(e) = tx_sender.send((heartbeat.clone(), validator.clone())).await {
+                        if let Err(e) = tx_sender.send((heartbeat.clone(), validator.clone())).await
+                        {
                             error!("Failed to send heartbeat: {}", e);
                         }
                     }
@@ -667,9 +695,6 @@ impl ByzantineManager {
 
         Ok(())
     }
-
-
-
 
     /// Get consensus status for a block
     pub async fn get_consensus_status(&self, block_hash: &[u8]) -> Option<ConsensusStatus> {
@@ -685,7 +710,11 @@ impl ByzantineManager {
 
 impl ByzantineDetector {
     /// Create a new Byzantine detector
-    pub fn new(node_id: NodeId, config: ByzantineDetectionConfig, validators: Arc<RwLock<HashSet<NodeId>>>) -> Self {
+    pub fn new(
+        node_id: NodeId,
+        config: ByzantineDetectionConfig,
+        validators: Arc<RwLock<HashSet<NodeId>>>,
+    ) -> Self {
         Self {
             node_id,
             config,

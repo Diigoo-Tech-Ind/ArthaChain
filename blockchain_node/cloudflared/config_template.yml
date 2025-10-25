@@ -1,0 +1,139 @@
+# ArthaChain Cloudflare Tunnel Configuration Template
+# This template can be used across multiple nodes in the network
+# Replace NODE_IP with the actual IP address of each node
+
+tunnel: arthachain-testnet
+credentials-file: /etc/cloudflared/cc3311b0-2a5c-4444-aacc-668576634499.json
+
+# Ingress rules for routing traffic
+ingress:
+  # Main Blockchain Node
+  - hostname: testnet.arthachain.in
+    service: http://NODE_IP:1900
+    originRequest:
+      connectTimeout: 30s
+      readTimeout: 30s
+      writeTimeout: 30s
+      noTLSVerify: false
+    headers:
+      - name: X-Forwarded-For
+        value: "{{ .ClientIP }}"
+      - name: X-Real-IP
+        value: "{{ .ClientIP }}"
+      - name: X-Forwarded-Proto
+        value: "https"
+
+  # Global API Service
+  - hostname: api.arthachain.in
+    service: http://NODE_IP:1910
+    originRequest:
+      connectTimeout: 30s
+      readTimeout: 30s
+      writeTimeout: 30s
+      noTLSVerify: false
+    headers:
+      - name: X-Forwarded-For
+        value: "{{ .ClientIP }}"
+      - name: X-Real-IP
+        value: "{{ .ClientIP }}"
+      - name: X-Forwarded-Proto
+        value: "https"
+
+  # Real-Time API Server
+  - hostname: ws.arthachain.in
+    service: http://NODE_IP:1920
+    originRequest:
+      connectTimeout: 30s
+      readTimeout: 30s
+      writeTimeout: 30s
+      noTLSVerify: false
+    headers:
+      - name: X-Forwarded-For
+        value: "{{ .ClientIP }}"
+      - name: X-Real-IP
+        value: "{{ .ClientIP }}"
+      - name: X-Forwarded-Proto
+        value: "https"
+
+  # Block Explorer API
+  - hostname: explorer.arthachain.in
+    service: http://NODE_IP:1930
+    originRequest:
+      connectTimeout: 30s
+      readTimeout: 30s
+      writeTimeout: 30s
+      noTLSVerify: false
+    headers:
+      - name: X-Forwarded-For
+        value: "{{ .ClientIP }}"
+      - name: X-Real-IP
+        value: "{{ .ClientIP }}"
+      - name: X-Forwarded-Proto
+        value: "https"
+
+  # Documentation Server
+  - hostname: docs.arthachain.in
+    service: http://NODE_IP:1940
+    originRequest:
+      connectTimeout: 30s
+      readTimeout: 30s
+      writeTimeout: 30s
+      noTLSVerify: false
+    headers:
+      - name: X-Forwarded-For
+        value: "{{ .ClientIP }}"
+      - name: X-Real-IP
+        value: "{{ .ClientIP }}"
+      - name: X-Forwarded-Proto
+        value: "https"
+
+  # Metrics Server
+  - hostname: metrics.arthachain.in
+    service: http://NODE_IP:1950
+    originRequest:
+      connectTimeout: 30s
+      readTimeout: 30s
+      writeTimeout: 30s
+      noTLSVerify: false
+    headers:
+      - name: X-Forwarded-For
+        value: "{{ .ClientIP }}"
+      - name: X-Real-IP
+        value: "{{ .ClientIP }}"
+      - name: X-Forwarded-Proto
+        value: "https"
+
+  # Faucet Service
+  - hostname: faucet.arthachain.in
+    service: http://NODE_IP:1960
+    originRequest:
+      connectTimeout: 30s
+      readTimeout: 30s
+      writeTimeout: 30s
+      noTLSVerify: false
+    headers:
+      - name: X-Forwarded-For
+        value: "{{ .ClientIP }}"
+      - name: X-Real-IP
+        value: "{{ .ClientIP }}"
+      - name: X-Forwarded-Proto
+        value: "https"
+
+  # RPC Service
+  - hostname: rpc.arthachain.in
+    service: http://NODE_IP:1970
+    originRequest:
+      connectTimeout: 30s
+      readTimeout: 30s
+      writeTimeout: 30s
+      noTLSVerify: false
+    headers:
+      - name: X-Forwarded-For
+        value: "{{ .ClientIP }}"
+      - name: X-Real-IP
+        value: "{{ .ClientIP }}"
+      - name: X-Forwarded-Proto
+        value: "https"
+
+  # Catch-all rule for unmatched hostnames
+  - service: http_status:404

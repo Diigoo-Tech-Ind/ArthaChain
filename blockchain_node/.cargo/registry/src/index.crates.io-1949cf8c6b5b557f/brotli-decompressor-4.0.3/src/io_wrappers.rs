@@ -121,7 +121,7 @@ impl<InputType: Write> CustomWrite<io::Error> for IntoIoWriter<InputType> {
         }
         Ok(_) => return Ok(()),
       }
-    }     
+    }
   }
   fn write(self: &mut Self, buf: &[u8]) -> Result<usize, io::Error> {
     loop {

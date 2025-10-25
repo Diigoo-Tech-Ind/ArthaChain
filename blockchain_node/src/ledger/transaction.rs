@@ -473,7 +473,7 @@ pub struct TransactionLog {
 
 impl fmt::Display for Transaction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Transaction {{ id: {}, type: {:?}, sender: {}, recipient: {}, amount: {}, nonce: {} }}", 
+        write!(f, "Transaction {{ id: {}, type: {:?}, sender: {}, recipient: {}, amount: {}, nonce: {} }}",
             hex::encode(self.hash().as_ref()), self.tx_type, self.sender, self.recipient, self.amount, self.nonce)
     }
 }

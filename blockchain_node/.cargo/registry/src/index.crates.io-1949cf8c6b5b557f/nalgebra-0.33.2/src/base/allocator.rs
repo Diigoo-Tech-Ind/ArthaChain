@@ -32,7 +32,7 @@ pub trait Allocator<R: Dim, C: Dim = U1>: Any + Sized {
     ///
     /// # Safety
     /// The user must make sure that every single entry of the buffer has been initialized,
-    /// or Undefined Behavior will immediately occur.    
+    /// or Undefined Behavior will immediately occur.
     unsafe fn assume_init<T: Scalar>(uninit: Self::BufferUninit<T>) -> Self::Buffer<T>;
 
     /// Allocates a buffer initialized with the content of the given iterator.

@@ -806,22 +806,33 @@ impl CrossShardCoordinator {
             pending.insert(tx_id.clone(), proven_tx.clone());
         }
 
+        // Create transaction state directly instead of calling initiate_transaction
+        let tx_type = CrossShardTxType::DirectTransfer {
+            from_shard: proven_tx.source_shard,
+            to_shard: proven_tx.target_shard,
+            amount: 0, // This would be extracted from tx_data in a real implementation
+        };
+
+        let participants = vec![proven_tx.source_shard, proven_tx.target_shard];
+        let tx_state = CoordinatorTxState::new(
+            tx_id.clone(),
+            participants.clone(),
+            proven_tx.transaction_data.clone(),
+            tx_type,
+            self.config.transaction_timeout,
+            self.config.retry_count as u32,
+        )?;
+
+        // Store the transaction state
+        {
+            let mut tx_map = self.transactions.write().unwrap();
+            tx_map.insert(tx_id.clone(), tx_state);
+        }
+
         info!(
             "Proven transaction submitted from shard {} to shard {}: {}",
             proven_tx.source_shard, proven_tx.target_shard, tx_id
         );
-
-        // Start the atomic transaction protocol
-        self.initiate_transaction(
-            proven_tx.transaction_data,
-            proven_tx.source_shard,
-            proven_tx.target_shard,
-            vec![format!(
-                "resource_{}_{}",
-                proven_tx.source_shard, proven_tx.target_shard
-            )],
-        )
-        .await?;
 
         Ok(tx_id)
     }
@@ -1171,8 +1182,11 @@ mod tests {
             ..CrossShardConfig::default()
         };
 
-        // Create quantum key (must be at least 32 bytes)
-        let quantum_key = vec![1u8; 32];
+        // Create proper Dilithium keypair for quantum key
+        use pqcrypto_dilithium::dilithium2::*;
+        use pqcrypto_traits::sign::SecretKey;
+        let keypair = keypair();
+        let quantum_key = keypair.1.as_bytes().to_vec(); // Use private key bytes
 
         // Create message channels
         let (tx, _rx) = mpsc::channel(100);

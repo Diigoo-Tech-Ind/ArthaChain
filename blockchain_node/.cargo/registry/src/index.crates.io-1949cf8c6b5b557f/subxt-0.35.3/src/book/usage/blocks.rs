@@ -66,7 +66,7 @@
 //! The following example monitors `TransferKeepAlive` extrinsics on the Polkadot network.
 //! We statically decode them and access the [tip](crate::blocks::ExtrinsicSignedExtensions::tip()) and [account nonce](crate::blocks::ExtrinsicSignedExtensions::nonce()) signed extensions.
 //!
-//! ```rust,ignore  
+//! ```rust,ignore
 #![doc = include_str!("../../../examples/block_decoding_static.rs")]
 //! ```
 //!

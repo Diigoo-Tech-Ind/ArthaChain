@@ -38,7 +38,7 @@ pub struct NodeConfig {
     pub port: u16,
     pub bootstrap_peers: Vec<String>,
 
-    /// Consensus configuration  
+    /// Consensus configuration
     pub validator_key: Option<String>,
     pub is_validator: bool,
 
@@ -119,7 +119,7 @@ impl NodeConfig {
         }
     }
 
-    /// Save configuration to file  
+    /// Save configuration to file
     pub async fn save_to_file(&self, path: &str) -> Result<()> {
         let contents = toml::to_string_pretty(self)?;
         tokio::fs::write(path, contents).await?;
@@ -128,9 +128,19 @@ impl NodeConfig {
 
     /// Get or create node identity
     pub fn get_or_create_node_identity(&self) -> (String, Vec<u8>) {
-        // Generate a simple node identity
+        // Generate a deterministic node identity based on config
         let node_id = self.node_id.clone();
-        let private_key = vec![1u8; 32]; // Placeholder private key
+        
+        // Create a deterministic private key based on node configuration
+        use blake3;
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(self.data_dir.to_string_lossy().as_bytes());
+        hasher.update(self.node_id.as_bytes());
+        hasher.update(&self.port.to_be_bytes());
+        
+        let hash_result = hasher.finalize();
+        let private_key = hash_result.as_bytes()[0..32].to_vec();
+        
         (node_id, private_key)
     }
 }
@@ -257,7 +267,12 @@ impl Config {
             network: NetworkConfig {
                 p2p_port: 30303,
                 max_peers: 50,
-                bootstrap_nodes: vec![],
+                bootstrap_nodes: vec![
+                    "/ip4/127.0.0.1/tcp/30303".to_string(),
+                    "/ip4/127.0.0.1/tcp/30304".to_string(),
+                    "/dns/seed1.arthachain.in/tcp/8084".to_string(),
+                    "/dns/seed2.arthachain.in/tcp/8084".to_string(),
+                ],
                 network_name: "testnet".to_string(),
                 bootnodes: vec![],
                 connection_timeout: 30,
@@ -311,7 +326,7 @@ impl Config {
             svdb_url: None,
             enable_ai: false,
             ai_model_dir: PathBuf::from("./models"),
-            is_genesis: false,
+            is_genesis: true,
             enable_api: true,
             enable_fuzz_testing: None,
             genesis_path: PathBuf::from("./genesis.json"),
@@ -333,9 +348,19 @@ impl Config {
 
     /// Get or create a node identity
     pub fn get_or_create_node_identity(&self) -> (String, Vec<u8>) {
-        // This is a placeholder implementation
+        // Generate deterministic node identity based on configuration
         let node_id = self.node_id.clone().unwrap_or_else(|| "node1".to_string());
-        let private_key = vec![1, 2, 3, 4]; // This would be a real key in production
+        
+        // Create deterministic private key based on node configuration
+        use blake3;
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(self.data_dir.to_string_lossy().as_bytes());
+        hasher.update(node_id.as_bytes());
+        hasher.update(&self.network.p2p_port.to_be_bytes());
+        
+        let hash_result = hasher.finalize();
+        let private_key = hash_result.as_bytes()[0..32].to_vec();
+        
         (node_id, private_key)
     }
 }

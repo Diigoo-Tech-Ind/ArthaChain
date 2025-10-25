@@ -54,7 +54,7 @@ macro_rules! sample_uniform {
             end: $to,
         ) -> $to {
             Uniform::<$from>::new_inclusive(start as $from, end as $from).expect("not uniform").sample(run.rng()) as $to
-        }        
+        }
     }
 }
 

@@ -2,7 +2,7 @@
 //! current system.
 //!
 //! Sometimes the CPU will exaggerate the number of CPUs it contains, because it can use
-//! [processor tricks] to deliver increased performance when there are more threads. This 
+//! [processor tricks] to deliver increased performance when there are more threads. This
 //! crate provides methods to get both the logical and physical numbers of cores.
 //!
 //! This information can be used as a guide to how many tasks can be run in parallel.
@@ -92,7 +92,7 @@ pub fn get() -> usize {
 /// let physical_cpus = num_cpus::get_physical();
 /// if logical_cpus > physical_cpus {
 ///     println!("We have simultaneous multithreading with about {:.2} \
-///               logical cores to 1 physical core.", 
+///               logical cores to 1 physical core.",
 ///               (logical_cpus as f64) / (physical_cpus as f64));
 /// } else if logical_cpus == physical_cpus {
 ///     println!("Either we don't have simultaneous multithreading, or our \

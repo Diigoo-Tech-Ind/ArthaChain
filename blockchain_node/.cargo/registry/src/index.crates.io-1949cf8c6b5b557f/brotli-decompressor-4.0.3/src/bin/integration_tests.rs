@@ -403,7 +403,7 @@ fn test_writer_64x() {
 fn test_writer_mapsdatazrh() {
   writer_helper(include_bytes!("../../testdata/mapsdatazrh.compressed"),
                 include_bytes!("../../testdata/mapsdatazrh"), 512)
-    
+
 }
 
 #[test]

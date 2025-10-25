@@ -66,13 +66,13 @@
 //! let odysseus = "ὈΔΥΣΣΕΎΣ";
 //! assert_eq!("ὀδυσσεύς", odysseus.to_case(Case::Lower));
 //! ```
-//! 
-//! For the purposes of case conversion, characters followed by numerics and vice-versa are 
-//! considered word boundaries.  In addition, any special ascii characters (besides `_` and `-`) 
+//!
+//! For the purposes of case conversion, characters followed by numerics and vice-versa are
+//! considered word boundaries.  In addition, any special ascii characters (besides `_` and `-`)
 //! are ignored.
 //! ```
 //! use convert_case::{Case, Casing};
-//! 
+//!
 //! assert_eq!("e_5150", "E5150".to_case(Case::Snake));
 //! assert_eq!("10,000_days", "10,000Days".to_case(Case::Snake));
 //! assert_eq!("HELLO, WORLD!", "Hello, world!".to_case(Case::Upper));
@@ -97,7 +97,7 @@
 //! # Random Feature
 //!
 //! To ensure this library had zero dependencies, randomness was moved to the _random_ feature,
-//! which requires the `rand` crate. You can enable this feature by including the 
+//! which requires the `rand` crate. You can enable this feature by including the
 //! following in your `Cargo.toml`.
 //! ```{toml}
 //! [dependencies]

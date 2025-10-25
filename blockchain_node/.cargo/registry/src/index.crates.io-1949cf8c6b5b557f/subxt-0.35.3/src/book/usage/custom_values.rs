@@ -47,7 +47,7 @@
 //!
 //! // Now the `at()` function already decodes the value into the Foo type:
 //! let foo = custom_value_client.at(&static_address)?;
-//! ```         
+//! ```
 //!
 //! Note: Names of custom values are converted to __snake_case__ to produce a valid function name during code generation.
 //! If there are multiple values where the names would be equal when converted to __snake_case__, functions might not be statically generated for some of them, because of naming conflicts.

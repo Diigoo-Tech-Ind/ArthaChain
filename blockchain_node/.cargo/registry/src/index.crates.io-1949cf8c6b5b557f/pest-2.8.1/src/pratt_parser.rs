@@ -111,7 +111,7 @@ impl<R: RuleType> BitOr for Op<R> {
 ///
 /// ```pest
 /// WHITESPACE   =  _{ " " | "\t" | NEWLINE }
-///  
+///
 /// program      =   { SOI ~ expr ~ EOI }
 ///   expr       =   { prefix* ~ primary ~ postfix* ~ (infix ~ prefix* ~ primary ~ postfix* )* }
 ///     infix    =  _{ add | sub | mul | div | pow }

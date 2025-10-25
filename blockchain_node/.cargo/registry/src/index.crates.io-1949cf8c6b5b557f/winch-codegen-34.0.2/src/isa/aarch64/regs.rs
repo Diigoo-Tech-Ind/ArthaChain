@@ -115,13 +115,13 @@ pub(crate) const fn sp() -> Reg {
 /// |           |
 /// +-----------+----- SSP after a push
 /// |           |      Copy the value of SSP to SP
-/// |           |      
-/// |           |       
+/// |           |
+/// |           |
 /// |           |
 /// |           |      Epilogue:
 /// |           |      * Copy SSP to SP
 /// +-----------+----- * Restore SSP (callee-saved)
-/// +-----------+      
+/// +-----------+
 ///
 /// In summary, the following invariants must be respected:
 ///

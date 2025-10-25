@@ -1173,12 +1173,23 @@ mod tests {
         let config = EnterpriseLoadBalancerConfig::default();
         let lb = EnterpriseLoadBalancer::new(config);
 
+        // Start the load balancer
+        lb.start().await.unwrap();
+
         lb.add_backend("127.0.0.1:8001".parse().unwrap(), 1)
             .await
             .unwrap();
         lb.add_backend("127.0.0.1:8002".parse().unwrap(), 2)
             .await
             .unwrap();
+
+        // Manually set backends as healthy for testing
+        {
+            let mut servers = lb.backend_servers.write().await;
+            for server in servers.values_mut() {
+                server.health_status = HealthStatus::Healthy;
+            }
+        }
 
         let request = LoadBalancingRequest {
             client_addr: "127.0.0.1:9000".parse().unwrap(),
@@ -1190,6 +1201,9 @@ mod tests {
 
         // Test backend selection
         let backend = lb.select_backend(&request).await;
+        if let Err(e) = &backend {
+            println!("Backend selection failed: {}", e);
+        }
         assert!(backend.is_ok());
     }
 

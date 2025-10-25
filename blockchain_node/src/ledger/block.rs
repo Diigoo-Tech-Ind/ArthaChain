@@ -244,8 +244,23 @@ impl Block {
     }
 
     /// Sign the block with a private key
-    pub fn sign(&mut self, _private_key: &[u8]) -> Result<()> {
-        // TODO: Implement BLS signing when we have the private key infrastructure
+    pub fn sign(&mut self, private_key: &[u8]) -> Result<()> {
+        use crate::utils::crypto::dilithium_sign;
+        
+        // Create data to sign: block hash + height + timestamp + merkle root
+        let mut data_to_sign = Vec::new();
+        data_to_sign.extend_from_slice(self.header.previous_hash.as_bytes());
+        data_to_sign.extend_from_slice(&self.header.height.to_be_bytes());
+        data_to_sign.extend_from_slice(&self.header.timestamp.to_be_bytes());
+        data_to_sign.extend_from_slice(self.header.merkle_root.as_bytes());
+        
+        // Sign the data using Dilithium (post-quantum signature)
+        let signature = dilithium_sign(private_key, &data_to_sign)
+            .map_err(|e| anyhow::anyhow!("Failed to sign block: {}", e))?;
+        
+        // Store the signature
+        self.signature = Some(crate::crypto::signature::Signature(signature));
+        
         Ok(())
     }
 }
@@ -309,8 +324,25 @@ impl Transaction {
     }
 
     /// Sign the transaction
-    pub fn sign(&mut self, _private_key: &[u8]) -> Result<()> {
-        // TODO: Implement transaction signing
+    pub fn sign(&mut self, private_key: &[u8]) -> Result<()> {
+        use crate::utils::crypto::dilithium_sign;
+        
+        // Create data to sign: from + to + amount + fee + nonce + data
+        let mut data_to_sign = Vec::new();
+        data_to_sign.extend_from_slice(&self.from);
+        data_to_sign.extend_from_slice(&self.to);
+        data_to_sign.extend_from_slice(&self.amount.to_be_bytes());
+        data_to_sign.extend_from_slice(&self.fee.to_be_bytes());
+        data_to_sign.extend_from_slice(&self.nonce.to_be_bytes());
+        data_to_sign.extend_from_slice(&self.data);
+        
+        // Sign the data using Dilithium (post-quantum signature)
+        let signature = dilithium_sign(private_key, &data_to_sign)
+            .map_err(|e| anyhow::anyhow!("Failed to sign transaction: {}", e))?;
+        
+        // Store the signature
+        self.signature = Some(crate::crypto::signature::Signature(signature));
+        
         Ok(())
     }
 }

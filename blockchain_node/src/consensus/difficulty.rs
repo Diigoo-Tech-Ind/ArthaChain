@@ -75,24 +75,24 @@ impl DifficultyManager {
     /// Adjust difficulty based on network conditions
     pub fn adjust_difficulty(&self, metrics: NetworkMetrics) -> Result<()> {
         let mut state = self.state.write().map_err(|e| anyhow!("Failed to acquire write lock: {}", e))?;
-        
+
         // Add metrics to history
         state.metrics_history.push(metrics.clone());
-        
+
         // Keep only recent metrics
         if state.metrics_history.len() > state.config.adjustment_period as usize {
             state.metrics_history.remove(0);
         }
-        
+
         // Calculate average block time
         let avg_block_time = state.metrics_history.iter()
             .map(|m| m.block_time)
             .sum::<u64>() as f64 / state.metrics_history.len() as f64;
-        
+
         // Adjust difficulty based on block time
         let target_time = state.config.target_block_time as f64;
         let max_adjustment = state.config.max_adjustment;
-        
+
         let adjustment = if avg_block_time > target_time {
             // Block time too high, decrease difficulty
             (target_time / avg_block_time).max(1.0 - max_adjustment)
@@ -100,12 +100,12 @@ impl DifficultyManager {
             // Block time too low, increase difficulty
             (avg_block_time / target_time).min(1.0 + max_adjustment)
         };
-        
+
         // Apply adjustment
         let new_difficulty = ((state.current_difficulty as f64 * adjustment) as u64)
             .max(state.config.min_difficulty)
             .min(state.config.max_difficulty);
-            
+
         info!("Adjusting difficulty from {} to {}", state.current_difficulty, new_difficulty);
         state.current_difficulty = new_difficulty;
 
@@ -157,20 +157,20 @@ mod tests {
     #[test]
     fn test_difficulty_adjustment() {
         let manager = DifficultyManager::new(create_test_config());
-        
+
         // Initial difficulty should be minimum
         assert_eq!(manager.get_current_difficulty().unwrap(), 1000);
-        
+
         // Add metrics with high block time
         manager.adjust_difficulty(create_test_metrics(20)).unwrap();
-        
+
         // Difficulty should decrease, but not below min_difficulty
         let new_difficulty = manager.get_current_difficulty().unwrap();
         assert!(new_difficulty >= 1000);
-        
+
         // Add metrics with low block time
         manager.adjust_difficulty(create_test_metrics(5)).unwrap();
-        
+
         // Difficulty should increase
         let final_difficulty = manager.get_current_difficulty().unwrap();
         assert!(final_difficulty >= new_difficulty);
@@ -179,19 +179,19 @@ mod tests {
     #[test]
     fn test_metrics_history() {
         let manager = DifficultyManager::new(create_test_config());
-        
+
         // Add some metrics
         for i in 0..5 {
             manager.adjust_difficulty(create_test_metrics(10 + i as u64)).unwrap();
         }
-        
+
         // Check history length
         let history = manager.get_metrics_history().unwrap();
         assert_eq!(history.len(), 5);
-        
+
         // Check values are stored correctly
         for (i, metrics) in history.iter().enumerate() {
             assert_eq!(metrics.block_time, 10 + i as u64);
         }
     }
-} 
+}

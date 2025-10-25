@@ -82,7 +82,7 @@ mod sse42_compile_time {
         // SAFETY: calls are guarded by a compile time feature check
         unsafe { crate::simd::sse42::match_uri_vectored(b) }
     }
-    
+
     #[inline(always)]
     pub fn match_header_value_vectored(b: &mut crate::iter::Bytes<'_>) {
         // SAFETY: calls are guarded by a compile time feature check
@@ -120,7 +120,7 @@ mod avx2_compile_time {
         // SAFETY: calls are guarded by a compile time feature check
         unsafe { crate::simd::avx2::match_uri_vectored(b) }
     }
-    
+
     #[inline(always)]
     pub fn match_header_value_vectored(b: &mut crate::iter::Bytes<'_>) {
         // SAFETY: calls are guarded by a compile time feature check

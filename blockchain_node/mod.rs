@@ -14,4 +14,4 @@ pub use ledger::state::State;
 pub use node::Node;
 pub use consensus::svcp::SVCPMiner;
 pub use consensus::svbft::SVBFTConsensus;
-pub use consensus::sharding::ObjectiveSharding; 
+pub use consensus::sharding::ObjectiveSharding;

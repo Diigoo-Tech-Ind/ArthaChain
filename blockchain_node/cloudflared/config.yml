@@ -1,12 +1,13 @@
 # ArthaChain Cloudflare Tunnel Configuration
-# Port Scheme: 1900, 1910, 1920, 1930, 1940, 1950, 1960, 1970
+# Updated with Advanced ArthaChain APIs
+# Main Node: Port 1900 (includes all ArthaChain APIs)
 
 tunnel: arthachain-testnet
 credentials-file: /Users/sainathtangallapalli/.cloudflared/cc3311b0-2a5c-4444-aacc-668576634499.json
 
 # Ingress rules for routing traffic
 ingress:
-  # Main Blockchain Node (Port 1900)
+  # Main Blockchain Node with Advanced ArthaChain APIs (Port 1900)
   - hostname: testnet.arthachain.in
     service: http://localhost:1900
     originRequest:
@@ -22,9 +23,9 @@ ingress:
       - name: X-Forwarded-Proto
         value: "https"
 
-  # Global API Service (Port 1910)
+  # ArthaChain Advanced APIs (Port 1900 - same as main node)
   - hostname: api.arthachain.in
-    service: http://localhost:1910
+    service: http://localhost:1900
     originRequest:
       connectTimeout: 30s
       readTimeout: 30s
@@ -38,9 +39,9 @@ ingress:
       - name: X-Forwarded-Proto
         value: "https"
 
-  # Real-Time API Server (Port 1920)
-  - hostname: ws.arthachain.in
-    service: http://localhost:1920
+  # ArthaChain Consensus APIs
+  - hostname: consensus.arthachain.in
+    service: http://localhost:1900
     originRequest:
       connectTimeout: 30s
       readTimeout: 30s
@@ -54,9 +55,9 @@ ingress:
       - name: X-Forwarded-Proto
         value: "https"
 
-  # Block Explorer API (Port 1930)
-  - hostname: explorer.arthachain.in
-    service: http://localhost:1930
+  # ArthaChain DAG Processing APIs
+  - hostname: dag.arthachain.in
+    service: http://localhost:1900
     originRequest:
       connectTimeout: 30s
       readTimeout: 30s
@@ -70,9 +71,9 @@ ingress:
       - name: X-Forwarded-Proto
         value: "https"
 
-  # Documentation Server (Port 1940)
-  - hostname: docs.arthachain.in
-    service: http://localhost:1940
+  # ArthaChain AI-Native APIs
+  - hostname: ai.arthachain.in
+    service: http://localhost:1900
     originRequest:
       connectTimeout: 30s
       readTimeout: 30s
@@ -86,9 +87,9 @@ ingress:
       - name: X-Forwarded-Proto
         value: "https"
 
-  # Metrics Server (Port 1950)
-  - hostname: metrics.arthachain.in
-    service: http://localhost:1950
+  # ArthaChain Quantum Resistance APIs
+  - hostname: quantum.arthachain.in
+    service: http://localhost:1900
     originRequest:
       connectTimeout: 30s
       readTimeout: 30s
@@ -102,9 +103,9 @@ ingress:
       - name: X-Forwarded-Proto
         value: "https"
 
-  # Faucet Service (Port 1960)
-  - hostname: faucet.arthachain.in
-    service: http://localhost:1960
+  # ArthaChain Self-Healing APIs
+  - hostname: selfhealing.arthachain.in
+    service: http://localhost:1900
     originRequest:
       connectTimeout: 30s
       readTimeout: 30s
@@ -118,9 +119,57 @@ ingress:
       - name: X-Forwarded-Proto
         value: "https"
 
-  # RPC Service (Port 1970)
-  - hostname: rpc.arthachain.in
-    service: http://localhost:1970
+  # ArthaChain Dynamic Roles APIs
+  - hostname: roles.arthachain.in
+    service: http://localhost:1900
+    originRequest:
+      connectTimeout: 30s
+      readTimeout: 30s
+      writeTimeout: 30s
+      noTLSVerify: false
+    headers:
+      - name: X-Forwarded-For
+        value: "{{ .ClientIP }}"
+      - name: X-Real-IP
+        value: "{{ .ClientIP }}"
+      - name: X-Forwarded-Proto
+        value: "https"
+
+  # ArthaChain Cross-Chain Bridge APIs
+  - hostname: bridges.arthachain.in
+    service: http://localhost:1900
+    originRequest:
+      connectTimeout: 30s
+      readTimeout: 30s
+      writeTimeout: 30s
+      noTLSVerify: false
+    headers:
+      - name: X-Forwarded-For
+        value: "{{ .ClientIP }}"
+      - name: X-Real-IP
+        value: "{{ .ClientIP }}"
+      - name: X-Forwarded-Proto
+        value: "https"
+
+  # ArthaChain Mobile Optimization APIs
+  - hostname: mobile.arthachain.in
+    service: http://localhost:1900
+    originRequest:
+      connectTimeout: 30s
+      readTimeout: 30s
+      writeTimeout: 30s
+      noTLSVerify: false
+    headers:
+      - name: X-Forwarded-For
+        value: "{{ .ClientIP }}"
+      - name: X-Real-IP
+        value: "{{ .ClientIP }}"
+      - name: X-Forwarded-Proto
+        value: "https"
+
+  # ArthaChain Enterprise APIs
+  - hostname: enterprise.arthachain.in
+    service: http://localhost:1900
     originRequest:
       connectTimeout: 30s
       readTimeout: 30s

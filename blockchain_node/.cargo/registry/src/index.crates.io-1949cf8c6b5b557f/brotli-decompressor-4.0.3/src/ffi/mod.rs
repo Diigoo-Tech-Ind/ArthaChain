@@ -146,7 +146,7 @@ pub unsafe extern fn BrotliDecoderDecompress(
   decoded_buffer: *mut u8,
 ) -> BrotliDecoderResult {
   let res = BrotliDecoderDecompressWithReturnInfo(encoded_size, encoded_buffer, *decoded_size, decoded_buffer);
-  *decoded_size = res.decoded_size;  
+  *decoded_size = res.decoded_size;
   match res.result {
       BrotliResult::ResultSuccess => BrotliDecoderResult::BROTLI_DECODER_RESULT_SUCCESS,
       _ => BrotliDecoderResult::BROTLI_DECODER_RESULT_ERROR

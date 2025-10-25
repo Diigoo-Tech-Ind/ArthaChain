@@ -21,7 +21,7 @@
 //!
 //!   ```rust
 //!   use strum_macros;
-//!   
+//!
 //!   #[derive(Debug, Eq, PartialEq, strum_macros::Display)]
 //!   #[strum(serialize_all = "snake_case")]
 //!   enum Brightness {
@@ -32,7 +32,7 @@
 //!       #[strum(serialize = "bright")]
 //!       BrightWhite,
 //!   }
-//!   
+//!
 //!   assert_eq!(
 //!       String::from("dark_black"),
 //!       Brightness::DarkBlack.to_string().as_ref()

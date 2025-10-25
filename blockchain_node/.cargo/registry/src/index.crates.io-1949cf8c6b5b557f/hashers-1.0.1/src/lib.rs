@@ -35,7 +35,7 @@
 //! pub trait Hasher {
 //!     fn finish(&self) -> u64;
 //!     fn write(&mut self, bytes: &[u8]);
-//! 
+//!
 //!     fn write_u8(&mut self, i: u8) { ... }
 //!     fn write_u16(&mut self, i: u16) { ... }
 //!     ...
@@ -66,10 +66,10 @@
 //!
 //! As a result, instead of passing in a Hasher, we have to pass an instance of another trait,
 //! `std::hash::BuildHash`. Rust's standard library currently has two implementations of that
-//! trait: 
+//! trait:
 //! - `std::collections::hash_map::RandomState`, which creates instances of DefaultHasher,
 //!   Rust's implementation of SIP-something using cryptographic keys to prevent denial-of-service
-//!   attacks. 
+//!   attacks.
 //! - `std::hash::BuildHasherDefault`, which can create instances of any Hasher implementation that
 //!   also implements the Default trait.
 //!
@@ -406,7 +406,7 @@ pub mod null {
 /// > dispersion of the FNV hashes makes them well suited for hashing nearly identical strings such
 /// > as URLs, hostnames, filenames, text, IP addresses, etc.
 /// >
-/// > The IETF has an informational draft on The FNV Non-Cryptographic Hash Algorithm 
+/// > The IETF has an informational draft on The FNV Non-Cryptographic Hash Algorithm
 ///
 /// This module provides both 32- and 64-bit versions of FNV-1a.
 pub mod fnv {

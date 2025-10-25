@@ -12,6 +12,7 @@ use log::{debug, error, info, warn};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
+#[cfg(feature = "wasm-runtime")]
 use wasmtime::{
     Config, Engine, Instance, Linker, Memory, Module, Store, TypedFunc, Val, ValType, WasmParams,
     WasmResults,
@@ -110,6 +111,7 @@ impl WasmExecutionEngine {
     /// Create a new production WASM execution engine
     pub fn new(config: WasmExecutionConfig) -> Result<Self> {
         // Configure Wasmtime for optimal performance and security
+        #[cfg(feature = "wasm-runtime")]
         let mut wasmtime_config = Config::new();
 
         // Security settings
@@ -141,6 +143,7 @@ impl WasmExecutionEngine {
         wasmtime_config.static_memory_guard_size(65536);
         wasmtime_config.dynamic_memory_guard_size(65536);
 
+        #[cfg(feature = "wasm-runtime")]
         let engine = Engine::new(&wasmtime_config)
             .map_err(|e| anyhow!("Failed to create WASM engine: {}", e))?;
 

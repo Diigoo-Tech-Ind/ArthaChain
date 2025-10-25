@@ -793,7 +793,7 @@ impl NeuralBase {
         Ok(encrypted_data)
     }
 
-    /// Advanced PyObject extraction with error handling  
+    /// Advanced PyObject extraction with error handling
     #[cfg(feature = "python-ai")]
     #[allow(dead_code)]
     fn extract_python_object<'py>(

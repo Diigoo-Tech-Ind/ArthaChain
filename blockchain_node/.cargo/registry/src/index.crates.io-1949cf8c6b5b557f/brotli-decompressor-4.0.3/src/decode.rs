@@ -2984,7 +2984,7 @@ pub fn BrotliDecompressStream<AllocU8: alloc::Allocator<u8>,
 
           let mut block_length_out: u32 = 0;
           let ind_ret: (bool, u32);
-          
+
           ind_ret = SafeReadBlockLengthIndex(&s.block_type_length_state.substate_read_block_length,
                                              s.block_type_length_state.block_length_index,
                                              fast_slice!((s.block_type_length_state.block_len_trees)

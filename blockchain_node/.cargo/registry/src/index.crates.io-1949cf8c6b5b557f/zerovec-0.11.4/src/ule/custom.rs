@@ -44,14 +44,14 @@
 //! #    field1: char,
 //! #    field2: u32,
 //! #    #[serde(borrow)]
-//! #    field3: ZeroVec<'a, u32>   
+//! #    field3: ZeroVec<'a, u32>
 //! # }
 //!
 //! // Must be repr(C, packed) for safety of VarULE!
 //! // Must also only contain ULE types
 //! #[repr(C, packed)]
 //! struct FooULE {
-//!     field1: <char as AsULE>::ULE,   
+//!     field1: <char as AsULE>::ULE,
 //!     field2: <u32 as AsULE>::ULE,
 //!     field3: ZeroSlice<u32>,
 //! }

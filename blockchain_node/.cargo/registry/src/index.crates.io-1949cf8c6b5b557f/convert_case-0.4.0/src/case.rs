@@ -84,7 +84,7 @@ pub enum Case {
     /// assert_eq!("MY_VARIABLE_NAME", "My variable NAME".to_case(Case::UpperSnake))
     /// ```
     UpperSnake,
-    
+
     /// Screaming snake case is an alternative name for upper snake case.
     ScreamingSnake,
 
@@ -140,7 +140,7 @@ pub enum Case {
     Alternating,
 
     /// Random case strings are delimited by spaces and characters are
-    /// randomly upper case or lower case.  This uses the `rand` crate 
+    /// randomly upper case or lower case.  This uses the `rand` crate
     /// and is only available with the "random" feature.
     /// ```
     /// use convert_case::{Case, Casing};

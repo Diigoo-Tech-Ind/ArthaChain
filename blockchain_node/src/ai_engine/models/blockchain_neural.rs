@@ -1,7 +1,13 @@
 use super::neural_base::{NeuralBase, NeuralConfig};
 use anyhow::Result;
-use candle_core::{Device, Tensor};
-use candle_nn::{linear, Linear, Module, VarBuilder};
+// candle_core and candle_nn are not available - using fallback
+// use candle_core::{Device, Tensor};
+// use candle_nn::{linear, Linear, Module, VarBuilder};
+
+// Placeholder types for candle
+type Device = String;
+type Tensor = Vec<f32>;
+
 use log::{debug, info};
 #[cfg(feature = "python-ai")]
 use pyo3::Python;
@@ -463,6 +469,11 @@ impl BlockchainNeuralModel {
         })?;
 
         Ok(())
+    }
+
+    /// Load model from file (async version for node.rs)
+    pub async fn load_model(&mut self, path: &str) -> Result<()> {
+        self.load(path)
     }
 }
 

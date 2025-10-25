@@ -1,2 +1,0 @@
-# ArthaChain APIs - Fully Working
-

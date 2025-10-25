@@ -248,7 +248,7 @@ impl fmt::Debug for Lru {
             while node != self.head {
                 if seen.contains(&node) {
                     panic!(
-                        "The {:?} LRU is messed up: 
+                        "The {:?} LRU is messed up:
                        head: {:?}, {:?} -> p{node}, actual data: {:?}",
                         self.regclass, self.head, data_str, self.data
                     );

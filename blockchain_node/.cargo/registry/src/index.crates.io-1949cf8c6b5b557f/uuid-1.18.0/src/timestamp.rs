@@ -192,7 +192,7 @@ impl std::convert::TryFrom<std::time::SystemTime> for Timestamp {
     type Error = crate::Error;
 
     /// Perform the conversion.
-    /// 
+    ///
     /// This method will fail if the system time is earlier than the Unix Epoch.
     /// On some platforms it may panic instead.
     fn try_from(st: std::time::SystemTime) -> Result<Self, Self::Error> {

@@ -112,26 +112,34 @@ pub struct BlockMetadata {
     pub signatures: HashMap<String, Vec<u8>>,
 }
 
-/// Transaction
+/// Transaction status
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum TransactionStatus {
+    Pending,
+    Success,
+    Failed,
+}
+
+/// Transaction (EVM-style)
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Transaction {
-    /// Transaction sender
+    /// Sender address (20 bytes)
     pub from: Address,
-    /// Transaction recipient
+    /// Recipient address (20 bytes)
     pub to: Address,
-    /// Transaction value
+    /// Value in wei
     pub value: u64,
-    /// Gas price
+    /// Gas price in wei
     pub gas_price: u64,
     /// Gas limit
     pub gas_limit: u64,
     /// Transaction nonce
     pub nonce: u64,
-    /// Transaction data
+    /// Calldata or contract bytecode
     pub data: Vec<u8>,
-    /// Transaction signature
+    /// Raw signature bytes (if signed)
     pub signature: Vec<u8>,
-    /// Transaction hash
+    /// Cached transaction hash (optional; will be recalculated if empty)
     pub hash: CryptoHash,
 }
 
@@ -211,9 +219,7 @@ impl Address {
         Self(bytes)
     }
 
-    pub fn default() -> Self {
-        Self([0u8; 20])
-    }
+    pub fn default() -> Self { Self([0u8; 20]) }
 
     pub fn as_bytes(&self) -> &[u8] {
         &self.0
@@ -267,7 +273,7 @@ impl fmt::Display for Address {
 
 impl Default for Address {
     fn default() -> Self {
-        Self::default()
+        Self([0u8; 20])
     }
 }
 
@@ -1010,9 +1016,11 @@ impl From<crate::ledger::block::Block> for Block {
             version: 1,  // Default version
             shard_id: 0, // Default shard for now
             height: ledger_block.header.height,
-            prev_hash: CryptoHash::from_slice(ledger_block.header.previous_hash.as_ref()).expect("Invalid hash length"),
+            prev_hash: CryptoHash::from_slice(ledger_block.header.previous_hash.as_ref())
+                .expect("Invalid hash length"),
             timestamp: ledger_block.header.timestamp,
-            merkle_root: CryptoHash::from_slice(ledger_block.header.merkle_root.as_ref()).expect("Invalid hash length"),
+            merkle_root: CryptoHash::from_slice(ledger_block.header.merkle_root.as_ref())
+                .expect("Invalid hash length"),
             state_root: CryptoHash::default(), // Will be calculated elsewhere
             receipt_root: CryptoHash::default(), // Will be calculated elsewhere
             proposer: {
@@ -1059,7 +1067,8 @@ impl From<crate::ledger::block::Block> for Block {
                         .signature
                         .map(|s| s.as_bytes().to_vec())
                         .unwrap_or_default(),
-                    hash: CryptoHash::from_slice(ledger_tx.id.as_ref()).expect("Invalid hash length"),
+                    hash: CryptoHash::from_slice(ledger_tx.id.as_ref())
+                        .expect("Invalid hash length"),
                 }
             })
             .collect();

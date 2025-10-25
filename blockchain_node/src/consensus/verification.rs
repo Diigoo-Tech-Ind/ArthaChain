@@ -62,17 +62,17 @@ mod tests {
     async fn test_verification() {
         let engine = VerificationEngine::new(10);
         let net = "place p1; transition t1;";
-        
+
         let result = engine.verify_safety(net, "always(p1 > 0)").await.unwrap();
         assert!(result.property_holds);
-        
+
         let result = engine.verify_liveness(net, "eventually(p1 > 0)").await.unwrap();
         assert!(result.property_holds);
-        
+
         let result = engine.verify_deadlock_freedom(net).await.unwrap();
         assert!(result.property_holds);
-        
+
         let result = engine.verify_boundedness(net).await.unwrap();
         assert!(result.property_holds);
     }
-} 
+}

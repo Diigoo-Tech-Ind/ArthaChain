@@ -560,7 +560,11 @@ impl SVBFTConsensus {
             round.proposed_block = Some(block.clone());
             round.phase = ConsensusPhase::Prepare;
 
-            info!("Proposed block {} in view {}", block.hash()?.to_evm_hex(), view);
+            info!(
+                "Proposed block {} in view {}",
+                block.hash()?.to_evm_hex(),
+                view
+            );
         } else {
             debug!(
                 "Received block but not the leader for view {}, ignoring",

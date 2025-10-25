@@ -113,7 +113,7 @@ fn test_gemm<F>() where F: Gemm + Float {
             test_mul_with_id::<F>(i * 4, j * 4, true);
         }
     }
-    
+
     test_mul_with_id::<F>(266, 265, false);
     test_mul_id_with::<F>(4, 4, true);
 
@@ -142,7 +142,7 @@ fn test_mul_with_id<F>(m: usize, n: usize, small: bool)
     }
 
     let (m, k, n) = (m, n, n);
-    let mut a = vec![F::zero(); m * k]; 
+    let mut a = vec![F::zero(); m * k];
     let mut b = vec![F::zero(); k * n];
     let mut c = vec![F::zero(); m * n];
     println!("test matrix with id input M={}, N={}", m, n);
@@ -170,7 +170,7 @@ fn test_mul_with_id<F>(m: usize, n: usize, small: bool)
 
 /// multiply a K x K id matrix with an K x N matrix
 #[cfg(test)]
-fn test_mul_id_with<F>(k: usize, n: usize, small: bool) 
+fn test_mul_id_with<F>(k: usize, n: usize, small: bool)
     where F: Gemm + Float
 {
     if !small && FAST_TEST.is_some() {
@@ -178,7 +178,7 @@ fn test_mul_id_with<F>(k: usize, n: usize, small: bool)
     }
 
     let (m, k, n) = (k, k, n);
-    let mut a = vec![F::zero(); m * k]; 
+    let mut a = vec![F::zero(); m * k];
     let mut b = vec![F::zero(); k * n];
     let mut c = vec![F::zero(); m * n];
 
@@ -212,7 +212,7 @@ fn test_scale<F>(m: usize, k: usize, n: usize, small: bool)
     }
 
     let (m, k, n) = (m, k, n);
-    let mut a = vec![F::zero(); m * k]; 
+    let mut a = vec![F::zero(); m * k];
     let mut b = vec![F::zero(); k * n];
     let mut c1 = vec![F::one(); m * n];
     let mut c2 = vec![F::nan(); m * n];
@@ -304,7 +304,7 @@ fn test_complex<F>(m: usize, k: usize, n: usize, small: bool)
     }
 
     let (m, k, n) = (m, k, n);
-    let mut a = vec![F::zero(); m * k]; 
+    let mut a = vec![F::zero(); m * k];
     let mut b = vec![F::zero(); k * n];
     let mut c1 = vec![F::zero(); m * n];
     let mut c2 = vec![F::zero(); m * n];
@@ -411,7 +411,7 @@ fn test_strides_inner<F>(m: usize, k: usize, n: usize,
     let mstridec = stride_multipliers[2];
     let mstridec2 = stride_multipliers[3];
 
-    let mut a = vec![F::zero(); m * k * mstridea[0] * mstridea[1]]; 
+    let mut a = vec![F::zero(); m * k * mstridea[0] * mstridea[1]];
     let mut b = vec![F::zero(); k * n * mstrideb[0] * mstrideb[1]];
     let mut c1 = vec![F::nan(); m * n * mstridec[0] * mstridec[1]];
     let mut c2 = vec![F::nan(); m * n * mstridec2[0] * mstridec2[1]];
@@ -451,7 +451,7 @@ fn test_strides_inner<F>(m: usize, k: usize, n: usize,
             F::zero(),
             c1.as_mut_ptr(), rs_c1, cs_c1,
         );
-        
+
         // C1 += 2 A B
         F::gemm(
             m, k, n,
@@ -462,7 +462,7 @@ fn test_strides_inner<F>(m: usize, k: usize, n: usize,
             c1.as_mut_ptr(), rs_c1, cs_c1,
         );
 
-        // C2 = 3 A B 
+        // C2 = 3 A B
         F::gemm(
             m, k, n,
             F::from(3),

@@ -24,7 +24,7 @@ pub mod c {
     pub use winapi::um::winbase::*;
     pub use winapi::um::winsock2::*;
     pub use winapi::um::ws2tcpip::*;
-    
+
     pub use winapi::shared::inaddr::*;
     pub use winapi::shared::in6addr::*;
     pub use winapi::shared::minwindef::*;

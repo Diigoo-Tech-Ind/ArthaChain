@@ -274,7 +274,12 @@ pub async fn gas_free_dashboard() -> impl IntoResponse {
             <form id="gas-free-form">
                 <div class="form-group">
                     <label for="app-id">Application ID:</label>
-                    <input type="text" id="app-id" name="app-id" placeholder="e.g., product_launch_2024" required>
+                    <input type="text" id="app-id" name="app-id" 
+                           placeholder="Enter unique application identifier (e.g., product_launch_2024, campaign_q1_2024)" 
+                           pattern="[a-zA-Z0-9_]+" 
+                           title="Use only letters, numbers, and underscores. Must be unique across all applications."
+                           required>
+                    <small class="form-help">Unique identifier for your gas-free application. Use descriptive names like 'product_launch_2024' or 'campaign_q1_2024'.</small>
                 </div>
                 <div class="form-group">
                     <label for="company-name">Company Name:</label>
@@ -298,23 +303,51 @@ pub async fn gas_free_dashboard() -> impl IntoResponse {
                 </div>
                 <div class="form-group">
                     <label for="duration">Duration (days):</label>
-                    <input type="number" id="duration" name="duration" placeholder="30" min="1" max="365" required>
+                    <input type="number" id="duration" name="duration" 
+                           placeholder="Enter campaign duration in days (recommended: 30-90 days)" 
+                           min="1" max="365" 
+                           value="30"
+                           title="Campaign duration in days. Minimum 1 day, maximum 365 days (1 year)."
+                           required>
+                    <small class="form-help">Recommended duration: 30-90 days for most campaigns. Longer campaigns require additional approval.</small>
                 </div>
                 <div class="form-group">
                     <label for="max-tx-per-day">Max Transactions/Day:</label>
-                    <input type="number" id="max-tx-per-day" name="max-tx-per-day" placeholder="1000" min="1" required>
+                    <input type="number" id="max-tx-per-day" name="max-tx-per-day" 
+                           placeholder="Enter daily transaction limit (recommended: 1000-10000)" 
+                           min="1" max="100000" 
+                           value="1000"
+                           title="Maximum number of gas-free transactions allowed per day. Higher limits require additional approval."
+                           required>
+                    <small class="form-help">Recommended: 1000-10000 transactions per day. Higher limits require enterprise approval.</small>
                 </div>
                 <div class="form-group">
                     <label for="gas-limit-per-tx">Gas Limit per Transaction:</label>
-                    <input type="number" id="gas-limit-per-tx" name="gas-limit-per-tx" placeholder="21000" min="1" required>
+                    <input type="number" id="gas-limit-per-tx" name="gas-limit-per-tx" 
+                           placeholder="Enter gas limit per transaction (standard: 21000 for transfers)" 
+                           min="21000" max="1000000" 
+                           value="21000"
+                           title="Gas limit per transaction. Standard transfers use 21000, contract calls may need more."
+                           required>
+                    <small class="form-help">Standard transfers: 21000 gas. Contract calls: 100000-500000 gas. Complex contracts: up to 1000000 gas.</small>
                 </div>
                 <div class="form-group">
                     <label for="allowed-tx-types">Allowed Transaction Types:</label>
-                    <textarea id="allowed-tx-types" name="allowed-tx-types" placeholder="transfer,contract_call,contract_deploy" rows="3"></textarea>
+                    <textarea id="allowed-tx-types" name="allowed-tx-types" 
+                              placeholder="Enter allowed transaction types separated by commas (e.g., transfer,contract_call,contract_deploy)" 
+                              rows="3"
+                              title="Comma-separated list of transaction types allowed for gas-free processing."
+                              pattern="[a-zA-Z_,\s]+"></textarea>
+                    <small class="form-help">Available types: transfer, contract_call, contract_deploy, token_transfer, nft_mint. Separate multiple types with commas.</small>
                 </div>
                 <div class="form-group">
                     <label for="company-signature">Company Signature (Hex):</label>
-                    <input type="text" id="company-signature" name="company-signature" placeholder="0x01020304..." required>
+                    <input type="text" id="company-signature" name="company-signature" 
+                           placeholder="Enter company signature in hexadecimal format (e.g., 0x01020304...)" 
+                           pattern="0x[a-fA-F0-9]+"
+                           title="Company signature in hexadecimal format. Must start with 0x followed by valid hex characters."
+                           required>
+                    <small class="form-help">Company signature for authentication. Must be a valid hexadecimal string starting with 0x. Minimum 8 characters.</small>
                 </div>
                 <button type="submit" class="btn">🚀 Register Application</button>
             </form>
@@ -325,23 +358,52 @@ pub async fn gas_free_dashboard() -> impl IntoResponse {
             <form id="eligibility-form">
                 <div class="form-group">
                     <label for="check-app-id">Application ID:</label>
-                    <input type="text" id="check-app-id" name="check-app-id" placeholder="Enter app ID to check" required>
+                    <input type="text" id="check-app-id" name="check-app-id" 
+                           placeholder="Enter the application ID to check eligibility (e.g., product_launch_2024)" 
+                           pattern="[a-zA-Z0-9_]+"
+                           title="Enter the exact application ID registered for gas-free processing."
+                           required>
+                    <small class="form-help">Enter the exact application ID that was registered for gas-free processing.</small>
                 </div>
                 <div class="form-group">
                     <label for="from-address">From Address:</label>
-                    <input type="text" id="from-address" name="from-address" placeholder="0x..." required>
+                    <input type="text" id="from-address" name="from-address" 
+                           placeholder="Enter sender wallet address (e.g., 0x742d35Cc6634C0532925a3b844Bc454e4438f44e)" 
+                           pattern="0x[a-fA-F0-9]{40}"
+                           title="Valid Ethereum-style address starting with 0x followed by 40 hexadecimal characters."
+                           required>
+                    <small class="form-help">Enter the wallet address that will send the transaction. Must be a valid 42-character address.</small>
                 </div>
                 <div class="form-group">
                     <label for="to-address">To Address:</label>
-                    <input type="text" id="to-address" name="to-address" placeholder="0x..." required>
+                    <input type="text" id="to-address" name="to-address" 
+                           placeholder="Enter recipient wallet address (e.g., 0x123456789abcdef123456789abcdef123456789a)" 
+                           pattern="0x[a-fA-F0-9]{40}"
+                           title="Valid Ethereum-style address starting with 0x followed by 40 hexadecimal characters."
+                           required>
+                    <small class="form-help">Enter the wallet address that will receive the transaction. Must be a valid 42-character address.</small>
                 </div>
                 <div class="form-group">
                     <label for="tx-type">Transaction Type:</label>
-                    <input type="text" id="tx-type" name="tx-type" placeholder="transfer" required>
+                    <select id="tx-type" name="tx-type" required>
+                        <option value="">Select Transaction Type</option>
+                        <option value="transfer">Transfer</option>
+                        <option value="contract_call">Contract Call</option>
+                        <option value="contract_deploy">Contract Deploy</option>
+                        <option value="token_transfer">Token Transfer</option>
+                        <option value="nft_mint">NFT Mint</option>
+                    </select>
+                    <small class="form-help">Select the type of transaction you want to check for gas-free eligibility.</small>
                 </div>
                 <div class="form-group">
                     <label for="gas-limit">Gas Limit:</label>
-                    <input type="number" id="gas-limit" name="gas-limit" placeholder="21000" required>
+                    <input type="number" id="gas-limit" name="gas-limit" 
+                           placeholder="Enter gas limit for the transaction (standard: 21000)" 
+                           min="21000" max="1000000" 
+                           value="21000"
+                           title="Gas limit for the transaction. Standard transfers use 21000 gas."
+                           required>
+                    <small class="form-help">Standard transfers: 21000 gas. Contract calls: 100000-500000 gas. Complex contracts: up to 1000000 gas.</small>
                 </div>
                 <button type="submit" class="btn btn-secondary">🔍 Check Eligibility</button>
             </form>
@@ -365,7 +427,7 @@ pub async fn gas_free_dashboard() -> impl IntoResponse {
         // Gas-Free Application Registration
         document.getElementById('gas-free-form').addEventListener('submit', async function(e) {
             e.preventDefault();
-            
+
             const formData = new FormData(e.target);
             const data = {
                 app_id: formData.get('app-id'),
@@ -375,7 +437,7 @@ pub async fn gas_free_dashboard() -> impl IntoResponse {
                 max_tx_per_day: parseInt(formData.get('max-tx-per-day')),
                 gas_limit_per_tx: parseInt(formData.get('gas-limit-per-tx')),
                 allowed_tx_types: formData.get('allowed-tx-types').split(',').map(s => s.trim()),
-                company_signature: formData.get('company-signature').startsWith('0x') ? 
+                company_signature: formData.get('company-signature').startsWith('0x') ?
                     formData.get('company-signature').slice(2) : formData.get('company-signature')
             };
 
@@ -403,7 +465,7 @@ pub async fn gas_free_dashboard() -> impl IntoResponse {
         // Check Eligibility
         document.getElementById('eligibility-form').addEventListener('submit', async function(e) {
             e.preventDefault();
-            
+
             const formData = new FormData(e.target);
             const data = {
                 app_id: formData.get('check-app-id'),
@@ -438,7 +500,7 @@ pub async fn gas_free_dashboard() -> impl IntoResponse {
             try {
                 const response = await fetch('/api/v1/testnet/gas-free/stats');
                 const stats = await response.json();
-                
+
                 document.getElementById('active-apps').textContent = stats.active_apps || 0;
                 document.getElementById('gas-saved').textContent = stats.total_gas_saved || 0;
                 document.getElementById('daily-tx').textContent = stats.daily_transactions || 0;
@@ -452,7 +514,7 @@ pub async fn gas_free_dashboard() -> impl IntoResponse {
             try {
                 const response = await fetch('/api/v1/testnet/gas-free/apps');
                 const apps = await response.json();
-                
+
                 const container = document.getElementById('active-apps-list');
                 if (apps.length === 0) {
                     container.innerHTML = '<p>No active gas-free applications found.</p>';
@@ -646,7 +708,7 @@ pub async fn get_gas_free_stats(
         "active_apps": apps.len(),
         "total_gas_saved": 0, // Would be calculated from actual transactions
         "daily_transactions": 0, // Would be calculated from daily counters
-        "companies": 4, // Hardcoded whitelist count
+        "companies": 4,
         "total_apps": apps.len()
     });
 

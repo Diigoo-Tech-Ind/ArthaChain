@@ -949,7 +949,7 @@ pub trait BigInteger:
     /// arr[63] = true;
     /// let mut one = B::from(1u64);
     /// assert_eq!(B::from_bits_be(&arr), one);
-    /// ```   
+    /// ```
     fn from_bits_be(bits: &[bool]) -> Self;
 
     /// Returns the big integer representation of a given little endian boolean
@@ -963,7 +963,7 @@ pub trait BigInteger:
     /// arr[0] = true;
     /// let mut one = B::from(1u64);
     /// assert_eq!(B::from_bits_le(&arr), one);
-    /// ```   
+    /// ```
     fn from_bits_le(bits: &[bool]) -> Self;
 
     /// Returns the bit representation in a big endian boolean array,
@@ -978,7 +978,7 @@ pub trait BigInteger:
     /// let mut vec = vec![false; 64];
     /// vec[63] = true;
     /// assert_eq!(arr, vec);
-    /// ```  
+    /// ```
     fn to_bits_be(&self) -> Vec<bool> {
         BitIteratorBE::new(self).collect::<Vec<_>>()
     }

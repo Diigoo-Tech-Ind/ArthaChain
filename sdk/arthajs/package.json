@@ -1,0 +1,15 @@
+{
+  "name": "arthajs",
+  "version": "0.1.0",
+  "main": "index.ts",
+  "type": "module",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.11.30"
+  },
+  "dependencies": {
+    "@stablelib/random": "^1.0.1",
+    "@stablelib/wipe": "^1.0.1",
+    "@stablelib/xchacha20poly1305": "^1.0.1"
+  }
+}

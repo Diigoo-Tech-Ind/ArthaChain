@@ -141,7 +141,7 @@
 //!
 //! If your input type is a slice of an enum type, a pattern could match an enum variant like
 //! `[Token::Operator('+')]`.
-//! 
+//!
 //! Variables captured by the pattern are accessible in a subsequent action
 //! block: `[Token::Integer(i)] { i }`
 //!

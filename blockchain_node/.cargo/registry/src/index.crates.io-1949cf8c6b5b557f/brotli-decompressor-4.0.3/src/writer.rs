@@ -266,7 +266,7 @@ impl<ErrType,
                 &[],
                 &mut avail_out,
                 &mut output_offset,
-                self.output_buffer.slice_mut(),                
+                self.output_buffer.slice_mut(),
                 &mut self.total_out,
                 &mut self.state);
           // already closed.

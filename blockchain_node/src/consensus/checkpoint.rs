@@ -216,7 +216,7 @@ impl CheckpointManager {
                             let checkpoint: Checkpoint = match config.storage_format {
                                 CheckpointFormat::Binary => bincode::deserialize(&data)?,
                                 CheckpointFormat::Json => serde_json::from_slice(&data)?,
-                                CheckpointFormat::Cbor => serde_cbor::from_slice(&data)?,
+                                CheckpointFormat::Cbor => ciborium::de::from_reader(&data[..])?,
                             };
 
                             loaded_checkpoints.insert(id, checkpoint);
@@ -397,7 +397,11 @@ impl CheckpointManager {
         let data = match config.storage_format {
             CheckpointFormat::Binary => bincode::serialize(&checkpoint_to_save)?,
             CheckpointFormat::Json => serde_json::to_vec(&checkpoint_to_save)?,
-            CheckpointFormat::Cbor => serde_cbor::to_vec(&checkpoint_to_save)?,
+            CheckpointFormat::Cbor => {
+                let mut v = Vec::new();
+                ciborium::ser::into_writer(&checkpoint_to_save, &mut v)?;
+                v
+            },
         };
 
         // Compress if enabled
@@ -525,7 +529,7 @@ impl CheckpointManager {
             let loaded_checkpoint: Checkpoint = match config.storage_format {
                 CheckpointFormat::Binary => bincode::deserialize(&decompressed)?,
                 CheckpointFormat::Json => serde_json::from_slice(&decompressed)?,
-                CheckpointFormat::Cbor => serde_cbor::from_slice(&decompressed)?,
+                CheckpointFormat::Cbor => ciborium::de::from_reader(&decompressed[..])?,
             };
 
             if let Some(data) = loaded_checkpoint.state_data {
@@ -627,7 +631,12 @@ impl Clone for CheckpointManager {
     fn clone(&self) -> Self {
         // Partial clone for use in async tasks
         Self {
-            config: RwLock::new(self.config.try_read().map(|guard| (*guard).clone()).unwrap_or(CheckpointConfig::default())),
+            config: RwLock::new(
+                self.config
+                    .try_read()
+                    .map(|guard| (*guard).clone())
+                    .unwrap_or(CheckpointConfig::default()),
+            ),
             checkpoints: RwLock::new(HashMap::new()),
             validators: self.validators.clone(),
             state: self.state.clone(),

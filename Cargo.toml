@@ -1,113 +1,64 @@
-  [workspace]
-  members = ["blockchain_node"]
-  resolver = "2"
+[workspace]
+members = [
+  "blockchain_node"
+]
+resolver = "2"
 
 [workspace.dependencies]
-# Async and runtime
-tokio = { version = "1.41.1", features = ["full"] }
-tokio-util = "0.7.12"
-tokio-stream = { version = "0.1.16", features = ["sync"] }
-futures = "0.3.31"
-
-# Serialization
-serde = { version = "1.0.213", features = ["derive"] }
-serde_json = "1.0.132"
-serde_yaml = "0.9.34"
-bincode = "1.3.3"
-
-# Networking
-libp2p = { version = "0.56.0", features = ["kad", "noise", "yamux", "tcp", "mdns", "gossipsub", "identify", "macros", "ping", "tokio"] }
-hickory-resolver = "0.24.1"
-
-# Storage
-# rocksdb = "0.23.0"  # Temporarily disabled due to macOS ARM64 linking issues
-
-# Cryptography and security
-ed25519-dalek = { version = "2.1.1", features = ["serde"] }
-sha2 = "0.10.8"
-sha3 = "0.10.8"
-blake2 = "0.10.6"
-blake3 = "1.5.5"
-ring = "0.17.14"
-aes-gcm = "0.10.3"
-hmac = "0.12.1"
-argon2 = "0.5.3"
-socket2 = "0.5.7"
-zeroize = "1.8.1"
-memmap2 = "0.9.5"
-secp256k1 = { version = "0.29.1", features = ["recovery"] }
-bulletproofs = "4.0.0"
-merlin = "3.0.0"
-curve25519-dalek = { version = "4.1.3", features = ["serde"] }
-arrayref = "0.3.8"
-
-# Compression libraries
-brotli = "6.0.0"
-lz4_flex = "0.11.3"
-flate2 = "1.0.35"
-
-# Math and utilities
-num-bigint = { version = "0.4.6", features = ["serde"] }
-uuid = { version = "1.11.0", features = ["serde", "v4"] }
-chrono = { version = "0.4.38", features = ["serde"] }
-byteorder = "1.5.0"
-rand = "0.8.5"
-rand_core = "0.6.4"
-base64 = "0.22.1"
-rayon = "1.10.0"
-num_cpus = "1.16.0"
-bumpalo = "3.16.0"
-sysinfo = "0.33.0"
-tiny-keccak = { version = "2.0.2", features = ["keccak"] }
-lazy_static = "1.5.0"
-
-# Machine Learning
-candle-core = "0.9.1"
-candle-nn = "0.9.1"
-ndarray = "0.16.1"
-ndarray-rand = "0.15.0"
-statrs = "0.18.0"
-smartcore = "0.3.2"
-
-# Error handling
-thiserror = "1.0.69"
-anyhow = "1.0.93"
-
-# Logging
-log = "0.4.22"
-env_logger = "0.11.5"
-tracing = "0.1.40"
-
-# Web framework
-axum = { version = "0.7.9", features = ["ws"] }
-tower = "0.5.1"
+tokio = { version = "1.40", features = ["full"] }
+tokio-util = "0.7"
+tokio-stream = { version = "0.1", features = ["sync"] }
+futures = "0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+bincode = "1.3"
+sha2 = "0.10"
+sha3 = "0.10"
+blake2 = "0.10"
+blake3 = "1.5"
+aes-gcm = "0.10"
+hmac = "0.12"
+argon2 = "0.5"
+zeroize = "1.7"
+secp256k1 = "0.29"
+bulletproofs = "4.0"
+merlin = "3.0"
+arrayref = "0.3"
+brotli = "6.0"
+lz4_flex = "0.11"
+flate2 = "1.0"
+num-bigint = "0.4"
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+byteorder = "1.5"
+rand = "0.8"
+rand_core = "0.6"
+base64 = "0.22"
+rayon = "1.10"
+num_cpus = "1.16"
+bumpalo = "3.15"
+sysinfo = "0.33"
+tiny-keccak = "2.0"
+lazy_static = "1.5"
+socket2 = "0.5"
+memmap2 = "0.9"
+thiserror = "1.0"
+anyhow = "1.0"
+log = "0.4"
+env_logger = "0.11"
+tracing = "0.1"
+axum = { version = "0.7.9", features = ["ws", "multipart"] }
+tower = "0.4"
 tower-http = { version = "0.6.2", features = ["cors"] }
-reqwest = { version = "0.12.9", features = ["json"] }
+reqwest = { version = "0.12", features = ["json"] }
+ethereum-types = "0.14"
+prometheus = "0.14"
+criterion = "0.5"
+proptest = "1.4"
+hickory-resolver = "0.24"
+ndarray = "0.15"
+ndarray-rand = "0.14"
+protobuf = ">=3.7.2"
 
-# WASM Runtime
-wasmtime = "34.0.2"
 
-# EVM Runtime
-ethereum-types = "0.14.1"
-
-# Metrics and monitoring
-prometheus = "0.14.0"
-
-# Development dependencies
-criterion = "0.5.1"
-proptest = "1.5.0"
-
-[profile.release]
-opt-level = 3
-lto = true
-codegen-units = 1
-panic = "abort"
-
-[profile.dev]
-opt-level = 1
-debug = true
-overflow-checks = true
-
-[profile.bench]
-inherits = "release"
-debug = true 

@@ -96,5 +96,5 @@ impl<I> ExactSizeIterator for WithPosition<I>
     where I: ExactSizeIterator,
 { }
 
-impl<I: Iterator> FusedIterator for WithPosition<I> 
+impl<I: Iterator> FusedIterator for WithPosition<I>
 {}

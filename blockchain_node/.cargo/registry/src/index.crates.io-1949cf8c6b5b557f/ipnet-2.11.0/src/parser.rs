@@ -256,7 +256,7 @@ impl<'a> Parser<'a> {
     fn read_ipv6_addr(&mut self) -> Option<Ipv6Addr> {
         self.read_atomically(|p| p.read_ipv6_addr_impl())
     }
-    
+
     /* Additions for IpNet below. */
 
     // Read IPv4 network

@@ -193,7 +193,7 @@ impl PublicKey {
         self.verify_hash(digest.finalize().as_slice(), sig)
     }
 
-    /// Verify the Secp256k1 DER-encoded signature on a raw 256-bit message using the public key.  
+    /// Verify the Secp256k1 DER-encoded signature on a raw 256-bit message using the public key.
     /// Will return false if the hash is not 32 bytes long, or the signature cannot be parsed.
     pub fn verify_hash(&self, msg: &[u8], sig: &[u8]) -> bool {
         Signature::from_der(sig).is_ok_and(|s| {

@@ -131,7 +131,11 @@ impl DagManager {
             0,
             genesis_block.header.timestamp,
             Vec::new(),
-            genesis_block.transactions.iter().map(|tx| tx.id.0.clone()).collect(),
+            genesis_block
+                .transactions
+                .iter()
+                .map(|tx| tx.id.0.clone())
+                .collect(),
             Some(genesis_block),
         );
 

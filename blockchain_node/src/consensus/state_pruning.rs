@@ -80,16 +80,16 @@ pub struct PruningState {
 pub enum PruningError {
     #[error("Database error: {0}")]
     Database(#[from] rocksdb::Error),
-    
+
     #[error("Serialization error: {0}")]
     Serialization(#[from] bincode::Error),
-    
+
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
-    
+
     #[error("Internal error: {0}")]
     Internal(String),
-    
+
     #[error("Invalid proof")]
     InvalidProof,
 
@@ -158,7 +158,7 @@ impl PruningManager {
         proof: Vec<u8>,
     ) -> Result<(), PruningError> {
         let mut state = self.state.write().await;
-        
+
         let transition = StateTransition {
             height,
             prev_state_root,
@@ -183,21 +183,21 @@ impl PruningManager {
     /// Verify a state transition
     pub async fn verify_transition(&self, height: u64) -> Result<bool, PruningError> {
         let state = self.state.read().await;
-        
+
         // Validate height
         if height == 0 || height > state.current_height {
             return Err(PruningError::InvalidHeight);
         }
-        
+
         let transition = state.transitions.get(&height)
             .ok_or_else(|| PruningError::Internal(format!("No transition found at height {}", height)))?;
-        
+
         // Get previous state root
         let prev_root: Hash = bincode::deserialize(
             &self.db.get(format!("state:{}", height - 1).as_ref())?
                 .ok_or_else(|| PruningError::Internal(format!("Missing state root at height {}", height - 1)))?
         )?;
-        
+
         // Get new state root
         let new_root: Hash = bincode::deserialize(
             &self.db.get(format!("state:{}", height).as_ref())?
@@ -240,7 +240,7 @@ impl PruningManager {
         }
 
         let prune_height = current_height - self.state.read().await.config.min_blocks;
-        
+
         // Archive states if needed
         if self.should_archive(prune_height) {
             self.archive_states(prune_height).await?;
@@ -248,14 +248,14 @@ impl PruningManager {
 
         // Remove states older than prune_height
         self.remove_old_states(prune_height).await?;
-        
+
         Ok(())
     }
 
     async fn archive_states(&self, height: u64) -> Result<(), PruningError> {
         let archive_path = self.state.read().await.config.archive_path.join(format!("state_{}", height));
         fs::create_dir_all(&archive_path).await?;
-        
+
         // Archive logic here
         Ok(())
     }
@@ -269,20 +269,20 @@ impl PruningManager {
     /// Update current block height
     pub async fn update_height(&mut self, height: u64) -> Result<(), PruningError> {
         let mut state = self.state.write().await;
-        
+
         // Validate new height
         if height < state.current_height {
             return Err(PruningError::InvalidHeight);
         }
-        
+
         state.current_height = height;
-        
+
         // Drop the state lock before calling other methods
         drop(state);
-        
+
         // Perform pruning and archiving
         self.prune_old_states().await?;
-        
+
         Ok(())
     }
 
@@ -295,12 +295,12 @@ impl PruningManager {
     /// Get archived state transition
     pub async fn get_archived_transition(&self, height: u64) -> Result<Option<StateTransition>, PruningError> {
         let state = self.state.read().await;
-        
+
         // Validate height is within archived range
         if height >= state.current_height.saturating_sub(state.config.max_blocks) {
             return Ok(None);
         }
-        
+
         match self.archive_db.get(format!("transition:{}", height).as_ref())? {
             Some(data) => {
                 match bincode::deserialize(&data) {
@@ -321,4 +321,4 @@ impl PruningManager {
         let config = self.state.try_read().unwrap();
         height % config.config.archive_interval == 0
     }
-} 
+}

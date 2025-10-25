@@ -1,9 +1,11 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "ai-engine")]
 use statrs::statistics::{OrderStatistics, Statistics};
 use std::collections::HashMap;
 
 /// Pure Rust Device Health Anomaly Detection Model
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeviceHealthDetector {
     /// Model parameters
     params: ModelParams,
@@ -42,7 +44,7 @@ impl Default for ModelParams {
 }
 
 /// Statistical features for each metric
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct FeatureStats {
     mean: f32,
     std_dev: f32,
@@ -329,14 +331,47 @@ impl DeviceHealthDetector {
     }
 
     /// Save model state
-    pub fn save(&self, _path: &str) -> Result<()> {
-        // TODO: Implement model serialization
+    pub fn save(&self, path: &str) -> Result<()> {
+        use std::fs::File;
+        use std::io::Write;
+        
+        let mut file = File::create(path)
+            .map_err(|e| anyhow::anyhow!("Failed to create model file: {}", e))?;
+        
+        // Serialize model data
+        let model_data = serde_json::to_string(&self)
+            .map_err(|e| anyhow::anyhow!("Failed to serialize model: {}", e))?;
+        
+        file.write_all(model_data.as_bytes())
+            .map_err(|e| anyhow::anyhow!("Failed to write model file: {}", e))?;
+        
         Ok(())
     }
 
     /// Load model state
-    pub fn load(&mut self, _path: &str) -> Result<()> {
-        // TODO: Implement model deserialization
+    pub fn load(&mut self, path: &str) -> Result<()> {
+        use std::fs::File;
+        use std::io::Read;
+        
+        let mut file = File::open(path)
+            .map_err(|e| anyhow::anyhow!("Failed to open model file: {}", e))?;
+        
+        let mut model_data = String::new();
+        file.read_to_string(&mut model_data)
+            .map_err(|e| anyhow::anyhow!("Failed to read model file: {}", e))?;
+        
+        // Deserialize model data
+        let loaded_model: Self = serde_json::from_str(&model_data)
+            .map_err(|e| anyhow::anyhow!("Failed to deserialize model: {}", e))?;
+        
+        // Copy loaded data to self
+        *self = loaded_model;
+        
         Ok(())
+    }
+
+    /// Load model from file (async version for node.rs)
+    pub async fn load_model(&mut self, path: &str) -> Result<()> {
+        self.load(path)
     }
 }

@@ -241,7 +241,7 @@ impl ItemSearchOptions {
         self.service = Some(CFString::new(service));
         self
     }
-    
+
     /// Search for an item with exactly the given subject.
     #[inline(always)]
     pub fn subject(&mut self, subject: &str) -> &mut Self {
@@ -366,7 +366,7 @@ impl ItemSearchOptions {
                     service.as_CFType(),
                 ));
             }
-            
+
             #[cfg(target_os = "macos")]
             {
                 if let Some(ref subject) = self.subject {

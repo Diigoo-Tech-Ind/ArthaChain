@@ -2,45 +2,44 @@ syntax = "proto3";
 
 package arthachain;
 
-// ArthaChain gRPC API Service
+// ArthaChain gRPC Service Definition
 service ArthaChainService {
-    // Blockchain information
+    // Blockchain Information
     rpc GetBlockchainInfo(GetBlockchainInfoRequest) returns (GetBlockchainInfoResponse);
     rpc GetLatestBlock(GetLatestBlockRequest) returns (GetLatestBlockResponse);
     rpc GetBlockByHash(GetBlockByHashRequest) returns (GetBlockByHashResponse);
     rpc GetBlockByHeight(GetBlockByHeightRequest) returns (GetBlockByHeightResponse);
     
-    // Transaction operations
+    // Transaction Operations
     rpc GetTransaction(GetTransactionRequest) returns (GetTransactionResponse);
     rpc SubmitTransaction(SubmitTransactionRequest) returns (SubmitTransactionResponse);
-    rpc GetTransactionReceipt(GetTransactionReceiptRequest) returns (GetTransactionReceiptResponse);
     
-    // Account operations
+    // Network Information
+    rpc GetNetworkStatus(GetNetworkStatusRequest) returns (GetNetworkStatusResponse);
+    rpc GetPeerInfo(GetPeerInfoRequest) returns (GetPeerInfoResponse);
+    
+    // Health and Monitoring
+    rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+    rpc GetMetrics(GetMetricsRequest) returns (GetMetricsResponse);
+    
+    // Consensus Information
+    rpc GetConsensusStatus(GetConsensusStatusRequest) returns (GetConsensusStatusResponse);
+    rpc GetValidators(GetValidatorsRequest) returns (GetValidatorsResponse);
+    
+    // Extended functionality
+    rpc GetTransactionReceipt(GetTransactionReceiptRequest) returns (GetTransactionReceiptResponse);
     rpc GetAccount(GetAccountRequest) returns (GetAccountResponse);
     rpc GetAccountBalance(GetAccountBalanceRequest) returns (GetAccountBalanceResponse);
     rpc GetAccountTransactions(GetAccountTransactionsRequest) returns (GetAccountTransactionsResponse);
-    
-    // Smart contract operations
     rpc GetContract(GetContractRequest) returns (GetContractResponse);
     rpc CallContract(CallContractRequest) returns (CallContractResponse);
     rpc DeployContract(DeployContractRequest) returns (DeployContractResponse);
-    
-    // Network and consensus
-    rpc GetNetworkStatus(GetNetworkStatusRequest) returns (GetNetworkStatusResponse);
-    rpc GetValidators(GetValidatorsRequest) returns (GetValidatorsResponse);
-    rpc GetConsensusStatus(GetConsensusStatusRequest) returns (GetConsensusStatusResponse);
-    
-    // Explorer and analytics
     rpc GetBlockchainStats(GetBlockchainStatsRequest) returns (GetBlockchainStatsResponse);
     rpc GetRecentBlocks(GetRecentBlocksRequest) returns (GetRecentBlocksResponse);
     rpc GetRecentTransactions(GetRecentTransactionsRequest) returns (GetRecentTransactionsResponse);
-    
-    // Health and monitoring
-    rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
-    rpc GetMetrics(GetMetricsRequest) returns (GetMetricsResponse);
 }
 
-// Request/Response messages for blockchain operations
+// Request/Response Messages
 message GetBlockchainInfoRequest {}
 
 message GetBlockchainInfoResponse {
@@ -75,7 +74,6 @@ message GetBlockByHeightResponse {
     Block block = 1;
 }
 
-// Transaction messages
 message GetTransactionRequest {
     string hash = 1;
 }
@@ -85,164 +83,73 @@ message GetTransactionResponse {
 }
 
 message SubmitTransactionRequest {
-    Transaction transaction = 1;
+    bytes raw_transaction = 1;
 }
 
 message SubmitTransactionResponse {
-    string tx_hash = 1;
+    string transaction_hash = 1;
     bool success = 2;
     string error_message = 3;
 }
 
-message GetTransactionReceiptRequest {
-    string hash = 1;
-}
-
-message GetTransactionReceiptResponse {
-    TransactionReceipt receipt = 1;
-}
-
-// Account messages
-message GetAccountRequest {
-    string address = 1;
-}
-
-message GetAccountResponse {
-    Account account = 1;
-}
-
-message GetAccountBalanceRequest {
-    string address = 1;
-}
-
-message GetAccountBalanceResponse {
-    string balance = 1;
-    string currency = 2;
-}
-
-message GetAccountTransactionsRequest {
-    string address = 1;
-    uint32 limit = 2;
-    uint32 offset = 3;
-}
-
-message GetAccountTransactionsResponse {
-    repeated Transaction transactions = 1;
-    uint32 total_count = 2;
-}
-
-// Smart contract messages
-message GetContractRequest {
-    string address = 1;
-}
-
-message GetContractResponse {
-    Contract contract = 1;
-}
-
-message CallContractRequest {
-    string contract_address = 1;
-    string caller_address = 2;
-    bytes data = 3;
-    uint64 gas_limit = 4;
-    string value = 5;
-}
-
-message CallContractResponse {
-    bytes result = 1;
-    uint64 gas_used = 2;
-    bool success = 3;
-    string error_message = 4;
-}
-
-message DeployContractRequest {
-    string deployer_address = 1;
-    bytes bytecode = 2;
-    bytes constructor_args = 3;
-    uint64 gas_limit = 4;
-}
-
-message DeployContractResponse {
-    string contract_address = 1;
-    string tx_hash = 2;
-    bool success = 3;
-    string error_message = 4;
-}
-
-// Network and consensus messages
 message GetNetworkStatusRequest {}
 
 message GetNetworkStatusResponse {
     uint32 connected_peers = 1;
-    uint32 total_peers = 2;
-    string network_id = 3;
-    uint64 uptime = 4;
-    repeated string peer_addresses = 5;
+    string network_version = 2;
+    bool syncing = 3;
+    uint64 sync_height = 4;
+    uint64 current_height = 5;
+}
+
+message GetPeerInfoRequest {}
+
+message GetPeerInfoResponse {
+    repeated Peer peers = 1;
+}
+
+message HealthCheckRequest {}
+
+message HealthCheckResponse {
+    string status = 1;
+    uint64 uptime = 2;
+    string version = 3;
+    uint64 timestamp = 4;
+    string service = 5;
+}
+
+message GetMetricsRequest {}
+
+message GetMetricsResponse {
+    SystemMetrics system = 1;
+    BlockchainMetrics blockchain = 2;
+    NetworkMetrics network = 3;
+    AIMetrics ai_metrics = 4;
+    ConsensusMetrics consensus_metrics = 5;
+    uint64 timestamp = 6;
+}
+
+message GetConsensusStatusRequest {}
+
+message GetConsensusStatusResponse {
+    ConsensusStatus consensus_status = 1;
+}
+
+message ConsensusStatus {
+    string phase = 1;
+    uint64 round = 2;
+    string leader = 3;
+    uint32 active_validators = 4;
+    uint64 total_stake = 5;
 }
 
 message GetValidatorsRequest {}
 
 message GetValidatorsResponse {
     repeated Validator validators = 1;
-    uint32 total_count = 2;
 }
 
-message GetConsensusStatusRequest {}
-
-message GetConsensusStatusResponse {
-    string status = 1;
-    uint64 current_round = 2;
-    uint32 active_validators = 3;
-    string consensus_mechanism = 4;
-    uint64 block_time = 5;
-}
-
-// Explorer and analytics messages
-message GetBlockchainStatsRequest {}
-
-message GetBlockchainStatsResponse {
-    uint64 latest_block = 1;
-    string block_time = 2;
-    uint64 active_validators = 3;
-    string total_transactions = 4;
-    uint64 total_blocks = 5;
-    string network_hash_rate = 6;
-}
-
-message GetRecentBlocksRequest {
-    uint32 limit = 1;
-}
-
-message GetRecentBlocksResponse {
-    repeated Block blocks = 1;
-}
-
-message GetRecentTransactionsRequest {
-    uint32 limit = 1;
-}
-
-message GetRecentTransactionsResponse {
-    repeated Transaction transactions = 1;
-}
-
-// Health and monitoring messages
-message HealthCheckRequest {}
-
-message HealthCheckResponse {
-    string status = 1;
-    uint64 timestamp = 2;
-    string service = 3;
-    string version = 4;
-    string uptime = 5;
-}
-
-message GetMetricsRequest {}
-
-message GetMetricsResponse {
-    map<string, string> metrics = 1;
-}
-
-// Core data structures
+// Data Structures
 message Block {
     uint64 height = 1;
     string hash = 2;
@@ -261,61 +168,197 @@ message Transaction {
     string hash = 1;
     string from = 2;
     string to = 3;
-    string value = 4;
+    uint64 amount = 4;
     uint64 gas_limit = 5;
     uint64 gas_price = 6;
-    bytes data = 7;
-    uint64 nonce = 8;
-    uint64 timestamp = 9;
-    string status = 10;
-    uint64 block_height = 11;
-    string block_hash = 12;
+    uint64 nonce = 7;
+    bytes data = 8;
+    string signature = 9;
+    uint64 timestamp = 10;
+    TransactionStatus status = 11;
 }
 
-message TransactionReceipt {
-    string tx_hash = 1;
-    uint64 block_height = 2;
-    string block_hash = 3;
-    uint64 gas_used = 4;
-    bool success = 5;
-    string error_message = 6;
-    repeated Log logs = 7;
-    string contract_address = 8;
+enum TransactionStatus {
+    PENDING = 0;
+    CONFIRMED = 1;
+    FAILED = 2;
 }
 
-message Log {
-    string address = 1;
-    repeated string topics = 2;
-    bytes data = 3;
-    uint64 log_index = 4;
+message Peer {
+    string id = 1;
+    string address = 2;
+    string version = 3;
+    bool connected = 4;
+    uint64 last_seen = 5;
 }
 
-message Account {
-    string address = 1;
-    string balance = 2;
-    uint64 nonce = 3;
-    string code_hash = 4;
-    bool is_contract = 5;
-    map<string, string> storage = 6;
+message SystemMetrics {
+    double cpu_usage = 1;
+    uint64 memory_usage = 2;
+    uint64 disk_usage = 3;
+    uint64 network_io = 4;
 }
 
-message Contract {
-    string address = 1;
-    string code_hash = 2;
-    bytes bytecode = 3;
-    string creator = 4;
-    uint64 creation_height = 5;
-    string creation_tx_hash = 6;
-    map<string, string> storage = 7;
+message BlockchainMetrics {
+    uint64 total_blocks = 1;
+    uint64 total_transactions = 2;
+    double tps = 3;
+    uint64 mempool_size = 4;
+}
+
+message NetworkMetrics {
+    uint32 connected_peers = 1;
+    uint64 bytes_sent = 2;
+    uint64 bytes_received = 3;
+    double latency_ms = 4;
 }
 
 message Validator {
     string address = 1;
-    string public_key = 2;
-    string stake = 3;
-    bool is_active = 4;
-    uint64 commission_rate = 5;
-    uint64 last_block_height = 6;
-    uint64 total_blocks = 7;
-    string status = 8;
+    uint64 stake = 2;
+    uint64 delegated_stake = 3;
+    bool active = 4;
+    uint64 blocks_proposed = 5;
+    double uptime = 6;
+}
+
+message AIMetrics {
+    double model_accuracy = 1;
+    uint64 inference_count = 2;
+    double avg_inference_time = 3;
+    uint64 memory_usage = 4;
+    uint64 cpu_usage = 5;
+}
+
+message ConsensusMetrics {
+    uint64 total_rounds = 1;
+    double avg_block_time = 2;
+    uint64 successful_proposals = 3;
+    uint64 failed_proposals = 4;
+    double network_efficiency = 5;
+}
+
+// Additional request/response messages for extended functionality
+message GetTransactionReceiptRequest {
+    string transaction_hash = 1;
+}
+
+message GetTransactionReceiptResponse {
+    TransactionReceipt receipt = 1;
+}
+
+message TransactionReceipt {
+    string transaction_hash = 1;
+    string block_hash = 2;
+    uint64 block_number = 3;
+    uint64 gas_used = 4;
+    bool status = 5;
+    string contract_address = 6;
+    repeated string logs = 7;
+}
+
+message GetAccountRequest {
+    string address = 1;
+}
+
+message GetAccountResponse {
+    Account account = 1;
+}
+
+message Account {
+    string address = 1;
+    uint64 balance = 2;
+    uint64 nonce = 3;
+    bool is_contract = 4;
+    string code_hash = 5;
+    uint64 storage_root = 6;
+}
+
+message GetAccountBalanceRequest {
+    string address = 1;
+}
+
+message GetAccountBalanceResponse {
+    uint64 balance = 1;
+}
+
+message GetAccountTransactionsRequest {
+    string address = 1;
+    uint32 limit = 2;
+    uint32 offset = 3;
+}
+
+message GetAccountTransactionsResponse {
+    repeated Transaction transactions = 1;
+    uint32 total_count = 2;
+}
+
+message GetContractRequest {
+    string address = 1;
+}
+
+message GetContractResponse {
+    Contract contract = 1;
+}
+
+message Contract {
+    string address = 1;
+    bytes bytecode = 2;
+    string abi = 3;
+    string name = 4;
+    string version = 5;
+}
+
+message CallContractRequest {
+    string contract_address = 1;
+    bytes data = 2;
+}
+
+message CallContractResponse {
+    bytes result = 1;
+    bool success = 2;
+    string error_message = 3;
+}
+
+message DeployContractRequest {
+    bytes bytecode = 1;
+    bytes constructor_args = 2;
+}
+
+message DeployContractResponse {
+    string contract_address = 1;
+    bool success = 2;
+    string error_message = 3;
+}
+
+message GetBlockchainStatsRequest {}
+
+message GetBlockchainStatsResponse {
+    BlockchainStats stats = 1;
+}
+
+message BlockchainStats {
+    uint64 total_blocks = 1;
+    uint64 total_transactions = 2;
+    uint64 total_validators = 3;
+    uint64 total_stake = 4;
+    double average_block_time = 5;
+    double transaction_throughput = 6;
+    uint64 cross_shard_transactions = 7;
+}
+
+message GetRecentBlocksRequest {
+    uint32 limit = 1;
+}
+
+message GetRecentBlocksResponse {
+    repeated Block blocks = 1;
+}
+
+message GetRecentTransactionsRequest {
+    uint32 limit = 1;
+}
+
+message GetRecentTransactionsResponse {
+    repeated Transaction transactions = 1;
 }

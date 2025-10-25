@@ -477,7 +477,7 @@ impl StrWriter {
     ///         &[0..14, 14..31, 31..48],
     ///         &mut buffer.make_formatter(FormattingFlags::new().set_binary())
     ///     )?;
-    ///    
+    ///
     ///     assert_eq!(buffer.as_str(), "[0..1110, 1110..11111, 11111..110000]");
     ///
     ///     Ok(())

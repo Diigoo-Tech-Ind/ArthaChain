@@ -129,8 +129,8 @@ impl ValidatorManager {
         let registry = self.registry.read().await;
         let state = self.state.read().await;
 
-    let mut validators = Vec::new();
-        
+        let mut validators = Vec::new();
+
         // Get real validator data from consensus registry
         let consensus_validators = registry.get_all_validators().await;
 
@@ -177,10 +177,10 @@ impl ValidatorManager {
             };
 
             validators.push(validator_info);
-    }
+        }
 
-    Ok(validators)
-}
+        Ok(validators)
+    }
 
     /// Get validator health with real data
     pub async fn get_validator_health(&self, address: &str) -> Result<ValidatorHealth, String> {
@@ -205,7 +205,7 @@ impl ValidatorManager {
         let consensus_participation = registry.get_consensus_participation_rate(address).await;
         let block_proposal_success = registry.get_block_proposal_success_rate(address).await;
         let network_connectivity = registry.get_network_connectivity_score(address).await;
-        
+
         let status = if is_online {
             if consensus_participation > 0.9 {
                 "excellent".to_string()
@@ -217,7 +217,7 @@ impl ValidatorManager {
         } else {
             "offline".to_string()
         };
-        
+
         Ok(ValidatorHealth {
             address: address.to_string(),
             is_online,
@@ -343,7 +343,7 @@ pub async fn get_validators_list(
     };
 
     let manager = ValidatorManager::new(validator_registry, state);
-    
+
     match manager.get_all_validators().await {
         Ok(validators) => {
             let total_validators = validators.len();
@@ -369,7 +369,7 @@ pub async fn get_validators_list(
                     * 100.0,
                 consensus_efficiency: calculate_consensus_efficiency(&validators),
             };
-            
+
             Ok(AxumJson(ValidatorsList {
                 total_validators,
                 active_validators,
@@ -403,7 +403,7 @@ pub async fn get_validators_health(
         .get_all_validators()
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    
+
     let mut health_data = Vec::new();
 
     for validator in &validators {
@@ -425,7 +425,7 @@ pub async fn get_validators_health(
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs();
-    
+
     Ok(AxumJson(serde_json::json!({
         "status": "success",
         "timestamp": timestamp,
@@ -448,7 +448,7 @@ pub async fn get_validators_info(
     };
 
     let manager = ValidatorManager::new(validator_registry, state);
-    
+
     match manager.get_all_validators().await {
         Ok(validators) => {
             let timestamp = SystemTime::now()
@@ -462,7 +462,7 @@ pub async fn get_validators_info(
                 .filter(|v| v.is_active)
                 .map(|v| v.stake_amount)
                 .sum();
-            
+
             Ok(AxumJson(serde_json::json!({
                 "status": "success",
                 "timestamp": timestamp,

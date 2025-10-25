@@ -932,7 +932,7 @@ fn metered_if_01() {
                     (then
                         (return (local.get $then))
                     )
-                    (else 
+                    (else
                         (return (local.get $else))
                     )
                 )

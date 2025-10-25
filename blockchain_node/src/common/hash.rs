@@ -57,7 +57,7 @@ impl Hash {
 
 impl fmt::Display for Hash {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.to_evm_hex())
+        write!(f, "{}", self.to_hex())
     }
 }
 

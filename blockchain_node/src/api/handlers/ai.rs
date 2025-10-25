@@ -205,8 +205,17 @@ impl AIService {
         let bci_models_count = stats.bci_models;
         let self_learning_systems_count = stats.self_learning_systems;
 
+        // Calculate overall health status
+        let overall_status = if device_health.overall_score > 0.8 && fraud_detection_active {
+            "healthy"
+        } else if device_health.overall_score > 0.6 {
+            "degraded"
+        } else {
+            "unhealthy"
+        };
+
         Ok(AISystemStatus {
-            overall_status: "healthy".to_string(),
+            overall_status: overall_status.to_string(),
             device_health: format!("{:?}", device_health.status),
             fraud_detection_active,
             neural_models_count,

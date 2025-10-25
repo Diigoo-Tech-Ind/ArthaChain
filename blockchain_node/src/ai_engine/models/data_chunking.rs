@@ -49,7 +49,7 @@ pub struct AdaptiveChunker {
 pub struct ChunkingParams {
     /// Minimum chunk size in bytes
     pub min_size: usize,
-    /// Maximum chunk size in bytes  
+    /// Maximum chunk size in bytes
     pub max_size: usize,
     /// Rolling hash window size
     pub window_size: usize,

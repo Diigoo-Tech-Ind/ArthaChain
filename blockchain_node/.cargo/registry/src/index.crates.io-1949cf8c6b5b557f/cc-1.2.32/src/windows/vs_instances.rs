@@ -137,7 +137,7 @@ catalog_productSemanticVersion: 16.9.2+31112.23
 catalog_requiredEngineVersion: 2.9.3365.38425
 properties_campaignId: 156063665.1613940062
 properties_channelManifestId: VisualStudio.16.Release/16.9.2+31112.23
-properties_nickname: 
+properties_nickname:
 properties_setupEngineFilePath: C:\Program Files (x86)\Microsoft Visual Studio\Installer\vs_installershell.exe
 "
         .to_vec();

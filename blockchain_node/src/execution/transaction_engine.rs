@@ -95,37 +95,110 @@ impl TransactionEngine {
         self.executor.execute_transaction(tx, &self.state).await
     }
 
-    /// Process multiple transactions in parallel
+    /// Process multiple transactions in parallel with advanced conflict resolution
     pub async fn process_transactions(
         &self,
         txs: &mut [Transaction],
     ) -> Result<Vec<ExecutionResult>> {
-        info!("Processing {} transactions", txs.len());
+        info!("Processing {} transactions with advanced conflict resolution", txs.len());
 
-        use futures::stream::{self, StreamExt};
-
-        // Create a stream of transactions
-        let results = stream::iter(txs.iter_mut())
-            .map(|tx| self.process_transaction(tx))
-            .buffer_unordered(self.config.max_concurrent_txs)
-            .collect::<Vec<_>>()
-            .await;
-
-        // Check results
-        let mut final_results = Vec::with_capacity(results.len());
-        for result in results {
-            match result {
-                Ok(execution_result) => final_results.push(execution_result),
-                Err(e) => {
-                    error!("Transaction processing error: {}", e);
-                    final_results
-                        .push(ExecutionResult::Failure(format!("Processing error: {}", e)));
-                }
+        // Analyze transaction dependencies and conflicts
+        let conflict_groups = self.analyze_transaction_conflicts(txs).await?;
+        
+        let mut all_results = Vec::with_capacity(txs.len());
+        
+        // Process each conflict group sequentially, but transactions within groups in parallel
+        for group in conflict_groups.into_iter() {
+            if group.len() == 1 {
+                // Single transaction, no conflicts
+                let mut tx = group[0].clone();
+                let result = self.process_transaction(&mut tx).await?;
+                all_results.push(result);
+            } else {
+                // Multiple conflicting transactions - process with conflict resolution
+                let group_results = self.process_conflict_group(group).await?;
+                all_results.extend(group_results);
             }
         }
 
         info!("Completed processing {} transactions", txs.len());
-        Ok(final_results)
+        Ok(all_results)
+    }
+    
+    /// Analyze transaction conflicts based on read/write sets
+    async fn analyze_transaction_conflicts(&self, txs: &[Transaction]) -> Result<Vec<Vec<Transaction>>> {
+        let mut conflict_groups = Vec::new();
+        let mut processed = vec![false; txs.len()];
+        
+        for i in 0..txs.len() {
+            if processed[i] {
+                continue;
+            }
+            
+            let mut current_group = vec![txs[i].clone()];
+            processed[i] = true;
+            
+            // Find transactions that conflict with this one
+            for j in (i + 1)..txs.len() {
+                if processed[j] {
+                    continue;
+                }
+                
+                if self.transactions_conflict(&txs[i], &txs[j]).await {
+                    current_group.push(txs[j].clone());
+                    processed[j] = true;
+                }
+            }
+            
+            conflict_groups.push(current_group);
+        }
+        
+        Ok(conflict_groups)
+    }
+    
+    /// Check if two transactions conflict
+    async fn transactions_conflict(&self, tx1: &Transaction, tx2: &Transaction) -> bool {
+        // Get read and write sets for both transactions
+        let read_set_1 = self.executor.get_read_set(tx1).await.unwrap_or_default();
+        let write_set_1 = self.executor.get_write_set(tx1).await.unwrap_or_default();
+        let read_set_2 = self.executor.get_read_set(tx2).await.unwrap_or_default();
+        let write_set_2 = self.executor.get_write_set(tx2).await.unwrap_or_default();
+        
+        // Check for read-write conflicts
+        let read_write_conflict = !read_set_1.is_disjoint(&write_set_2) || !read_set_2.is_disjoint(&write_set_1);
+        
+        // Check for write-write conflicts
+        let write_write_conflict = !write_set_1.is_disjoint(&write_set_2);
+        
+        // Check for same sender (nonce conflicts)
+        let sender_conflict = tx1.sender == tx2.sender;
+        
+        read_write_conflict || write_write_conflict || sender_conflict
+    }
+    
+    /// Process a group of conflicting transactions
+    async fn process_conflict_group(&self, group: Vec<Transaction>) -> Result<Vec<ExecutionResult>> {
+        if group.is_empty() {
+            return Ok(Vec::new());
+        }
+        
+        // Sort transactions by priority (gas price * gas limit)
+        let mut sorted_group = group;
+        sorted_group.sort_by(|a, b| {
+            let priority_a = a.gas_price.saturating_mul(a.gas_limit);
+            let priority_b = b.gas_price.saturating_mul(b.gas_limit);
+            priority_b.cmp(&priority_a) // Higher priority first
+        });
+        
+        let mut results = Vec::new();
+        
+        // Process transactions sequentially in the conflict group
+        for mut tx in sorted_group {
+            let result = self.process_transaction(&mut tx).await?;
+            results.push(result);
+        }
+        
+        Ok(results)
     }
 
     /// Apply transactions to a block

@@ -43,7 +43,7 @@ extern "C" {
     /// This method computes the difference between the two times represented by zonedDateTime and
     /// other, optionally rounds it, and returns it as a Temporal.Duration object. If other is later
     /// than zonedDateTime then the resulting duration will be negative. The returned Temporal.Duration, when
-    /// added to zonedDateTime with the same options, will yield other.    
+    /// added to zonedDateTime with the same options, will yield other.
     #[wasm_bindgen(method)]
     pub fn since(this: &Instant, other: &Instant, options: &JsValue) -> Duration;
 
@@ -200,7 +200,7 @@ extern "C" {
     /// This method computes the difference between the two times represented by zonedDateTime and
     /// other, optionally rounds it, and returns it as a Temporal.Duration object. If other is later
     /// than zonedDateTime then the resulting duration will be negative. The returned Temporal.Duration, when
-    /// added to zonedDateTime with the same options, will yield other.    
+    /// added to zonedDateTime with the same options, will yield other.
     #[wasm_bindgen(method)]
     pub fn since(this: &PlainDateTime, other: &PlainDateTime, options: &JsValue) -> Duration;
 
@@ -377,7 +377,7 @@ extern "C" {
     /// This method computes the difference between the two times represented by zonedDateTime and
     /// other, optionally rounds it, and returns it as a Temporal.Duration object. If other is later
     /// than zonedDateTime then the resulting duration will be negative. The returned Temporal.Duration, when
-    /// added to zonedDateTime with the same options, will yield other.    
+    /// added to zonedDateTime with the same options, will yield other.
     #[wasm_bindgen(method)]
     pub fn since(this: &ZonedDateTime, other: &ZonedDateTime, options: &JsValue) -> Duration;
 
@@ -540,7 +540,7 @@ extern "C" {
     /// This method computes the difference between the two times represented by PlainTime and
     /// other, optionally rounds it, and returns it as a Temporal.Duration object. If other is later
     /// than zonedDateTime then the resulting duration will be negative. The returned Temporal.Duration, when
-    /// added to zonedDateTime with the same options, will yield other.    
+    /// added to zonedDateTime with the same options, will yield other.
     #[wasm_bindgen(method)]
     pub fn since(this: &PlainTime, other: &PlainTime, options: &JsValue) -> Duration;
 

@@ -1,4 +1,4 @@
-use arthachain_node::storage::{Storage, StorageInit, StorageStats, StorageConfig, StorageError};
+use arthachain_node::storage::{Storage, StorageConfig, StorageError, StorageInit, StorageStats};
 use arthachain_node::types::Hash;
 use async_trait::async_trait;
 use rand::{thread_rng, Rng};
@@ -374,7 +374,10 @@ async fn main() -> Result<(), StorageError> {
     let large_data = vec![42u8; 2048]; // 2KB data
     let large_key = b"large_data_key";
     storage.put(large_key, &large_data).await?;
-    println!("✓ Large data stored with key: {:?}", String::from_utf8_lossy(large_key));
+    println!(
+        "✓ Large data stored with key: {:?}",
+        String::from_utf8_lossy(large_key)
+    );
 
     // Get storage statistics
     println!("\nStorage statistics:");

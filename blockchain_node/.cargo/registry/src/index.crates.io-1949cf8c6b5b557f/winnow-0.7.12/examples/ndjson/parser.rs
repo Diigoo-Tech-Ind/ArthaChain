@@ -299,7 +299,7 @@ mod test {
     fn json_whitespace() {
         use JsonValue::{Array, Boolean, Null, Num, Object, Str};
 
-        let input = r#"  {    "null" : null,    "true"  :true ,    "false":  false  ,    "number" : 123e4 ,    "string" : " abc 123 " ,    "array" : [ false , 1 , "two" ] ,    "object" : { "a" : 1.0 , "b" : "c" } ,    "empty_array" : [  ] ,    "empty_object" : {   }  }  
+        let input = r#"  {    "null" : null,    "true"  :true ,    "false":  false  ,    "number" : 123e4 ,    "string" : " abc 123 " ,    "array" : [ false , 1 , "two" ] ,    "object" : { "a" : 1.0 , "b" : "c" } ,    "empty_array" : [  ] ,    "empty_object" : {   }  }
 "#;
 
         assert_eq!(

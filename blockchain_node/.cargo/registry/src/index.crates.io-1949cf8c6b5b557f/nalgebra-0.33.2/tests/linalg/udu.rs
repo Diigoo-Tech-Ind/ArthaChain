@@ -9,7 +9,7 @@ fn udu_simple() {
         0.0, -1.0,  2.0);
 
     let udu = m.udu().unwrap();
-    
+
     // Rebuild
     let p = udu.u * udu.d_matrix() * udu.u.transpose();
 

@@ -1638,7 +1638,7 @@ impl<B: BitBlock> BitVec<B> {
     /// assert!(b.eq_vec(&[true, false, true]));
     ///```
     ///
-    /// # Time complexity                                                                                                                                                         
+    /// # Time complexity
     /// Takes O([`len`]) time. All items after the insertion index must be
     /// shifted to the right. In the worst case, all elements are shifted when
     /// the insertion index is 0.

@@ -108,24 +108,30 @@ impl MerkleTree {
         let mut levels = vec![transaction_hashes.clone()];
         let mut current_level = transaction_hashes;
 
-        // Build tree bottom-up
-        while current_level.len() > 1 {
-            let mut next_level = Vec::new();
+        // Handle single transaction case - hash with itself
+        if current_level.len() == 1 {
+            let root_hash = MerkleProof::hash_pair(&current_level[0], &current_level[0]);
+            levels.push(vec![root_hash]);
+        } else {
+            // Build tree bottom-up
+            while current_level.len() > 1 {
+                let mut next_level = Vec::new();
 
-            // Process pairs
-            for chunk in current_level.chunks(2) {
-                let hash = if chunk.len() == 2 {
-                    // Hash pair
-                    MerkleProof::hash_pair(&chunk[0], &chunk[1])
-                } else {
-                    // Odd number, hash with itself
-                    MerkleProof::hash_pair(&chunk[0], &chunk[0])
-                };
-                next_level.push(hash);
+                // Process pairs
+                for chunk in current_level.chunks(2) {
+                    let hash = if chunk.len() == 2 {
+                        // Hash pair
+                        MerkleProof::hash_pair(&chunk[0], &chunk[1])
+                    } else {
+                        // Odd number, hash with itself
+                        MerkleProof::hash_pair(&chunk[0], &chunk[0])
+                    };
+                    next_level.push(hash);
+                }
+
+                levels.push(next_level.clone());
+                current_level = next_level;
             }
-
-            levels.push(next_level.clone());
-            current_level = next_level;
         }
 
         Ok(Self {
@@ -329,9 +335,13 @@ mod tests {
         let tx_hashes = vec![vec![1, 2, 3, 4]];
         let tree = MerkleTree::build(tx_hashes.clone()).unwrap();
 
-        // Root should be the single transaction hash
+        // Root should be the single transaction hash (hashed with itself for single item)
         let root = tree.root_hash().unwrap();
-        assert_eq!(root, MerkleProof::hash_pair(&tx_hashes[0], &tx_hashes[0]));
+        let expected_root = MerkleProof::hash_pair(&tx_hashes[0], &tx_hashes[0]);
+        assert_eq!(root, expected_root);
+        
+        // Verify the root is a 32-byte hash
+        assert_eq!(root.len(), 32);
     }
 
     #[test]

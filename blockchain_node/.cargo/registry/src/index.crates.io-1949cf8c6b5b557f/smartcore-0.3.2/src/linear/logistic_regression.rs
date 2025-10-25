@@ -416,7 +416,7 @@ impl<TX: Number + FloatNumber + RealNumber, TY: Number + Ord, X: Array2<TX>, Y: 
     /// Fits Logistic Regression to your data.
     /// * `x` - _NxM_ matrix with _N_ observations and _M_ features in each observation.
     /// * `y` - target class values
-    /// * `parameters` - other parameters, use `Default::default()` to set parameters to default values.    
+    /// * `parameters` - other parameters, use `Default::default()` to set parameters to default values.
     pub fn fit(
         x: &X,
         y: &Y,

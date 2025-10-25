@@ -69,7 +69,7 @@ pub async fn wallet_connect_page() -> Html<String> {
     Html(html.to_string())
 }
 
-/// IDE setup page  
+/// IDE setup page
 pub async fn ide_setup_page() -> Html<String> {
     let html = include_str!("templates/ide_setup.html");
     Html(html.to_string())
@@ -183,7 +183,7 @@ fn get_evm_wallets() -> Vec<WalletInfo> {
     ]
 }
 
-/// Top 20 Multi-VM Compatible Wallets  
+/// Top 20 Multi-VM Compatible Wallets
 fn get_wasm_wallets() -> Vec<WalletInfo> {
     vec![
         WalletInfo {

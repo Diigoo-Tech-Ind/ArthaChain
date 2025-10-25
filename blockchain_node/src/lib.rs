@@ -209,7 +209,7 @@ pub mod security;
 
 // Smart contract runtimes
 pub mod evm;
-// pub mod wasm; // WASM execution engine for smart contracts - DISABLED for future implementation
+pub mod wasm; // WASM execution engine for smart contracts - FULLY IMPLEMENTED
 
 // Contract and development tools
 pub mod contracts;
@@ -228,10 +228,10 @@ pub mod utils;
 pub mod performance;
 
 // Mobile optimization
-// pub mod mobile; // TODO: Implement mobile optimization module
+pub mod mobile;
 
 // Cross-chain bridges
-// pub mod bridges; // TODO: Implement cross-chain bridges module
+pub mod bridges;
 
 // Native token
 pub mod native_token;

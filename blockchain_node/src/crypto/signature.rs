@@ -7,7 +7,7 @@ use std::fmt;
 
 /// Generic signature type
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Signature(Vec<u8>);
+pub struct Signature(pub Vec<u8>);
 
 impl Signature {
     pub fn new(bytes: Vec<u8>) -> Self {

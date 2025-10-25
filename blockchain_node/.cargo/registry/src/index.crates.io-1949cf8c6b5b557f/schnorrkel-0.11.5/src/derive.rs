@@ -86,7 +86,7 @@ impl PublicKey {
     /// If `i` is the "index", `c` is the chain code, and `pk` the public key,
     /// then we compute `H(i ++ c ++ pk)` and define our mutating scalar
     /// to be the 512 bits of output reduced mod l, and define the next chain
-    /// code to be next 256 bits.  
+    /// code to be next 256 bits.
     ///
     /// We update the signing transcript as a side effect.
     fn derive_scalar_and_chaincode<T>(&self, t: &mut T, cc: ChainCode) -> (Scalar, ChainCode)
@@ -256,7 +256,7 @@ pub struct ExtendedKey<K> {
     /// chain codes fill this gap by being a high entropy secret shared
     /// between public and private key holders.  These are produced by
     /// key derivations and can be incorporated into subsequence key
-    /// derivations.  
+    /// derivations.
     pub chaincode: ChainCode,
 }
 // TODO: Serialization

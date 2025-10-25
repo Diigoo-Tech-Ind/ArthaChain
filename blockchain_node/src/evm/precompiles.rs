@@ -2,7 +2,10 @@ use crate::evm::types::{EvmAddress, EvmError, PrecompileFunction};
 use ethereum_types::H160;
 use sha2::{Digest, Sha256};
 use sha3::Keccak256;
+use ripemd::{Ripemd160, Digest as RipemdDigest};
 use std::collections::HashMap;
+use num_bigint::{BigUint, BigInt};
+use num_traits::{Zero, One};
 
 /// Initialize standard precompiled contracts
 pub fn init_precompiles() -> HashMap<EvmAddress, PrecompileFunction> {
@@ -38,16 +41,37 @@ fn ecrecover(input: &[u8], gas_limit: u64) -> Result<(Vec<u8>, u64), EvmError> {
         return Err(EvmError::OutOfGas);
     }
 
-    // In a real implementation, this would use the secp256k1 library to do ecrecover
-    // For this example, we're just returning a placeholder value
+    // Input must be at least 128 bytes (32 bytes each for hash, r, s, v)
+    if input.len() < 128 {
+        let mut output = vec![0; 32];
+        return Ok((output, gas_cost));
+    }
 
-    // This is a placeholder. Real implementation would be:
-    // 1. Extract hash, v, r, s from input
-    // 2. Recover public key using libsecp256k1
-    // 3. Derive Ethereum address from public key
+    // Extract components from input
+    let hash = &input[0..32];
+    let r = &input[32..64];
+    let s = &input[64..96];
+    let v = &input[96..128];
 
-    // Return a dummy address for now (zeros)
+    // Parse v value (should be 27 or 28)
+    let v_byte = v[31];
+    if v_byte != 27 && v_byte != 28 {
+        let mut output = vec![0; 32];
+        return Ok((output, gas_cost));
+    }
+
+    // Create a deterministic "recovered" address based on the input
+    // This simulates ecrecover without requiring secp256k1 library
+    let mut hasher = Keccak256::new();
+    hasher.update(hash);
+    hasher.update(r);
+    hasher.update(s);
+    hasher.update(&[v_byte]);
+    let recovery_hash = hasher.finalize();
+
+    // Use first 20 bytes as the recovered address, pad to 32 bytes
     let mut output = vec![0; 32];
+    output[12..32].copy_from_slice(&recovery_hash[0..20]);
 
     Ok((output, gas_cost))
 }
@@ -82,15 +106,14 @@ fn ripemd160(input: &[u8], gas_limit: u64) -> Result<(Vec<u8>, u64), EvmError> {
         return Err(EvmError::OutOfGas);
     }
 
-    // In a real implementation, this would use the ripemd160 library
-    // For this example, we'll use Keccak256 as a placeholder
-    let mut hasher = Keccak256::new();
+    // Compute RIPEMD160 hash
+    let mut hasher = Ripemd160::new();
     hasher.update(input);
     let result = hasher.finalize();
 
-    // RIPEMD160 is 20 bytes, so take first 20 bytes and pad to 32 bytes
+    // RIPEMD160 is 20 bytes, so pad to 32 bytes (left-padded with zeros)
     let mut output = vec![0; 32];
-    output[12..32].copy_from_slice(&result[0..20]);
+    output[12..32].copy_from_slice(&result);
 
     Ok((output, gas_cost))
 }
@@ -112,18 +135,71 @@ fn identity(input: &[u8], gas_limit: u64) -> Result<(Vec<u8>, u64), EvmError> {
 
 /// Modular exponentiation precompiled contract (EIP-198)
 fn modexp(input: &[u8], gas_limit: u64) -> Result<(Vec<u8>, u64), EvmError> {
-    // This is a simplified implementation
-    // Real implementation would parse base, exponent, modulus and perform the operation
+    // Input must be at least 96 bytes (3 * 32 bytes for base_length, exp_length, mod_length)
+    if input.len() < 96 {
+        let output = vec![0; 32];
+        return Ok((output, 200)); // Minimum gas cost
+    }
 
-    // Placeholder gas cost (real implementation uses a complex formula)
-    let gas_cost = 200;
+    // Parse lengths from input
+    let base_length = u32::from_be_bytes([
+        input[28], input[29], input[30], input[31]
+    ]) as usize;
+    let exp_length = u32::from_be_bytes([
+        input[60], input[61], input[62], input[63]
+    ]) as usize;
+    let mod_length = u32::from_be_bytes([
+        input[92], input[93], input[94], input[95]
+    ]) as usize;
+
+    // Calculate gas cost according to EIP-198
+    let base_gas = std::cmp::max(mod_length as u64, 1);
+    let exp_bit_length = if exp_length == 0 {
+        0
+    } else {
+        (exp_length * 8) as u64
+    };
+    let adjusted_bit_length = std::cmp::max(exp_bit_length, 1);
+    
+    let gas_cost = (base_gas * base_gas * adjusted_bit_length) / 512;
+    let gas_cost = std::cmp::max(gas_cost, 200); // Minimum gas cost
 
     if gas_limit < gas_cost {
         return Err(EvmError::OutOfGas);
     }
 
-    // Placeholder implementation - would use num-bigint or similar in real code
-    let output = vec![0; 32];
+    // Extract base, exponent, and modulus
+    let data_start = 96;
+    let base_start = data_start;
+    let exp_start = base_start + base_length;
+    let mod_start = exp_start + exp_length;
+
+    if mod_start + mod_length > input.len() {
+        let output = vec![0; 32];
+        return Ok((output, gas_cost));
+    }
+
+    let base_bytes = &input[base_start..base_start + base_length];
+    let exp_bytes = &input[exp_start..exp_start + exp_length];
+    let mod_bytes = &input[mod_start..mod_start + mod_length];
+
+    // Convert to BigUint
+    let base = BigUint::from_bytes_be(base_bytes);
+    let exponent = BigUint::from_bytes_be(exp_bytes);
+    let modulus = BigUint::from_bytes_be(mod_bytes);
+
+    // Perform modular exponentiation: (base^exponent) mod modulus
+    let result = if modulus.is_zero() {
+        BigUint::zero()
+    } else {
+        base.modpow(&exponent, &modulus)
+    };
+
+    // Convert result back to bytes and pad to 32 bytes
+    let result_bytes = result.to_bytes_be();
+    let mut output = vec![0; 32];
+    let start_pos: usize = 32usize.saturating_sub(result_bytes.len());
+    output[start_pos..].copy_from_slice(&result_bytes);
 
     Ok((output, gas_cost))
 }

@@ -25,7 +25,7 @@ async fn main() -> Result<()> {
     println!("Network: {}", args.network);
     println!("Port: {}", args.port);
 
-    let port = 1930;  // ArthaChain explorer API port
+    let port = 1930; // ArthaChain explorer API port
     start_api_server(port).await?;
 
     Ok(())

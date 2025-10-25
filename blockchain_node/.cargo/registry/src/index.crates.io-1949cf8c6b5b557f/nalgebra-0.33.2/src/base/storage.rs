@@ -249,7 +249,7 @@ pub unsafe trait RawStorageMut<T, R: Dim, C: Dim = U1>: RawStorage<T, R, C> {
 
     /// Retrieves the mutable data buffer as a contiguous slice.
     ///
-    /// Matrix components may not be contiguous, depending on its strides.    
+    /// Matrix components may not be contiguous, depending on its strides.
     ///
     /// # Safety
     /// The matrix components may not be stored in a contiguous way, depending on the strides.

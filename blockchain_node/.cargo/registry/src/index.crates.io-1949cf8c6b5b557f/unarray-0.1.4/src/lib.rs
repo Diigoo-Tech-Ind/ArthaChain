@@ -35,10 +35,10 @@
 //! For example:
 //! ```
 //! # use unarray::*;
-//! let mut buffer = uninit_buf();  
+//! let mut buffer = uninit_buf();
 //!
 //! for elem in &mut buffer {
-//!   elem.write(123);  
+//!   elem.write(123);
 //! }
 //!
 //! let result = unsafe { mark_initialized(buffer) };

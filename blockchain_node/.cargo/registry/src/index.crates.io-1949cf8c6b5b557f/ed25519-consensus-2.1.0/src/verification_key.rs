@@ -14,7 +14,7 @@ use crate::{Error, Signature};
 ///
 /// This is useful for representing an encoded verification key, while the
 /// [`VerificationKey`] type in this library caches other decoded state used in
-/// signature verification.  
+/// signature verification.
 ///
 /// A `VerificationKeyBytes` can be used to verify a single signature using the
 /// following idiom:

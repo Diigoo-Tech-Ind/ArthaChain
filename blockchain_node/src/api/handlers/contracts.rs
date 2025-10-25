@@ -1,6 +1,6 @@
 use crate::ledger::state::State;
 use crate::smart_contract_engine::SmartContractEngine;
-use axum::{extract::Extension, http::StatusCode, response::Json as AxumJson};
+use axum::{extract::{Extension, State as AxumState}, http::StatusCode, response::Json};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -247,7 +247,7 @@ impl SmartContractsService {
 /// Handler for getting smart contracts info
 pub async fn get_contracts_info(
     Extension(state): Extension<Arc<RwLock<State>>>,
-) -> Result<AxumJson<serde_json::Value>, StatusCode> {
+) -> Result<Json<serde_json::Value>, StatusCode> {
     let smart_contract_engine = Arc::new(RwLock::new(
         SmartContractEngine::new(
             Arc::new(
@@ -270,7 +270,7 @@ pub async fn get_contracts_info(
             let total_contracts = contracts.len();
             let verified_contracts = contracts.iter().filter(|c| c.verified).count();
 
-            Ok(AxumJson(serde_json::json!({
+            Ok(Json(serde_json::json!({
                 "status": "success",
                 "total_contracts": total_contracts,
                 "verified_contracts": verified_contracts,
@@ -288,7 +288,7 @@ pub async fn get_contracts_info(
 /// Handler for getting smart contracts health
 pub async fn get_contracts_health(
     Extension(state): Extension<Arc<RwLock<State>>>,
-) -> Result<AxumJson<serde_json::Value>, StatusCode> {
+) -> Result<Json<serde_json::Value>, StatusCode> {
     let smart_contract_engine = Arc::new(RwLock::new(
         SmartContractEngine::new(
             Arc::new(
@@ -307,7 +307,7 @@ pub async fn get_contracts_health(
     let service = SmartContractsService::new(smart_contract_engine, state);
 
     match service.get_contracts_health().await {
-        Ok(health) => Ok(AxumJson(health)),
+        Ok(health) => Ok(Json(health)),
         Err(e) => {
             log::error!("Failed to get contracts health: {}", e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
@@ -317,9 +317,9 @@ pub async fn get_contracts_health(
 
 /// Handler for deploying smart contracts
 pub async fn deploy_evm_contract(
-    AxumJson(request): AxumJson<DeployRequest>,
-    Extension(state): Extension<Arc<RwLock<State>>>,
-) -> Result<AxumJson<ContractExecutionResult>, StatusCode> {
+    axum::extract::State(state): axum::extract::State<Arc<RwLock<State>>>,
+    Json(request): Json<DeployRequest>,
+) -> Result<Json<ContractExecutionResult>, StatusCode> {
     let smart_contract_engine = Arc::new(RwLock::new(
         SmartContractEngine::new(
             Arc::new(
@@ -338,7 +338,7 @@ pub async fn deploy_evm_contract(
     let service = SmartContractsService::new(smart_contract_engine, state);
 
     match service.deploy_contract(&request).await {
-        Ok(result) => Ok(AxumJson(result)),
+        Ok(result) => Ok(Json(result)),
         Err(e) => {
             log::error!("Failed to deploy contract: {}", e);
             Err(StatusCode::BAD_REQUEST)
@@ -348,9 +348,9 @@ pub async fn deploy_evm_contract(
 
 /// Handler for calling smart contracts
 pub async fn call_evm_contract(
-    AxumJson(request): AxumJson<CallRequest>,
-    Extension(state): Extension<Arc<RwLock<State>>>,
-) -> Result<AxumJson<ContractExecutionResult>, StatusCode> {
+    AxumState(state): AxumState<Arc<RwLock<State>>>,
+    Json(request): Json<CallRequest>,
+) -> Result<Json<ContractExecutionResult>, StatusCode> {
     let smart_contract_engine = Arc::new(RwLock::new(
         SmartContractEngine::new(
             Arc::new(
@@ -369,7 +369,7 @@ pub async fn call_evm_contract(
     let service = SmartContractsService::new(smart_contract_engine, state);
 
     match service.call_contract(&request).await {
-        Ok(result) => Ok(AxumJson(result)),
+        Ok(result) => Ok(Json(result)),
         Err(e) => {
             log::error!("Failed to call contract: {}", e);
             Err(StatusCode::BAD_REQUEST)
@@ -381,7 +381,7 @@ pub async fn call_evm_contract(
 pub async fn get_contract_by_address(
     axum::extract::Path(address): axum::extract::Path<String>,
     Extension(state): Extension<Arc<RwLock<State>>>,
-) -> Result<AxumJson<ContractInfo>, StatusCode> {
+) -> Result<Json<ContractInfo>, StatusCode> {
     let smart_contract_engine = Arc::new(RwLock::new(
         SmartContractEngine::new(
             Arc::new(
@@ -400,7 +400,7 @@ pub async fn get_contract_by_address(
     let service = SmartContractsService::new(smart_contract_engine, state);
 
     match service.get_contract_by_address(&address).await {
-        Ok(contract) => Ok(AxumJson(contract)),
+        Ok(contract) => Ok(Json(contract)),
         Err(e) => {
             log::error!("Failed to get contract: {}", e);
             Err(StatusCode::NOT_FOUND)

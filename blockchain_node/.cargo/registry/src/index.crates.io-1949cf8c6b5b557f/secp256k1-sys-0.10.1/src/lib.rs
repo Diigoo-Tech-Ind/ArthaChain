@@ -1054,7 +1054,7 @@ impl<T> CPtr for &[T] {
             self.as_ptr() as *mut Self::Target
         }
     }
-    
+
 }
 
 impl CPtr for [u8; 32] {

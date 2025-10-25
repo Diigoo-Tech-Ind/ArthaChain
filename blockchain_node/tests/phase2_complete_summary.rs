@@ -12,21 +12,21 @@ fn test_phase2_complete_integration() {
 
     let start_time = Instant::now();
 
-    // Phase 2.1: WASM Virtual Machine 
+    // Phase 2.1: WASM Virtual Machine
     println!(" Phase 2.1: WASM Virtual Machine");
     println!("   🔧 WasmExecutionEngine: IMPLEMENTED");
     println!("   🔧 Host Functions: READY");
     println!("   🔧 Gas Metering: OPERATIONAL");
     println!("   🔧 Memory Management: SECURE");
 
-    // Phase 2.2: Smart Contract Engine 
+    // Phase 2.2: Smart Contract Engine
     println!(" Phase 2.2: Smart Contract Engine");
     println!("   🔧 Unified WASM/EVM Interface: IMPLEMENTED");
     println!("   🔧 Contract Registry: OPERATIONAL");
     println!("   🔧 Optimization Cache: WORKING");
     println!("   🔧 Runtime Selection: AUTOMATIC");
 
-    // Phase 2.3: EVM Compatibility Layer 
+    // Phase 2.3: EVM Compatibility Layer
     println!(" Phase 2.3: EVM Compatibility Layer");
     println!("   🔧 Ethereum Address Support (H160): COMPLETE");
     println!("   🔧 256-bit Arithmetic (U256): COMPLETE");
@@ -35,7 +35,7 @@ fn test_phase2_complete_integration() {
     println!("   🔧 Precompiled Contracts: SUPPORTED");
     println!("   🔧 ERC-20 Function Selectors: COMPLETE");
 
-    // Phase 2.4: Gas Optimization System 
+    // Phase 2.4: Gas Optimization System
     println!(" Phase 2.4: Gas Optimization System");
     println!("   🔧 Static Analysis: IMPLEMENTED");
     println!("   🔧 Dynamic Optimization: IMPLEMENTED");

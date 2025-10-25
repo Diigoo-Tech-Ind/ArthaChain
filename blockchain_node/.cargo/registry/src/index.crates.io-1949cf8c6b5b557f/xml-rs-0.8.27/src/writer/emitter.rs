@@ -325,7 +325,7 @@ impl Emitter {
 
     pub fn emit_attributes<W: Write>(&self, target: &mut W,
                                       attributes: &[Attribute<'_>]) -> Result<()> {
-        for attr in attributes {            
+        for attr in attributes {
             write!(target, " {}=\"", attr.name.repr_display())?;
             if self.config.perform_escaping {
                 write!(target, "{}", Escaped::<AttributeEscapes>::new(attr.value))?;

@@ -13,7 +13,7 @@ impl BlockManager {
 
     pub fn process_block(&mut self, block: Block) -> Result<(), NetworkError> {
         let hash = block.hash()?;
-        
+
         // Validate block header
         if !self.validate_header(&block.header) {
             return Err(NetworkError::InvalidBlockHeader);
@@ -53,4 +53,4 @@ impl BlockManager {
     pub fn get_header(&self, hash: &Hash) -> Option<&BlockHeader> {
         self.headers.get(hash)
     }
-} 
+}

@@ -146,10 +146,10 @@ impl PruningManager {
     /// Start the pruning manager
     pub async fn start(&mut self) -> Result<()> {
         info!("Starting pruning manager");
-        
+
         // Create archive directory if it doesn't exist
         fs::create_dir_all(&self.config.archive_dir)?;
-        
+
         while let Some(request) = self.pruning_rx.recv().await {
             match request {
                 PruningRequest::PruneToHeight { height, timestamp } => {
@@ -163,18 +163,18 @@ impl PruningManager {
                 },
             }
         }
-        
+
         Ok(())
     }
 
     /// Handle a prune request
     async fn handle_prune_request(&mut self, height: u64, timestamp: u64) -> Result<()> {
         info!("Processing prune request to height {}", height);
-        
+
         let mut state = self.state.write().await;
         let mut pruned_blocks = 0;
         let mut pruned_size = 0;
-        
+
         // Prune blocks
         while state.height > height {
             if let Some(block) = state.remove_block() {
@@ -182,35 +182,35 @@ impl PruningManager {
                 pruned_size += block.size() as u64;
             }
         }
-        
+
         // Prune state
         state.prune_state(height, &self.config.keep_accounts, &self.config.keep_contracts)?;
-        
+
         self.last_pruning = height;
-        
+
         // Send response
         self.pruning_tx.send(PruningResponse::PruningCompleted {
             height,
             pruned_blocks,
             pruned_size,
         }).await?;
-        
+
         info!("Pruning completed: {} blocks, {} bytes", pruned_blocks, pruned_size);
-        
+
         Ok(())
     }
 
     /// Handle an archive request
     async fn handle_archive_request(&mut self, height: u64, timestamp: u64) -> Result<()> {
         info!("Processing archive request to height {}", height);
-        
+
         let state = self.state.read().await;
         let archive_path = self.config.archive_dir.join(format!("archive_{}.bin", height));
-        
+
         // Create archive file
         let file = File::create(&archive_path)?;
         let writer = BufWriter::new(file);
-        
+
         // Write archive metadata
         let metadata = ArchiveMetadata {
             start_height: self.last_archive,
@@ -223,7 +223,7 @@ impl PruningManager {
             account_count: state.get_account_count()?,
             contract_count: state.get_contract_count()?,
         };
-        
+
         // Write state to archive
         let mut size = 0;
         for block_height in self.last_archive..=height {
@@ -233,52 +233,52 @@ impl PruningManager {
                 writer.write_all(&block_data)?;
             }
         }
-        
+
         // Update metadata with final size
         let mut metadata = metadata;
         metadata.size = size;
-        
+
         // Write metadata to separate file
         let meta_path = archive_path.with_extension("meta");
         let meta_file = File::create(meta_path)?;
         bincode::serialize_into(meta_file, &metadata)?;
-        
+
         // Update archives
         self.archives.write().await.insert(height, metadata.clone());
-        
+
         self.last_archive = height;
-        
+
         // Send response
         self.pruning_tx.send(PruningResponse::ArchivingCompleted {
             height,
             archive_path: archive_path.clone(),
             archive_size: size,
         }).await?;
-        
+
         info!("Archiving completed: {} bytes", size);
-        
+
         Ok(())
     }
 
     /// Handle a restore request
     async fn handle_restore_request(&mut self, archive_height: u64, timestamp: u64) -> Result<()> {
         info!("Processing restore request from archive height {}", archive_height);
-        
+
         let archive_path = self.config.archive_dir.join(format!("archive_{}.bin", archive_height));
         let meta_path = archive_path.with_extension("meta");
-        
+
         // Read metadata
         let meta_file = File::open(meta_path)?;
         let metadata: ArchiveMetadata = bincode::deserialize_from(meta_file)?;
-        
+
         // Read archive
         let file = File::open(archive_path)?;
         let reader = BufReader::new(file);
-        
+
         let mut state = self.state.write().await;
         let mut restored_blocks = 0;
         let mut restored_size = 0;
-        
+
         // Restore blocks
         for block_height in metadata.start_height..=metadata.end_height {
             if let Ok(block) = bincode::deserialize_from::<_, Block>(reader) {
@@ -287,16 +287,16 @@ impl PruningManager {
                 restored_size += block.size() as u64;
             }
         }
-        
+
         // Send response
         self.pruning_tx.send(PruningResponse::RestorationCompleted {
             height: archive_height,
             restored_blocks,
             restored_size,
         }).await?;
-        
+
         info!("Restoration completed: {} blocks, {} bytes", restored_blocks, restored_size);
-        
+
         Ok(())
     }
 
@@ -317,12 +317,12 @@ impl PruningManager {
     pub async fn cleanup_archives(&mut self) -> Result<()> {
         let mut archives = self.archives.write().await;
         let mut total_size = 0;
-        
+
         // Calculate total size
         for metadata in archives.values() {
             total_size += metadata.size;
         }
-        
+
         // Remove oldest archives if total size exceeds limit
         while total_size > self.config.max_archive_size {
             if let Some((height, metadata)) = archives.iter()
@@ -330,20 +330,20 @@ impl PruningManager {
             {
                 let archive_path = self.config.archive_dir.join(format!("archive_{}.bin", height));
                 let meta_path = archive_path.with_extension("meta");
-                
+
                 // Remove files
                 fs::remove_file(archive_path)?;
                 fs::remove_file(meta_path)?;
-                
+
                 total_size -= metadata.size;
                 archives.remove(height);
-                
+
                 info!("Removed archive at height {}", height);
             } else {
                 break;
             }
         }
-        
+
         Ok(())
     }
-} 
+}

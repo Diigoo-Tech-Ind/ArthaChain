@@ -618,7 +618,7 @@ impl MemStack {
     }
 
     /// Returns a new aligned [`DynArray`], initialized with the provided iterator, and a stack
-    /// over the remainder of the buffer.  
+    /// over the remainder of the buffer.
     /// If there isn't enough space for all the iterator items, then the returned array only
     /// contains the first elements that fit into the stack.
     ///
@@ -637,7 +637,7 @@ impl MemStack {
     }
 
     /// Returns a new [`DynArray`], initialized with the provided iterator, and a stack over the
-    /// remainder of the buffer.  
+    /// remainder of the buffer.
     /// If there isn't enough space for all the iterator items, then the returned array only
     /// contains the first elements that fit into the stack.
     ///
@@ -876,7 +876,7 @@ impl PodStack {
     }
 
     /// Returns a new aligned slice, initialized with the provided iterator, and a stack
-    /// over the remainder of the buffer.  
+    /// over the remainder of the buffer.
     /// If there isn't enough space for all the iterator items, then the returned array only
     /// contains the first elements that fit into the stack.
     ///
@@ -895,7 +895,7 @@ impl PodStack {
     }
 
     /// Returns a new slice, initialized with the provided iterator, and a stack over the
-    /// remainder of the buffer.  
+    /// remainder of the buffer.
     /// If there isn't enough space for all the iterator items, then the returned array only
     /// contains the first elements that fit into the stack.
     ///

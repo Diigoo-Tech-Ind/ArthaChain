@@ -5,7 +5,7 @@
 macro_rules! fast_ref {
    (($slice : expr)[$index: expr]) => {
        &($slice)[$index]
-   }; 
+   };
 }
 
 #[cfg(not(feature="unsafe"))]

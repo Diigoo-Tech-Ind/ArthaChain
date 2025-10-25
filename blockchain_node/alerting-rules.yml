@@ -8,7 +8,7 @@ groups:
           severity: warning
         annotations:
           summary: "High memory usage detected"
-          
+
       - alert: ConsensusFailure
         expr: rate(arthachain_consensus_failures_total[5m]) > 0.1
         for: 1m
@@ -16,7 +16,7 @@ groups:
           severity: critical
         annotations:
           summary: "Consensus failures detected"
-          
+
       - alert: LowPeerCount
         expr: arthachain_peer_count < 3
         for: 2m

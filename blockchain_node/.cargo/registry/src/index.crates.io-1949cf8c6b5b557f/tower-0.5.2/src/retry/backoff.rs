@@ -4,7 +4,7 @@
 //! The [`Backoff`] trait is a generic way to represent backoffs that can use
 //! any timer type.
 //!
-//! [`ExponentialBackoffMaker`] implements the maker type for  
+//! [`ExponentialBackoffMaker`] implements the maker type for
 //! [`ExponentialBackoff`] which implements the [`Backoff`] trait and provides
 //! a batteries included exponential backoff and jitter strategy.
 //!

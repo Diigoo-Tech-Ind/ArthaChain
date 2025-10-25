@@ -461,7 +461,7 @@ mod tests {
         test_almost(
             dvector![0.3, 0.7],
             5,
-            dmatrix![1.05, -1.05; 
+            dmatrix![1.05, -1.05;
                     -1.05,  1.05],
             1e-15,
             variance,

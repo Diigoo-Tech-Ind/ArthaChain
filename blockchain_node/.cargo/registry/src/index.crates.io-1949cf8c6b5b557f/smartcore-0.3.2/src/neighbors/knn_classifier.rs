@@ -211,7 +211,7 @@ impl<TX: Number, TY: Number + Ord, X: Array2<TX>, Y: Array1<TY>, D: Distance<Vec
 {
     /// Fits KNN classifier to a NxM matrix where N is number of samples and M is number of features.
     /// * `x` - training data
-    /// * `y` - vector with target values (classes) of length N    
+    /// * `y` - vector with target values (classes) of length N
     /// * `parameters` - additional parameters like search algorithm and k
     pub fn fit(
         x: &X,

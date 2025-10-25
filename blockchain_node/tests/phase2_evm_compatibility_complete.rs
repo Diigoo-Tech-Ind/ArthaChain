@@ -3,10 +3,10 @@
 //! This test demonstrates the full implementation of EVM compatibility
 //! including Ethereum transaction support, precompiled contracts, and Solidity execution.
 
-use arthachain_node::evm::{
-    EvmAddress, EvmTransaction, DEFAULT_GAS_LIMIT, DEFAULT_GAS_PRICE,
+use arthachain_node::evm::execution_engine::{
+    EvmExecutionConfig, EvmExecutionContext, EvmExecutionEngine, EvmVersion,
 };
-use arthachain_node::evm::execution_engine::{EvmExecutionConfig, EvmExecutionContext, EvmExecutionEngine, EvmVersion};
+use arthachain_node::evm::{EvmAddress, EvmTransaction, DEFAULT_GAS_LIMIT, DEFAULT_GAS_PRICE};
 use arthachain_node::storage::memory::MemoryStorage;
 use ethereum_types::{H256, U256};
 use std::sync::Arc;

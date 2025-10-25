@@ -72,7 +72,7 @@ mod tests {
         // Add receipt
         let receipt = create_test_receipt(vec![1, 2, 3, 4]);
         chain.add_receipt(receipt.clone());
-        
+
         assert_eq!(chain.receipts.len(), 1);
         assert!(!chain.merkle_root.is_empty());
         assert!(chain.verify_receipt(&receipt));
@@ -80,7 +80,7 @@ mod tests {
         // Add another receipt
         let receipt2 = create_test_receipt(vec![5, 6, 7, 8]);
         chain.add_receipt(receipt2.clone());
-        
+
         assert_eq!(chain.receipts.len(), 2);
         assert!(chain.verify_receipt(&receipt2));
     }
@@ -122,15 +122,15 @@ mod tests {
     fn test_multiple_receipts_same_hash() {
         let mut chain = ReceiptChain::new();
         let hash = vec![1, 2, 3, 4];
-        
+
         // Add first receipt
         let receipt1 = create_receipt_with_status(hash.clone(), CrossShardStatus::Pending);
         chain.add_receipt(receipt1.clone());
-        
+
         // Add second receipt with same hash but different status
         let receipt2 = create_receipt_with_status(hash.clone(), CrossShardStatus::Confirmed);
         chain.add_receipt(receipt2.clone());
-        
+
         assert_eq!(chain.receipts.len(), 2);
         assert!(chain.verify_receipt(&receipt1));
         assert!(chain.verify_receipt(&receipt2));
@@ -140,11 +140,11 @@ mod tests {
     fn test_receipt_with_signatures() {
         let mut chain = ReceiptChain::new();
         let mut receipt = create_test_receipt(vec![1, 2, 3, 4]);
-        
+
         // Add signatures from different shards
         receipt.shard_signatures.insert(1, vec![10, 11, 12]);
         receipt.shard_signatures.insert(2, vec![20, 21, 22]);
-        
+
         chain.add_receipt(receipt.clone());
         assert!(chain.verify_receipt(&receipt));
         assert_eq!(receipt.shard_signatures.len(), 2);
@@ -160,7 +160,7 @@ mod tests {
             shard_signatures: HashMap::new(),
             merkle_proof: Vec::new(),
         };
-        
+
         chain.add_receipt(receipt.clone());
         assert!(chain.verify_receipt(&receipt));
         assert!(!chain.merkle_root.is_empty());
@@ -170,18 +170,18 @@ mod tests {
     fn test_merkle_root_consistency() {
         let mut chain1 = ReceiptChain::new();
         let mut chain2 = ReceiptChain::new();
-        
+
         // Add same receipts in same order
         let receipt1 = create_test_receipt(vec![1, 2, 3, 4]);
         let receipt2 = create_test_receipt(vec![5, 6, 7, 8]);
-        
+
         chain1.add_receipt(receipt1.clone());
         chain1.add_receipt(receipt2.clone());
-        
+
         chain2.add_receipt(receipt1);
         chain2.add_receipt(receipt2);
-        
+
         // Merkle roots should be identical
         assert_eq!(chain1.merkle_root, chain2.merkle_root);
     }
-} 
+}

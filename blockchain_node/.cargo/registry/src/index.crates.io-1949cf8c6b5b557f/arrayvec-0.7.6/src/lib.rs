@@ -1,4 +1,4 @@
-//! **arrayvec** provides the types [`ArrayVec`] and [`ArrayString`]: 
+//! **arrayvec** provides the types [`ArrayVec`] and [`ArrayString`]:
 //! array-backed vector and string types, which store their contents inline.
 //!
 //! The arrayvec package has the following cargo features:

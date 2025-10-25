@@ -78,7 +78,7 @@ pub trait IpAdd<RHS = Self> {
 /// assert_eq!(ip2.saturating_sub(ip1), 95);
 /// assert_eq!(min.saturating_sub(5), min);
 /// assert_eq!(ip2.saturating_sub(95), ip1);
-/// 
+///
 /// let min: Ipv6Addr = "::".parse().unwrap();
 /// let ip1: Ipv6Addr = "fd00::5".parse().unwrap();
 /// let ip2: Ipv6Addr = "fd00::64".parse().unwrap();
@@ -110,7 +110,7 @@ pub trait IpSub<RHS = Self> {
 ///
 /// assert_eq!(ip.bitand(mask), res);
 /// assert_eq!(ip.bitand(0xffff0000), res);
-/// 
+///
 /// let ip: Ipv6Addr = "fd00:1234::1".parse().unwrap();
 /// let mask: Ipv6Addr = "ffff::".parse().unwrap();
 /// let res: Ipv6Addr = "fd00::".parse().unwrap();
@@ -140,7 +140,7 @@ pub trait IpBitAnd<RHS = Self> {
 ///
 /// assert_eq!(ip.bitor(mask), res);
 /// assert_eq!(ip.bitor(0x000000ff), res);
-/// 
+///
 /// let ip: Ipv6Addr = "fd00::1".parse().unwrap();
 /// let mask: Ipv6Addr = "::ffff:ffff".parse().unwrap();
 /// let res: Ipv6Addr = "fd00::ffff:ffff".parse().unwrap();
@@ -333,7 +333,7 @@ pub struct Ipv4AddrRange {
 ///
 /// # Examples
 ///
-/// ``` 
+/// ```
 /// # #[cfg(not(feature = "std"))]
 /// # use core::net::Ipv6Addr;
 /// # #[cfg(feature = "std")]
@@ -805,7 +805,7 @@ mod tests {
             Ipv6Addr::from_str("ffff:ffff:ffff:ffff:ffff:ffff:ffff:fffe").unwrap(),
             Ipv6Addr::from_str("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff").unwrap(),
         ]);
-        
+
         let i = IpAddrRange::from(Ipv4AddrRange::new(
             Ipv4Addr::from_str("10.0.0.0").unwrap(),
             Ipv4Addr::from_str("10.0.0.3").unwrap(),
@@ -821,7 +821,7 @@ mod tests {
         let mut v = i.collect::<Vec<_>>();
         v.reverse();
         assert_eq!(v, i.rev().collect::<Vec<_>>());
-        
+
         let i = IpAddrRange::from(Ipv4AddrRange::new(
             Ipv4Addr::from_str("255.255.255.254").unwrap(),
             Ipv4Addr::from_str("255.255.255.255").unwrap()

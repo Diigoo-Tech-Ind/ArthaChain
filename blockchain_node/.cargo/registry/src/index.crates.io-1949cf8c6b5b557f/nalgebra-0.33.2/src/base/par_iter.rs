@@ -182,7 +182,7 @@ where
     ///     .sum();
     ///
     /// assert_eq!(sum_of_max,3.0 + 4.0 + 5.0);
-    ///                             
+    ///
     /// ```
     ///
     /// [`par_column_iter_mut`]: crate::Matrix::par_column_iter_mut

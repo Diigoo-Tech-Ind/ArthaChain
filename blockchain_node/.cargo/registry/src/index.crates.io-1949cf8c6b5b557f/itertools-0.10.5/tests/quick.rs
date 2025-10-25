@@ -1232,7 +1232,7 @@ quickcheck! {
                     Some(acc.unwrap_or(0) + val)
                 }
             });
-        
+
         let group_map_lookup = a.iter()
             .map(|&b| b as u64)
             .map(|i| (i % modulo, i))
@@ -1252,7 +1252,7 @@ quickcheck! {
 
         for m in 0..modulo {
             assert_eq!(
-                lookup.get(&m).copied(), 
+                lookup.get(&m).copied(),
                 a.iter()
                     .map(|&b| b as u64)
                     .filter(|&val| val % modulo == m)
@@ -1372,7 +1372,7 @@ quickcheck! {
             assert_eq!(Some(max), a.iter().copied().filter(|&val| val % modulo == key).max_by_key(|&val| val));
         }
     }
-    
+
     fn correct_grouping_map_by_min_modulo_key(a: Vec<u8>, modulo: u8) -> () {
         let modulo = if modulo == 0 { 1 } else { modulo }; // Avoid `% 0`
         let lookup = a.iter().copied().into_grouping_map_by(|i| i % modulo).min();
@@ -1423,7 +1423,7 @@ quickcheck! {
             assert_eq!(Some(min), a.iter().copied().filter(|&val| val % modulo == key).min_by_key(|&val| val));
         }
     }
-    
+
     fn correct_grouping_map_by_minmax_modulo_key(a: Vec<u8>, modulo: u8) -> () {
         let modulo = if modulo == 0 { 1 } else { modulo }; // Avoid `% 0`
         let lookup = a.iter().copied().into_grouping_map_by(|i| i % modulo).minmax();
@@ -1536,7 +1536,7 @@ quickcheck! {
             .min_by(|_, _, _| Ordering::Equal);
 
         assert_eq!(lookup[&0], 0);
-        
+
         let lookup = (0..=10)
             .into_grouping_map_by(|_| 0)
             .minmax_by(|_, _, _| Ordering::Equal);
@@ -1640,7 +1640,7 @@ quickcheck! {
         !is_fused(a.clone().interleave_shortest(b.clone())) &&
         is_fused(a.fuse().interleave_shortest(b.fuse()))
     }
-    
+
     fn fused_product(a: Iter<i16>, b: Iter<i16>) -> bool
     {
         is_fused(a.fuse().cartesian_product(b.fuse()))

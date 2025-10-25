@@ -345,15 +345,15 @@ impl PetriNet {
         }
 
         let arcs = self.arcs.read().await;
-        
+
         // Check input places have sufficient tokens
         for input_place in &transition.input_places {
             let current_tokens = marking.get(input_place).copied().unwrap_or(0);
-            
+
             // Find the arc from this place to the transition
             let arc = arcs.iter()
                 .find(|arc| arc.source == *input_place && arc.target == transition.id);
-            
+
             if let Some(arc) = arc {
                 match arc.arc_type {
                     ArcType::Normal => {
@@ -410,7 +410,7 @@ impl PetriNet {
         for input_place in &transition.input_places {
             let arc = arcs.iter()
                 .find(|arc| arc.source == *input_place && arc.target == transition.id);
-            
+
             if let Some(arc) = arc {
                 match arc.arc_type {
                     ArcType::Normal => {
@@ -435,7 +435,7 @@ impl PetriNet {
         for output_place in &transition.output_places {
             let arc = arcs.iter()
                 .find(|arc| arc.source == transition.id && arc.target == *output_place);
-            
+
             if let Some(arc) = arc {
                 let current = marking.entry(output_place.clone()).or_insert(0);
                 *current = current.saturating_add(arc.weight);
@@ -458,16 +458,16 @@ impl PetriNet {
     pub async fn get_enabled_transitions_in_marking(&self, marking: &Marking) -> Result<Vec<Transition>> {
         let transitions = self.transitions.read().await;
         let mut enabled = Vec::new();
-        
+
         for transition in transitions.values() {
             if self.is_enabled_in_marking(transition, marking).await? {
                 enabled.push(transition.clone());
             }
         }
-        
+
         // Sort by priority (higher priority first)
         enabled.sort_by(|a, b| b.priority.cmp(&a.priority));
-        
+
         Ok(enabled)
     }
 
@@ -481,19 +481,19 @@ impl PetriNet {
     pub async fn reachability_analysis(&self, target_marking: Option<Marking>) -> Result<ReachabilityResult> {
         let start_time = std::time::Instant::now();
         let initial_marking = self.get_marking().await?;
-        
+
         let mut reachable_markings = Vec::new();
         let mut visited = HashSet::new();
         let mut queue = VecDeque::new();
         let mut parent_map = HashMap::new();
-        
+
         queue.push_back(initial_marking.clone());
         visited.insert(initial_marking.clone());
         reachable_markings.push(initial_marking.clone());
-        
+
         let mut target_found = false;
         let mut target_path = None;
-        
+
         while let Some(current_marking) = queue.pop_front() {
             // Check if we found the target
             if let Some(ref target) = target_marking {
@@ -503,14 +503,14 @@ impl PetriNet {
                     break;
                 }
             }
-            
+
             // Get enabled transitions
             let enabled_transitions = self.get_enabled_transitions_in_marking(&current_marking).await?;
-            
+
             for transition in enabled_transitions {
                 let mut new_marking = current_marking.clone();
                 self.fire_transition_in_marking(&transition, &mut new_marking).await?;
-                
+
                 // Check bounds
                 if self.is_marking_bounded(&new_marking) && !visited.contains(&new_marking) {
                     visited.insert(new_marking.clone());
@@ -519,15 +519,15 @@ impl PetriNet {
                     parent_map.insert(new_marking.clone(), (current_marking.clone(), transition.id));
                 }
             }
-            
+
             // Prevent infinite loops in unbounded nets
             if visited.len() > 10000 {
                 break;
             }
         }
-        
+
         let analysis_time = start_time.elapsed().as_millis() as u64;
-        
+
         Ok(ReachabilityResult {
             is_reachable: target_found,
             shortest_path: target_path,
@@ -547,7 +547,7 @@ impl PetriNet {
         let mut path = Vec::new();
         let mut markings = Vec::new();
         let mut current = target.clone();
-        
+
         while current != *initial {
             if let Some((parent, transition_id)) = parent_map.get(&current) {
                 path.push(transition_id.clone());
@@ -557,11 +557,11 @@ impl PetriNet {
                 break;
             }
         }
-        
+
         path.reverse();
         markings.reverse();
         markings.insert(0, initial.clone());
-        
+
         Ok(FiringSequence {
             transitions: path,
             markings,
@@ -584,7 +584,7 @@ impl PetriNet {
     /// Check if the net is deadlock-free
     pub async fn is_deadlock_free(&self) -> Result<bool> {
         let reachability_result = self.reachability_analysis(None).await?;
-        
+
         // Check if any reachable marking has no enabled transitions
         for marking in &reachability_result.reachable_markings {
             let enabled = self.get_enabled_transitions_in_marking(marking).await?;
@@ -592,7 +592,7 @@ impl PetriNet {
                 return Ok(false);
             }
         }
-        
+
         Ok(true)
     }
 
@@ -600,7 +600,7 @@ impl PetriNet {
     pub async fn is_live(&self) -> Result<bool> {
         let transitions = self.transitions.read().await;
         let reachability_result = self.reachability_analysis(None).await?;
-        
+
         // For each transition, check if it's enabled in at least one reachable marking
         for transition in transitions.values() {
             let mut enabled_somewhere = false;
@@ -614,7 +614,7 @@ impl PetriNet {
                 return Ok(false);
             }
         }
-        
+
         Ok(true)
     }
 
@@ -649,20 +649,20 @@ impl PetriNet {
     /// Get statistics about the net
     pub async fn get_stats(&self) -> Result<AnalysisStats> {
         let start_time = std::time::Instant::now();
-        
+
         let places = self.places.read().await;
         let transitions = self.transitions.read().await;
         let arcs = self.arcs.read().await;
-        
+
         let reachability_result = self.reachability_analysis(None).await?;
         let max_bound = reachability_result.reachable_markings.iter()
             .flat_map(|marking| marking.values())
             .max()
             .copied()
             .unwrap_or(0);
-        
+
         let analysis_duration = start_time.elapsed().as_millis() as u64;
-        
+
         Ok(AnalysisStats {
             places_count: places.len(),
             transitions_count: transitions.len(),
@@ -676,60 +676,60 @@ impl PetriNet {
     /// Create consensus workflow Petri net
     pub async fn create_consensus_workflow() -> Result<Self> {
         let net = Self::new_bounded(100);
-        
+
         // Add places for consensus phases
         net.add_place("init".to_string(), 1).await?;
         net.add_place("propose".to_string(), 0).await?;
         net.add_place("vote".to_string(), 0).await?;
         net.add_place("commit".to_string(), 0).await?;
         net.add_place("finalize".to_string(), 0).await?;
-        
+
         // Add control places
         net.add_place_with_type("validator_ready".to_string(), 3, PlaceType::Control, Some(10)).await?;
         net.add_place_with_type("quorum_reached".to_string(), 0, PlaceType::Control, Some(1)).await?;
-        
+
         // Add transitions for consensus workflow
         net.add_transition_with_priority("start_proposal".to_string(), None, 10).await?;
-        net.add_transition_with_priority("collect_votes".to_string(), 
+        net.add_transition_with_priority("collect_votes".to_string(),
             Some(GuardCondition::new(GuardType::GreaterThanOrEqual, 2)), 5).await?;
         net.add_transition_with_priority("reach_consensus".to_string(),
             Some(GuardCondition::new(GuardType::GreaterThanOrEqual, 2)), 5).await?;
         net.add_transition("finalize_block".to_string(), None).await?;
-        
+
         // Connect workflow
-        net.connect_places_to_transition("start_proposal", 
-            vec!["init".to_string(), "validator_ready".to_string()], 
+        net.connect_places_to_transition("start_proposal",
+            vec!["init".to_string(), "validator_ready".to_string()],
             vec!["propose".to_string()]).await?;
-        
+
         net.connect_places_to_transition("collect_votes",
             vec!["propose".to_string(), "validator_ready".to_string()],
             vec!["vote".to_string(), "quorum_reached".to_string()]).await?;
-        
+
         net.connect_places_to_transition("reach_consensus",
             vec!["vote".to_string(), "quorum_reached".to_string()],
             vec!["commit".to_string()]).await?;
-        
+
         net.connect_places_to_transition("finalize_block",
             vec!["commit".to_string()],
             vec!["finalize".to_string()]).await?;
-        
+
         // Add arcs
         net.add_arc("init".to_string(), "start_proposal".to_string(), 1).await?;
         net.add_arc("validator_ready".to_string(), "start_proposal".to_string(), 1).await?;
         net.add_arc("start_proposal".to_string(), "propose".to_string(), 1).await?;
-        
+
         net.add_arc("propose".to_string(), "collect_votes".to_string(), 1).await?;
         net.add_arc("validator_ready".to_string(), "collect_votes".to_string(), 2).await?;
         net.add_arc("collect_votes".to_string(), "vote".to_string(), 1).await?;
         net.add_arc("collect_votes".to_string(), "quorum_reached".to_string(), 1).await?;
-        
+
         net.add_arc("vote".to_string(), "reach_consensus".to_string(), 1).await?;
         net.add_arc("quorum_reached".to_string(), "reach_consensus".to_string(), 1).await?;
         net.add_arc("reach_consensus".to_string(), "commit".to_string(), 1).await?;
-        
+
         net.add_arc("commit".to_string(), "finalize_block".to_string(), 1).await?;
         net.add_arc("finalize_block".to_string(), "finalize".to_string(), 1).await?;
-        
+
         Ok(net)
     }
 }
@@ -760,44 +760,44 @@ impl PetriNetAnalyzer {
 
         // Basic structural analysis
         result.stats = net.get_stats().await?;
-        
+
         // Behavioral analysis
         result.is_bounded = net.is_bounded(net.max_bound).await?;
         result.is_safe = net.is_safe().await?;
         result.is_deadlock_free = net.is_deadlock_free().await?;
         result.is_live = net.is_live().await?;
-        
+
         // Reachability analysis
         let reachability_result = net.reachability_analysis(None).await?;
         result.is_reachable = true; // Initial marking is always reachable
         result.reachable_markings = reachability_result.reachable_markings;
-        
+
         // Update analysis duration
         result.stats.analysis_duration_ms = start_time.elapsed().as_millis() as u64;
-        
+
         Ok(result)
     }
 
     /// Analyze specific consensus properties
     pub async fn analyze_consensus_properties(&self, net: &PetriNet) -> Result<ConsensusAnalysisResult> {
         let analysis = self.analyze(net).await?;
-        
+
         // Check consensus-specific properties
         let has_finalization = analysis.reachable_markings.iter()
             .any(|marking| marking.get("finalize").unwrap_or(&0) > &0);
-        
+
         let has_deadlock_in_voting = analysis.reachable_markings.iter()
             .any(|marking| {
-                marking.get("vote").unwrap_or(&0) > &0 && 
+                marking.get("vote").unwrap_or(&0) > &0 &&
                 marking.get("quorum_reached").unwrap_or(&0) == &0
             });
-        
+
         let max_concurrent_validators = analysis.reachable_markings.iter()
             .map(|marking| marking.get("validator_ready").unwrap_or(&0))
             .max()
             .copied()
             .unwrap_or(0);
-        
+
         Ok(ConsensusAnalysisResult {
             basic_analysis: analysis,
             can_reach_finalization: has_finalization,
@@ -841,92 +841,92 @@ impl Default for PetriNetAnalyzer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[tokio::test]
     async fn test_petri_net_basic() {
         let net = PetriNet::new();
-        
+
         // Add places
         net.add_place("p1".to_string(), 1).await.unwrap();
         net.add_place("p2".to_string(), 0).await.unwrap();
-        
+
         // Add transition
         net.add_transition("t1".to_string(), None).await.unwrap();
-        
+
         // Connect places to transition
         net.connect_places_to_transition("t1", vec!["p1".to_string()], vec!["p2".to_string()]).await.unwrap();
-        
+
         // Add arcs
         net.add_arc("p1".to_string(), "t1".to_string(), 1).await.unwrap();
         net.add_arc("t1".to_string(), "p2".to_string(), 1).await.unwrap();
-        
+
         // Test enablement
         let transitions = net.transitions.read().await;
         let t1 = transitions.get("t1").unwrap();
         assert!(net.is_enabled(t1).await.unwrap());
-        
+
         // Test firing
         net.fire_transition(t1).await.unwrap();
-        
+
         // Check new marking
         let marking = net.get_marking().await.unwrap();
         assert_eq!(marking.get("p1").unwrap_or(&0), &0);
         assert_eq!(marking.get("p2").unwrap_or(&0), &1);
     }
-    
+
     #[tokio::test]
     async fn test_reachability_analysis() {
         let net = PetriNet::new_bounded(10);
-        
+
         // Create simple workflow
         net.add_place("start".to_string(), 1).await.unwrap();
         net.add_place("middle".to_string(), 0).await.unwrap();
         net.add_place("end".to_string(), 0).await.unwrap();
-        
+
         net.add_transition("t1".to_string(), None).await.unwrap();
         net.add_transition("t2".to_string(), None).await.unwrap();
-        
+
         net.connect_places_to_transition("t1", vec!["start".to_string()], vec!["middle".to_string()]).await.unwrap();
         net.connect_places_to_transition("t2", vec!["middle".to_string()], vec!["end".to_string()]).await.unwrap();
-        
+
         // Add arcs
         net.add_arc("start".to_string(), "t1".to_string(), 1).await.unwrap();
         net.add_arc("t1".to_string(), "middle".to_string(), 1).await.unwrap();
         net.add_arc("middle".to_string(), "t2".to_string(), 1).await.unwrap();
         net.add_arc("t2".to_string(), "end".to_string(), 1).await.unwrap();
-        
+
         // Test reachability
         let mut target_marking = HashMap::new();
         target_marking.insert("end".to_string(), 1);
         target_marking.insert("start".to_string(), 0);
         target_marking.insert("middle".to_string(), 0);
-        
+
         let result = net.reachability_analysis(Some(target_marking)).await.unwrap();
         assert!(result.is_reachable);
         assert!(result.shortest_path.is_some());
-        
+
         let path = result.shortest_path.unwrap();
         assert_eq!(path.transitions.len(), 2);
         assert_eq!(path.transitions[0], "t1");
         assert_eq!(path.transitions[1], "t2");
     }
-    
+
     #[tokio::test]
     async fn test_consensus_workflow() {
         let net = PetriNet::create_consensus_workflow().await.unwrap();
-        
+
         // Test initial state
         let marking = net.get_marking().await.unwrap();
         assert_eq!(marking.get("init").unwrap_or(&0), &1);
         assert_eq!(marking.get("validator_ready").unwrap_or(&0), &3);
-        
+
         // Test reachability to finalization
         let mut target_marking = HashMap::new();
         target_marking.insert("finalize".to_string(), 1);
-        
+
         let is_reachable = net.is_reachable(&target_marking).await.unwrap();
         assert!(is_reachable);
-        
+
         // Analyze consensus properties
         let analyzer = PetriNetAnalyzer::new();
         let consensus_result = analyzer.analyze_consensus_properties(&net).await.unwrap();
@@ -934,49 +934,49 @@ mod tests {
         assert!(consensus_result.consensus_safety);
         assert!(consensus_result.consensus_liveness);
     }
-    
+
     #[tokio::test]
     async fn test_guard_conditions() {
         let mut guard = GuardCondition::new(GuardType::GreaterThanOrEqual, 3);
         assert!(!guard.evaluate());
-        
+
         guard.update(3);
         assert!(guard.evaluate());
-        
+
         guard.update(5);
         assert!(guard.evaluate());
-        
+
         guard.update(2);
         assert!(!guard.evaluate());
     }
-    
+
     #[tokio::test]
     async fn test_inhibitor_arcs() {
         let net = PetriNet::new();
-        
+
         net.add_place("p1".to_string(), 1).await.unwrap();
         net.add_place("p2".to_string(), 1).await.unwrap();
         net.add_place("p3".to_string(), 0).await.unwrap();
-        
+
         net.add_transition("t1".to_string(), None).await.unwrap();
         net.connect_places_to_transition("t1", vec!["p1".to_string(), "p2".to_string()], vec!["p3".to_string()]).await.unwrap();
-        
+
         // Add normal arc from p1 and inhibitor arc from p2
         net.add_arc_with_type("p1".to_string(), "t1".to_string(), 1, ArcType::Normal).await.unwrap();
         net.add_arc_with_type("p2".to_string(), "t1".to_string(), 1, ArcType::Inhibitor).await.unwrap();
         net.add_arc("t1".to_string(), "p3".to_string(), 1).await.unwrap();
-        
+
         // Transition should not be enabled because p2 has tokens (inhibitor)
         let transitions = net.transitions.read().await;
         let t1 = transitions.get("t1").unwrap();
         assert!(!net.is_enabled(t1).await.unwrap());
-        
+
         // Remove token from p2
         let mut marking = net.get_marking().await.unwrap();
         marking.insert("p2".to_string(), 0);
         net.set_marking(&marking).await.unwrap();
-        
+
         // Now transition should be enabled
         assert!(net.is_enabled(t1).await.unwrap());
     }
-} 
+}

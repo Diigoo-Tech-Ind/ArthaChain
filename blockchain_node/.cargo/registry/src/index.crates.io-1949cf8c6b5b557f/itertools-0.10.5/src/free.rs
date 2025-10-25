@@ -108,7 +108,7 @@ pub fn rev<I>(iterable: I) -> iter::Rev<I::IntoIter>
 /// Converts the arguments to iterators and zips them.
 ///
 /// [`IntoIterator`] enabled version of [`Iterator::zip`].
-/// 
+///
 /// ## Example
 ///
 /// ```
@@ -130,14 +130,14 @@ pub fn zip<I, J>(i: I, j: J) -> Zip<I::IntoIter, J::IntoIter>
 }
 
 
-/// Takes two iterables and creates a new iterator over both in sequence. 
+/// Takes two iterables and creates a new iterator over both in sequence.
 ///
 /// [`IntoIterator`] enabled version of [`Iterator::chain`].
 ///
 /// ## Example
 /// ```
 /// use itertools::chain;
-/// 
+///
 /// let mut result:Vec<i32> = Vec::new();
 ///
 /// for element in chain(&[1, 2, 3], &[4]) {

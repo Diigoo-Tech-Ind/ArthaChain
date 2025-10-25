@@ -325,7 +325,16 @@ impl SmartContractEngine {
                 }
                 #[cfg(not(feature = "evm"))]
                 {
-                    return Err(anyhow!("EVM runtime not available"));
+                    ContractExecutionResult {
+                        success: false,
+                        return_data: vec![],
+                        gas_used: 0,
+                        logs: vec![],
+                        error: Some("EVM runtime not available".to_string()),
+                        execution_time_us: 0,
+                        runtime: ContractRuntime::Evm,
+                        optimization_savings,
+                    }
                 }
             }
             ContractRuntime::Native => {
@@ -422,7 +431,16 @@ impl SmartContractEngine {
                 }
                 #[cfg(not(feature = "evm"))]
                 {
-                    return Err(anyhow!("EVM runtime not available"));
+                    ContractExecutionResult {
+                        success: false,
+                        return_data: vec![],
+                        gas_used: 0,
+                        logs: vec![],
+                        error: Some("EVM runtime not available".to_string()),
+                        execution_time_us: 0,
+                        runtime: ContractRuntime::Evm,
+                        optimization_savings: 0,
+                    }
                 }
             }
             ContractRuntime::Native => {

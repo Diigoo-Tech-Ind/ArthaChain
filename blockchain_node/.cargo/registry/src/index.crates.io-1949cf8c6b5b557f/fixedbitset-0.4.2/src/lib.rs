@@ -3,7 +3,7 @@
 //!
 //! ### Crate features
 //!
-//! - `std` (default feature)  
+//! - `std` (default feature)
 //!   Disabling this feature disables using std and instead uses crate alloc.
 //!   Requires Rust 1.36 to disable.
 //!

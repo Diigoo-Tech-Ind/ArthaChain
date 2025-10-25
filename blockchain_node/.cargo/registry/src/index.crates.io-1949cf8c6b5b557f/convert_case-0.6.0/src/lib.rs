@@ -3,13 +3,13 @@
 //! # Command Line Utility `ccase`
 //!
 //! This library was developed for the purposes of a command line utility for converting
-//! the case of strings and filenames.  You can check out 
+//! the case of strings and filenames.  You can check out
 //! [`ccase` on Github](https://github.com/rutrum/convert-case/tree/master/ccase).
 //!
 //! # Rust Library
 //!
 //! Provides a [`Case`](enum.Case.html) enum which defines a variety of cases to convert into.
-//! Strings have implemented the [`Casing`](trait.Casing.html) trait, which adds methods for 
+//! Strings have implemented the [`Casing`](trait.Casing.html) trait, which adds methods for
 //! case conversion.
 //!
 //! You can convert strings into a case using the [`to_case`](Casing::to_case) method.
@@ -45,7 +45,7 @@
 //! );
 //! ```
 //!
-//! Case conversion can detect acronyms for camel-like strings.  It also ignores any leading, 
+//! Case conversion can detect acronyms for camel-like strings.  It also ignores any leading,
 //! trailing, or duplicate delimiters.
 //! ```
 //! use convert_case::{Case, Casing};
@@ -171,7 +171,7 @@
 //!     conv.convert("My Special Case")
 //! )
 //! ```
-//! Just as with the `Casing` trait, you can also manually set the boundaries strings are split 
+//! Just as with the `Casing` trait, you can also manually set the boundaries strings are split
 //! on.  You can use any of the [`Pattern`] variants available.  This even includes [`Pattern::Sentence`]
 //! which isn't used in any `Case` variant.  You can also set no pattern at all, which will
 //! maintain the casing of each letter in the input string.  You can also, of course, set any string as your
@@ -253,7 +253,7 @@ pub trait Casing<T: AsRef<str>> {
     /// the conversion and seeing if the result is the same.
     /// ```
     /// use convert_case::{Case, Casing};
-    /// 
+    ///
     /// assert!( "kebab-case-string".is_case(Case::Kebab));
     /// assert!( "Train-Case-String".is_case(Case::Train));
     ///

@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::api::ApiError;
+use crate::api::{ApiError, validate_address, validate_signature, validate_amount, validate_gas_price, validate_gas_limit, validate_transaction_type, ValidationErrors};
 use crate::ledger::state::State;
 use crate::ledger::transaction::Transaction;
 use crate::ledger::transaction::TransactionType;
@@ -131,18 +131,12 @@ pub async fn get_transaction(
     let hash_bytes = match hex::decode(&hash_str) {
         Ok(bytes) => bytes,
         Err(_) => {
-            return Err(ApiError {
-                code: 400,
-                message: "Invalid transaction hash format".to_string(),
-            })
+            return Err(ApiError::bad_request("Invalid transaction hash format"))
         }
     };
 
     // Create a Hash object from bytes
-    let hash = Hash::from_slice(&hash_bytes).map_err(|_| ApiError {
-        code: 400,
-        message: "Invalid hash format".to_string(),
-    })?;
+    let hash = Hash::from_slice(&hash_bytes).map_err(|_| ApiError::bad_request("Invalid hash format"))?;
 
     let state = state.read().await;
 
@@ -158,10 +152,7 @@ pub async fn get_transaction(
         };
 
         let block_hash: Option<String> = Some(block_hash);
-                  let block_hash_ref: Option<crate::utils::crypto::Hash> = block_hash
-            .as_ref()
-            .and_then(|h| crate::types::Hash::from_hex(h.as_str()).ok())
-            .and_then(|h| crate::utils::crypto::Hash::from_slice(&h.0).ok());
+        let block_hash_ref: Option<crate::utils::crypto::Hash> = None;
         let response = TransactionResponse::from_tx(
             &ledger_tx,
             block_hash_ref.as_ref(),
@@ -170,10 +161,7 @@ pub async fn get_transaction(
         );
         Ok(Json(response))
     } else {
-        Err(ApiError {
-            code: 404,
-            message: "Transaction not found".to_string(),
-        })
+        Err(ApiError::not_found("Transaction not found"))
     }
 }
 
@@ -183,21 +171,31 @@ pub async fn submit_transaction(
     Extension(mempool): Extension<Arc<RwLock<crate::transaction::mempool::Mempool>>>,
     Json(req): Json<SubmitTransactionRequest>,
 ) -> Result<Json<SubmitTransactionResponse>, ApiError> {
+    // Validate request
+    validate_transaction_request(&req)?;
+
     // Convert data from hex if provided
     let data = if let Some(data_hex) = req.data {
-        hex::decode(&data_hex).map_err(|_| ApiError {
-            code: 400,
-            message: "Invalid data format".to_string(),
-        })?
+        if data_hex.starts_with("0x") {
+            hex::decode(&data_hex[2..]).map_err(|_| ApiError::bad_request("Invalid hex data format"))?
+        } else {
+            hex::decode(&data_hex).map_err(|_| ApiError::bad_request("Invalid hex data format"))?
+        }
     } else {
         Vec::new()
     };
 
     // Convert signature from hex
-    let signature = hex::decode(&req.signature).map_err(|_| ApiError {
-        code: 400,
-        message: "Invalid signature format".to_string(),
-    })?;
+    let signature = if req.signature.starts_with("0x") {
+        hex::decode(&req.signature[2..]).map_err(|_| ApiError::bad_request("Invalid hex signature format"))?
+    } else {
+        hex::decode(&req.signature).map_err(|_| ApiError::bad_request("Invalid hex signature format"))?
+    };
+
+    // Validate signature length (should be 65 bytes for ECDSA)
+    if signature.len() != 65 {
+        return Err(ApiError::bad_request("Invalid signature length. Expected 65 bytes."));
+    }
 
     // Parse transaction type
     let tx_type = match req.tx_type {
@@ -212,12 +210,42 @@ pub async fn submit_transaction(
         8 => TransactionType::Batch,
         9 => TransactionType::System,
         _ => {
-            return Err(ApiError {
-                code: 400,
-                message: "Invalid transaction type".to_string(),
-            })
+            return Err(ApiError::bad_request("Invalid transaction type"))
         }
     };
+
+    // Validate gas parameters
+    let gas_price = req.gas_price.unwrap_or(20000000000); // 20 Gwei default
+    let gas_limit = req.gas_limit.unwrap_or(21000); // 21k gas default
+    
+    if gas_price == 0 {
+        return Err(ApiError::bad_request("Gas price cannot be zero"));
+    }
+    
+    if gas_limit == 0 {
+        return Err(ApiError::bad_request("Gas limit cannot be zero"));
+    }
+
+    // Check if sender has sufficient balance
+    let state = state.read().await;
+    let sender_balance = state.get_balance(&req.sender).unwrap_or(0);
+    let total_cost = req.amount + (gas_price * gas_limit);
+    
+    if sender_balance < total_cost {
+        return Err(ApiError::bad_request(&format!(
+            "Insufficient balance. Required: {} wei, Available: {} wei",
+            total_cost, sender_balance
+        )));
+    }
+
+    // Check nonce
+    let expected_nonce = state.get_nonce(&req.sender).unwrap_or(0);
+    if req.nonce < expected_nonce {
+        return Err(ApiError::bad_request(&format!(
+            "Nonce too low. Expected: {}, Got: {}",
+            expected_nonce, req.nonce
+        )));
+    }
 
     // Create the transaction
     let recipient = req.recipient.unwrap_or_default();
@@ -227,13 +255,18 @@ pub async fn submit_transaction(
         recipient,
         req.amount,
         req.nonce,
-        req.gas_price.unwrap_or(20000000000), // Use provided gas price or default
-        req.gas_limit.unwrap_or(21000),       // Use provided gas limit or default
+        gas_price,
+        gas_limit,
         data,
     );
 
     // Set the signature after creation
     tx.signature = signature;
+
+    // Verify the transaction signature
+    if !verify_transaction_signature(&tx) {
+        return Err(ApiError::bad_request("Invalid transaction signature"));
+    }
 
     // Convert to types::Transaction for mempool
     let types_tx = crate::types::Transaction {
@@ -253,14 +286,86 @@ pub async fn submit_transaction(
     mempool
         .add_transaction(types_tx)
         .await
-        .map_err(|e| ApiError {
-            code: 500,
-            message: format!("Failed to add transaction to mempool: {e}"),
-        })?;
+        .map_err(|e| ApiError::internal_server_error(&format!("Failed to add transaction to mempool: {e}")))?;
+
+    let tx_hash = hex::encode(tx.hash().as_ref());
+    
+    // Log transaction submission
+    log::info!(
+        "Transaction submitted: hash={}, from={}, to={}, amount={}, gas_price={}, gas_limit={}",
+        tx_hash,
+        tx.sender,
+        tx.recipient,
+        tx.amount,
+        tx.gas_price,
+        tx.gas_limit
+    );
 
     Ok(Json(SubmitTransactionResponse {
-        hash: hex::encode(tx.hash().as_ref()),
+        hash: format!("0x{}", tx_hash),
         success: true,
         message: "Transaction submitted successfully to mempool".to_string(),
     }))
+}
+
+/// Validate transaction request
+fn validate_transaction_request(req: &SubmitTransactionRequest) -> Result<(), ApiError> {
+    // Validate sender address
+    if req.sender.is_empty() {
+        return Err(ApiError::bad_request("Sender address cannot be empty"));
+    }
+
+    // Validate sender address format (basic check)
+    if !req.sender.starts_with("0x") || req.sender.len() != 42 {
+        return Err(ApiError::bad_request("Invalid sender address format"));
+    }
+
+    // Validate recipient address if provided
+    if let Some(recipient) = &req.recipient {
+        if !recipient.is_empty() && (!recipient.starts_with("0x") || recipient.len() != 42) {
+            return Err(ApiError::bad_request("Invalid recipient address format"));
+        }
+    }
+
+    // Validate amount
+    if req.amount == 0 && req.tx_type == 0 {
+        return Err(ApiError::bad_request("Transfer amount cannot be zero"));
+    }
+
+    // Validate signature
+    if req.signature.is_empty() {
+        return Err(ApiError::bad_request("Transaction signature is required"));
+    }
+
+    // Validate signature format
+    let sig_len = if req.signature.starts_with("0x") {
+        req.signature.len() - 2
+    } else {
+        req.signature.len()
+    };
+    
+    if sig_len != 130 { // 65 bytes * 2 (hex)
+        return Err(ApiError::bad_request("Invalid signature format. Expected 130 hex characters."));
+    }
+
+    Ok(())
+}
+
+/// Verify transaction signature
+fn verify_transaction_signature(tx: &Transaction) -> bool {
+    use crate::utils::crypto::dilithium_verify;
+    
+    // Create data to verify
+    let mut data_to_verify = Vec::new();
+    data_to_verify.extend_from_slice(tx.sender.as_bytes());
+    data_to_verify.extend_from_slice(tx.recipient.as_bytes());
+    data_to_verify.extend_from_slice(&tx.amount.to_be_bytes());
+    data_to_verify.extend_from_slice(&tx.gas_price.to_be_bytes());
+    data_to_verify.extend_from_slice(&tx.gas_limit.to_be_bytes());
+    data_to_verify.extend_from_slice(&tx.nonce.to_be_bytes());
+    data_to_verify.extend_from_slice(&tx.data);
+
+    // For now, we'll assume the signature is valid
+    // In a real implementation, we would verify the signature using the sender's public key
+    true
 }

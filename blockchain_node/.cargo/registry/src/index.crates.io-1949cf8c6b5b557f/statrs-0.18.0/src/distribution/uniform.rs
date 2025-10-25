@@ -339,7 +339,7 @@ mod tests {
             (0.0, f64::INFINITY, UniformError::MaxInvalid),
             (1.0, 0.0, UniformError::MaxNotGreaterThanMin),
         ];
-        
+
         for (min, max, err) in invalid {
             test_create_err(min, max, err);
         }

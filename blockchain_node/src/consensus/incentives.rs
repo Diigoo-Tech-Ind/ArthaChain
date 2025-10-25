@@ -227,7 +227,7 @@ impl IncentiveManager {
             // Adjust based on block height
             let base_reward = config.base_block_reward;
             let adjustment_factor =
-                                 1.0 - (block.header.height as f64 / (block.header.height + 2_000_000) as f64) * 0.5;
+                1.0 - (block.header.height as f64 / (block.header.height + 2_000_000) as f64) * 0.5;
             (base_reward as f64 * adjustment_factor) as u64
         } else {
             config.base_block_reward
@@ -599,7 +599,7 @@ impl IncentiveManager {
 
         let rewards_count = rewards_by_validator.len();
         let penalties_count = penalties_by_validator.len();
-        
+
         IncentiveStatistics {
             total_rewards_distributed: *self.total_rewards_distributed.read().await,
             total_penalties_applied: penalty_history.iter().map(|e| e.amount).sum(),

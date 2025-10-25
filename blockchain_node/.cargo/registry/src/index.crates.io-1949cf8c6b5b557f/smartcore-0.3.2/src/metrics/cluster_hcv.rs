@@ -74,7 +74,7 @@ impl<T: Number + Ord> Metrics<T> for HCVScore<T> {
     }
     /// Computes Homogeneity, completeness and V-Measure scores at once.
     /// * `y_true` - ground truth class labels to be used as a reference.
-    /// * `y_pred` - cluster labels to evaluate.    
+    /// * `y_pred` - cluster labels to evaluate.
     fn get_score(&self, _y_true: &dyn ArrayView1<T>, _y_pred: &dyn ArrayView1<T>) -> f64 {
         // this functions should not be used for this struct
         // use homogeneity(), completeness(), v_measure()

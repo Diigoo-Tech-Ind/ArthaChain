@@ -142,7 +142,7 @@ impl IpNet {
     ///
     /// let net = IpNet::new(Ipv6Addr::LOCALHOST.into(), 48);
     /// assert!(net.is_ok());
-    /// 
+    ///
     /// let bad_prefix_len = IpNet::new(Ipv6Addr::LOCALHOST.into(), 129);
     /// assert_eq!(bad_prefix_len, Err(PrefixLenError));
     /// ```
@@ -294,7 +294,7 @@ impl IpNet {
             IpNet::V6(ref a) => IpAddr::V6(a.hostmask()),
         }
     }
-    
+
     /// Returns the network address.
     ///
     /// # Examples
@@ -314,8 +314,8 @@ impl IpNet {
             IpNet::V4(ref a) => IpAddr::V4(a.network()),
             IpNet::V6(ref a) => IpAddr::V6(a.network()),
         }
-    }    
-    
+    }
+
     /// Returns the broadcast address.
     ///
     /// # Examples
@@ -336,7 +336,7 @@ impl IpNet {
             IpNet::V6(ref a) => IpAddr::V6(a.broadcast()),
         }
     }
-    
+
     /// Returns the `IpNet` that contains this one.
     ///
     /// # Examples
@@ -365,7 +365,7 @@ impl IpNet {
         }
     }
 
-    /// Returns `true` if this network and the given network are 
+    /// Returns `true` if this network and the given network are
     /// children of the same supernet.
     ///
     /// # Examples
@@ -428,7 +428,7 @@ impl IpNet {
             IpNet::V6(ref a) => IpAddrRange::V6(a.hosts()),
         }
     }
-    
+
     /// Returns an `Iterator` over the subnets of this network with the
     /// given prefix length.
     ///
@@ -712,7 +712,7 @@ impl Ipv4Net {
     pub const fn max_prefix_len(&self) -> u8 {
         32
     }
-    
+
     /// Returns the network mask.
     ///
     /// # Examples
@@ -799,7 +799,7 @@ impl Ipv4Net {
         Ipv4Net::new(self.addr, self.prefix_len.wrapping_sub(1)).map(|n| n.trunc()).ok()
     }
 
-    /// Returns `true` if this network and the given network are 
+    /// Returns `true` if this network and the given network are
     /// children of the same supernet.
     ///
     /// # Examples
@@ -819,7 +819,7 @@ impl Ipv4Net {
         self.prefix_len == other.prefix_len &&
         self.supernet().unwrap().contains(other)
     }
-    
+
     /// Return an `Iterator` over the host addresses in this network.
     ///
     /// If the prefix length is less than 31 both the network address
@@ -847,12 +847,12 @@ impl Ipv4Net {
     pub fn hosts(&self) -> Ipv4AddrRange {
         let mut start = self.network();
         let mut end = self.broadcast();
-        
+
         if self.prefix_len < 31 {
             start = start.saturating_add(1);
             end = end.saturating_sub(1);
         }
-        
+
         Ipv4AddrRange::new(start, end)
     }
 
@@ -890,7 +890,7 @@ impl Ipv4Net {
         if self.prefix_len > new_prefix_len || new_prefix_len > 32 {
             return Err(PrefixLenError);
         }
-        
+
         Ok(Ipv4Subnets::new(
             self.network(),
             self.broadcast(),
@@ -953,7 +953,7 @@ impl Ipv4Net {
         let mut intervals: Vec<(_, _)> = networks.iter().map(|n| n.interval()).collect();
         intervals = merge_intervals(intervals);
         let mut res: Vec<Ipv4Net> = Vec::new();
-        
+
         for (start, mut end) in intervals {
             if end != core::u32::MAX {
                 end = end.saturating_sub(1)
@@ -992,7 +992,7 @@ impl From<Ipv4Addr> for Ipv4Net {
     }
 }
 
-impl Ipv6Net {    
+impl Ipv6Net {
     /// Creates a new IPv6 network address from an `Ipv6Addr` and prefix
     /// length.
     ///
@@ -1082,7 +1082,7 @@ impl Ipv6Net {
     pub fn trunc(&self) -> Ipv6Net {
         Ipv6Net::new(self.network(), self.prefix_len).unwrap()
     }
-    
+
     /// Returns the address.
     #[inline]
     pub const fn addr(&self) -> Ipv6Addr {
@@ -1094,7 +1094,7 @@ impl Ipv6Net {
     pub const fn prefix_len(&self) -> u8 {
         self.prefix_len
     }
-    
+
     /// Returns the maximum valid prefix length.
     #[inline]
     pub const fn max_prefix_len(&self) -> u8 {
@@ -1153,7 +1153,7 @@ impl Ipv6Net {
     pub fn network(&self) -> Ipv6Addr {
         (u128::from(self.addr) & self.netmask_u128()).into()
     }
-    
+
     /// Returns the last address.
     ///
     /// Technically there is no such thing as a broadcast address for
@@ -1191,7 +1191,7 @@ impl Ipv6Net {
         Ipv6Net::new(self.addr, self.prefix_len.wrapping_sub(1)).map(|n| n.trunc()).ok()
     }
 
-    /// Returns `true` if this network and the given network are 
+    /// Returns `true` if this network and the given network are
     /// children of the same supernet.
     ///
     /// # Examples
@@ -1211,7 +1211,7 @@ impl Ipv6Net {
         self.prefix_len == other.prefix_len &&
         self.supernet().unwrap().contains(other)
     }
-    
+
     /// Return an `Iterator` over the host addresses in this network.
     ///
     /// # Examples
@@ -1266,7 +1266,7 @@ impl Ipv6Net {
         if self.prefix_len > new_prefix_len || new_prefix_len > 128 {
             return Err(PrefixLenError);
         }
-        
+
         Ok(Ipv6Subnets::new(
             self.network(),
             self.broadcast(),
@@ -1469,7 +1469,7 @@ impl<'a> Contains<&'a Ipv6Addr> for Ipv6Net {
 ///     "10.0.0.239".parse().unwrap(),
 ///     26,
 /// ));
-/// 
+///
 /// assert_eq!(subnets.collect::<Vec<IpNet>>(), vec![
 ///     "10.0.0.0/26".parse().unwrap(),
 ///     "10.0.0.64/26".parse().unwrap(),
@@ -1483,7 +1483,7 @@ impl<'a> Contains<&'a Ipv6Addr> for Ipv6Net {
 ///     "fd00:ef:ffff:ffff:ffff:ffff:ffff:ffff".parse().unwrap(),
 ///     26,
 /// ));
-/// 
+///
 /// assert_eq!(subnets.collect::<Vec<IpNet>>(), vec![
 ///     "fd00::/26".parse().unwrap(),
 ///     "fd00:40::/26".parse().unwrap(),
@@ -1516,7 +1516,7 @@ pub enum IpSubnets {
 ///     "10.0.0.239".parse().unwrap(),
 ///     26,
 /// );
-/// 
+///
 /// assert_eq!(subnets.collect::<Vec<Ipv4Net>>(), vec![
 ///     "10.0.0.0/26".parse().unwrap(),
 ///     "10.0.0.64/26".parse().unwrap(),
@@ -1550,7 +1550,7 @@ pub struct Ipv4Subnets {
 ///     "fd00:ef:ffff:ffff:ffff:ffff:ffff:ffff".parse().unwrap(),
 ///     26,
 /// );
-/// 
+///
 /// assert_eq!(subnets.collect::<Vec<Ipv6Net>>(), vec![
 ///     "fd00::/26".parse().unwrap(),
 ///     "fd00:40::/26".parse().unwrap(),
@@ -1709,7 +1709,7 @@ fn merge_intervals<T: Copy + Ord>(mut intervals: Vec<(T, T)>) -> Vec<(T, T)> {
     intervals.sort();
     let mut res: Vec<(T, T)> = Vec::new();
     let (mut start, mut end) = intervals[0];
-    
+
     let mut i = 1;
     let len = intervals.len();
     while i < len {
@@ -1838,12 +1838,12 @@ mod tests {
         "255.255.255.255", "255.255.255.255", 0,
         "255.255.255.255/32",
     );
-    
+
     make_ipv4_subnets_test!(
         test_ipv4_subnets_none,
         "0.0.0.1", "0.0.0.0", 0,
     );
-    
+
     make_ipv4_subnets_test!(
         test_ipv4_subnets_one,
         "0.0.0.0", "0.0.0.1", 0,
@@ -1856,7 +1856,7 @@ mod tests {
         "0.0.0.0/31",
         "0.0.0.2/32",
     );
-    
+
     make_ipv4_subnets_test!(
         test_ipv4_subnets_taper,
         "0.0.0.0", "0.0.0.10", 30,
@@ -1865,7 +1865,7 @@ mod tests {
         "0.0.0.8/31",
         "0.0.0.10/32",
     );
-    
+
     make_ipv6_subnets_test!(
         test_ipv6_subnets_zero_zero,
         "::", "::", 0,
@@ -1883,12 +1883,12 @@ mod tests {
         "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 0,
         "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff/128",
     );
-    
+
     make_ipv6_subnets_test!(
         test_ipv6_subnets_none,
         "::1", "::", 0,
     );
-    
+
     make_ipv6_subnets_test!(
         test_ipv6_subnets_one,
         "::", "::1", 0,
@@ -1940,7 +1940,7 @@ mod tests {
         assert_eq!(Ipv4Net::aggregate(&ipv4_nets), ipv4_aggs);
         assert_eq!(Ipv6Net::aggregate(&ipv6_nets), ipv6_aggs);
     }
-    
+
     #[test]
     fn test_aggregate_issue44() {
         let nets: Vec<Ipv4Net> = vec!["128.0.0.0/1".parse().unwrap()];

@@ -37,7 +37,7 @@ impl JsonSchema for Ipv4Net {
                 ..Default::default()
             })),
             ..Default::default()
-        }) 
+        })
     }
 }
 impl JsonSchema for Ipv6Net {
@@ -64,7 +64,7 @@ impl JsonSchema for Ipv6Net {
                 ..Default::default()
             })),
             ..Default::default()
-        }) 
+        })
     }
 }
 impl JsonSchema for IpNet {
@@ -90,6 +90,6 @@ impl JsonSchema for IpNet {
                 }
             )),
             ..Default::default()
-        }) 
+        })
     }
 }

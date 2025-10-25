@@ -80,9 +80,9 @@ impl ValidatorPerformance {
         }
     }
 
-    pub fn update_metrics(&mut self, 
+    pub fn update_metrics(&mut self,
         proposal_success: bool,
-        vote_success: bool, 
+        vote_success: bool,
         block_time: Duration,
         latency: Duration,
         utilization: f64
@@ -92,16 +92,16 @@ impl ValidatorPerformance {
         } else {
             self.missed_proposals += 1;
         }
-        
+
         if vote_success {
             self.total_votes += 1;
         } else {
             self.missed_votes += 1;
         }
 
-        self.proposal_success_rate = self.total_blocks_proposed as f64 / 
+        self.proposal_success_rate = self.total_blocks_proposed as f64 /
             (self.total_blocks_proposed + self.missed_proposals) as f64;
-        
+
         self.vote_success_rate = self.total_votes as f64 /
             (self.total_votes + self.missed_votes) as f64;
 
@@ -119,10 +119,10 @@ impl ValidatorPerformance {
 
         let proposal_score = self.proposal_success_rate;
         let vote_score = self.vote_success_rate;
-        
+
         // Convert latency to a score (lower is better)
         let latency_score = 1.0 - (self.network_latency.as_secs_f64() / 1.0).min(1.0);
-        
+
         // Resource utilization score (closer to optimal is better)
         let utilization_score = 1.0 - (self.resource_utilization - 0.7).abs();
 
@@ -192,19 +192,19 @@ pub enum ValidatorRotationError {
         required: usize,
         found: usize,
     },
-    
+
     #[error("Invalid stake amount: {0}")]
     InvalidStake(u64),
-    
+
     #[error("Invalid reputation score: {0}")]
     InvalidReputation(f64),
-    
+
     #[error("Validator not found: {0}")]
     ValidatorNotFound(Address),
-    
+
     #[error("Handoff already in progress")]
     HandoffInProgress,
-    
+
     #[error("Internal error: {0}")]
     Internal(String),
 }
@@ -230,32 +230,32 @@ impl ValidatorRotationManager {
     /// Update validator set based on current block height
     pub async fn update_validator_set(&mut self, height: u64) -> Result<(), ValidatorRotationError> {
         self.current_height = height;
-        
+
         // Check if it's time for rotation
         if height % self.config.rotation_period == 0 {
             self.rotate_validators().await?;
         }
-        
+
         // Check if handoff is needed
         if self.handoff_in_progress && height % self.config.handoff_period == 0 {
             self.complete_handoff().await?;
         }
-        
+
         Ok(())
     }
 
     /// Rotate validators
     async fn rotate_validators(&mut self) -> Result<(), ValidatorRotationError> {
         debug!("Rotating validator set at height {}", self.current_height);
-        
+
         // Select new validators
         self.select_new_validators().await?;
-        
+
         // Start handoff process
         self.handoff_in_progress = true;
-        
+
         info!("Validator rotation initiated at height {}", self.current_height);
-        
+
         Ok(())
     }
 
@@ -264,7 +264,7 @@ impl ValidatorRotationManager {
         let mut rng = ThreadRng::default();
         let mut selected = HashSet::new();
         let mut total_weight = 0.0;
-        
+
         // Calculate weights for each validator
         let mut weights: Vec<(Address, f64)> = self.validator_window
             .iter()
@@ -278,27 +278,27 @@ impl ValidatorRotationManager {
                 }
             })
             .collect();
-            
+
         if weights.len() < self.config.min_validators {
             return Err(ValidatorRotationError::InsufficientValidators {
                 required: self.config.min_validators,
                 found: weights.len(),
             });
         }
-        
+
         // Sort by weight descending for deterministic selection when weights are equal
         weights.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-        
+
         // Always select top performers up to min_validators
         for (addr, _) in weights.iter().take(self.config.min_validators) {
             selected.insert(addr.clone());
         }
-        
+
         // Randomly select remaining validators weighted by stake and reputation
         while selected.len() < self.config.max_validators && !weights.is_empty() {
             let threshold = rng.gen::<f64>() * total_weight;
             let mut cumulative = 0.0;
-            
+
             for (i, (addr, weight)) in weights.iter().enumerate() {
                 cumulative += weight;
                 if cumulative >= threshold && !selected.contains(addr) {
@@ -309,7 +309,7 @@ impl ValidatorRotationManager {
                 }
             }
         }
-        
+
         // Update next validator set with validator info
         self.next_validators = selected
             .into_iter()
@@ -319,21 +319,21 @@ impl ValidatorRotationManager {
                 })
             })
             .collect();
-            
+
         info!("Selected {} new validators", self.next_validators.len());
         Ok(())
     }
-    
+
     /// Calculate weight for validator selection based on stake and performance
     fn calculate_validator_weight(&self, addr: &Address) -> f64 {
         let info = self.current_validators.get(addr).unwrap();
         let stake_weight = (info.stake as f64) / (self.config.min_stake as f64);
         let perf_weight = info.performance.calculate_score();
-        
+
         // Combine stake and performance with configurable weights
         0.7 * stake_weight + 0.3 * perf_weight
     }
-    
+
     /// Check if validator meets minimum requirements
     fn is_validator_eligible(&self, addr: &Address) -> bool {
         let info = self.current_validators.get(addr).unwrap();
@@ -341,14 +341,14 @@ impl ValidatorRotationManager {
         if info.stake < self.config.min_stake {
             return false;
         }
-        
+
         // Check if validator has been active recently
         if let Some(last_active) = info.last_active {
             if last_active.elapsed().unwrap_or_default() > Duration::from_secs(3600) {
                 return false;
             }
         }
-        
+
         // Check minimum performance requirements
         let score = info.performance.calculate_score();
         score >= 0.5
@@ -357,7 +357,7 @@ impl ValidatorRotationManager {
     /// Complete the handoff to the next validator set
     async fn complete_handoff(&mut self) -> Result<(), ValidatorRotationError> {
         debug!("Completing validator handoff at height {}", self.current_height);
-        
+
         // Verify next validator set is ready
         let found = self.next_validators.len();
         if found < self.config.min_validators {
@@ -366,14 +366,14 @@ impl ValidatorRotationManager {
                 found,
             });
         }
-        
+
         // Update current validators
         self.current_validators = self.next_validators.clone();
         self.next_validators.clear();
         self.handoff_in_progress = false;
-        
+
         info!("Validator handoff completed at height {}", self.current_height);
-        
+
         Ok(())
     }
 
@@ -392,7 +392,7 @@ impl ValidatorRotationManager {
         } else {
             return Err(ValidatorRotationError::ValidatorNotFound(address.clone()));
         }
-        
+
         Ok(())
     }
 
@@ -420,11 +420,11 @@ impl ValidatorRotationManager {
         if let Some(info) = self.current_validators.get_mut(address) {
             info.performance = performance.clone();
         }
-        
+
         if let Some(info) = self.next_validators.get_mut(address) {
             info.performance = performance;
         }
-        
+
         Ok(())
     }
 }
@@ -489,4 +489,4 @@ mod tests {
         rotation.update_validator_info(&address, performance.clone());
         assert!(rotation.get_performance(&address).is_some());
     }
-} 
+}

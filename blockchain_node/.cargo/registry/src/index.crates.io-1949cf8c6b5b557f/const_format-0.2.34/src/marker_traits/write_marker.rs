@@ -47,26 +47,26 @@ use core::marker::PhantomData;
 ///         len: usize,
 ///         arr: [u8; ARRAY_CAP],
 ///     }
-///    
+///
 ///     impl WriteMarker for ArrayString  {
 ///         type Kind = IsNotAStrWriter;
 ///         type This = Self;
 ///     }
-///    
+///
 ///     impl ArrayString {
 ///         pub const fn new() -> Self {
 ///             Self { len: 0, arr: [0; ARRAY_CAP] }
 ///         }
-///         
+///
 ///         // Gets the part of the array that has been written to.
 ///         pub const fn as_bytes(&self) -> &[u8] {
 ///             const_format::utils::slice_up_to_len_alt(&self.arr, self.len)
 ///         }
-///    
+///
 ///         pub const fn borrow_mutably(&mut self) -> &mut Self {
 ///             self
 ///         }
-///    
+///
 ///         pub const fn make_formatter(&mut self, flags: FormattingFlags) -> Formatter<'_> {
 ///             Formatter::from_custom(&mut self.arr, &mut self.len, flags)
 ///         }
@@ -172,7 +172,7 @@ where
 /// - [`IsAStrWriter`]: the reference is converted into a `StrWriterMut<'_>`.
 ///
 /// - [`IsNotAStrWriter`]: the reference is simply returned unchanged.
-///  
+///
 ///
 /// [`StrWriter`]: ../fmt/struct.StrWriter.html
 ///

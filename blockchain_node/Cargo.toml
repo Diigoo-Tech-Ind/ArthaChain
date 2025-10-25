@@ -50,6 +50,14 @@ path = "src/bin/massive_transaction_flood.rs"
 name = "grpc_server"
 path = "src/bin/grpc_server.rs"
 
+[[bin]]
+name = "arthai"
+path = "src/bin/arthai.rs"
+
+[[bin]]
+name = "test_p2p_connectivity"
+path = "scripts/test_p2p_connectivity.rs"
+
 [[example]]
 name = "cross_shard_tx_example"
 path = "examples/cross_shard_tx_example.rs"
@@ -109,25 +117,30 @@ futures = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
-serde_cbor = "0.11"
+# serde_cbor = "0.11"
 bincode = { workspace = true }
 
 
 
 # Networking
-libp2p = { workspace = true }
+# libp2p = { workspace = true, optional = true }
 hickory-resolver = { workspace = true }
 
 # Storage
-# rocksdb = { version = "0.23.0", features = ["multi-threaded-cf"] }  # Temporarily disabled due to macOS ARM64 linking issues
+rocksdb = { version = "0.23.0", features = ["multi-threaded-cf"] }
+# light-poseidon = "0.1.0"
+# reed-solomon-erasure removed to avoid unmaintained transitive deps
 
 # Cryptography and security
-ed25519-dalek = { workspace = true }
+ed25519-dalek = "2.1.1"
 sha2 = { workspace = true }
 sha3 = { workspace = true }
 blake2 = { workspace = true }
 blake3 = { workspace = true }
-ring = { workspace = true }
+# reed-solomon-erasure = { version = "6", optional = true }
+data-encoding = "2.5.0"
+ring = "0.17.12"
+jsonwebtoken = "9.3.0"
 aes-gcm = { workspace = true }
 hmac = { workspace = true }
 argon2 = { workspace = true }
@@ -135,13 +148,15 @@ zeroize = { workspace = true }
 secp256k1 = { workspace = true }
 bulletproofs = { workspace = true }
 merlin = { workspace = true }
-curve25519-dalek = { workspace = true }
+curve25519-dalek = "4.1.3"
 arrayref = { workspace = true }
 
 # Compression
 brotli = { workspace = true }
 lz4_flex = { workspace = true }
 flate2 = { workspace = true }
+md5 = "0.7.0"
+regex = "1.10"
 zstd = "0.13.2"
 
 # Math and utilities
@@ -162,12 +177,8 @@ socket2 = { workspace = true }
 memmap2 = { workspace = true }
 
 # Machine Learning and AI
-candle-core = { workspace = true }
-candle-nn = { workspace = true }
 ndarray = { workspace = true }
 ndarray-rand = { workspace = true }
-statrs = { workspace = true }
-smartcore = { workspace = true }
 
 # Error handling
 thiserror = { workspace = true }
@@ -179,7 +190,7 @@ env_logger = { workspace = true }
 tracing = { workspace = true }
 
 # Web framework
-axum = { workspace = true }
+axum = { workspace = true, features = ["multipart"] }
 tower = { workspace = true }
 tower-http = { workspace = true }
 reqwest = { workspace = true }
@@ -192,7 +203,7 @@ prost = "0.13"
 prost-types = "0.13"
 
 # WASM Runtime
-wasmtime = { workspace = true }
+# wasmtime = { workspace = true, optional = true }
 wasmparser = "0.218.0"
 wasm-smith = "0.218.0"
 # wat will be resolved by wasmtime dependency
@@ -208,23 +219,23 @@ ethereum-types = { workspace = true }
 evm-runtime = "0.43.0"
 
 # Web3 and Blockchain Integration
-web3 = "0.19.0"
-ethers = { version = "2.0.0", features = ["celo"] }
-alloy-primitives = "1.3.1"
-alloy-sol-types = "1.0.0-rc.1"
-alloy-json-abi = "0.1.0"
+# web3 = "0.19.0"  # Temporarily disabled due to idna vulnerability
+# ethers = { version = "2.0.14", features = ["celo"] }  # Temporarily disabled due to ring vulnerability
+# alloy-primitives = "1.3.1"
+# alloy-sol-types = "1.0.0-rc.1"
+# alloy-json-abi = "0.7.7"
 
 # Bitcoin Integration
 bitcoin = "0.32.0"
 bitcoin_hashes = "0.12.0"
 
-# Cosmos IBC Integration
-tendermint = "0.32.0"
-tendermint-rpc = "0.32.0"
-cosmrs = "0.10.0"
+# Cosmos IBC Integration - commented out to avoid unmaintained paste dependency
+# tendermint = "0.32.2"
+# tendermint-rpc = "0.32.2"
+# cosmrs = "0.12.0"
 
 # Polkadot XCM Integration
-subxt = "0.35.0"
+# subxt = "0.35.0"
 codec = { package = "parity-scale-codec", version = "3.6.0", features = ["derive"] }
 
 # BLS signatures and pairing
@@ -242,7 +253,7 @@ async-trait = "0.1.80"
 
 # JSON-RPC
 jsonrpc-core = "18.0.0"
-jsonrpc-http-server = "18.0.0"
+# jsonrpc-http-server = "18.0.0"
 
 # Metrics and monitoring
 prometheus = { workspace = true }
@@ -258,9 +269,11 @@ crossbeam = "0.8.4"
 parking_lot = "0.12.3"
 dashmap = "6.1.0"
 once_cell = "1.20.2"
-regex = "1.11.1"
 tempfile = "3.13.0"
 clap = { version = "4.5.0", features = ["derive"] }
+# pqcrypto-dilithium = "0.5.0"
+pqcrypto-traits = "0.3.5"
+ciborium = "0.2.2"
 
 [dev-dependencies]
 criterion = { workspace = true }
@@ -268,20 +281,21 @@ proptest = { workspace = true }
 tempfile = "3.13.0"
 
 [features]
-default = ["full"]
+default = ["audit-clean"]
 full = ["ai-engine", "quantum-resistance", "wasm-runtime", "evm-runtime", "cross-shard", "biometrics"]
 ai-engine = []
-python-ai = ["pyo3"]
 quantum-resistance = []
 wasm-runtime = []
 evm-runtime = []
-cross-shard = []
-biometrics = []
 benchmark = []
 sysinfo = []
 bls = []
-evm = ["evm-runtime"]
+evM = ["evm-runtime"]
 wasm = ["wasm-runtime"]
+audit-clean = []
+# p2p feature removed
+cross-shard = []
+biometrics = []
 
 [build-dependencies]
 tonic-build = "0.12"

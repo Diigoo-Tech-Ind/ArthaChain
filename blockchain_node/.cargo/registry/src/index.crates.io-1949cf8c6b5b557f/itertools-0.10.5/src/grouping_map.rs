@@ -37,14 +37,14 @@ pub fn new<I, K, V>(iter: I) -> GroupingMap<I>
 }
 
 /// `GroupingMapBy` is an intermediate struct for efficient group-and-fold operations.
-/// 
+///
 /// See [`GroupingMap`] for more informations.
 pub type GroupingMapBy<I, F> = GroupingMap<MapForGrouping<I, F>>;
 
 /// `GroupingMap` is an intermediate struct for efficient group-and-fold operations.
 /// It groups elements by their key and at the same time fold each group
 /// using some aggregating operation.
-/// 
+///
 /// No method on this struct performs temporary allocations.
 #[derive(Clone, Debug)]
 #[must_use = "GroupingMap is lazy and do nothing unless consumed"]
@@ -59,7 +59,7 @@ impl<I, K, V> GroupingMap<I>
     /// This is the generic way to perform any operation on a `GroupingMap`.
     /// It's suggested to use this method only to implement custom operations
     /// when the already provided ones are not enough.
-    /// 
+    ///
     /// Groups elements from the `GroupingMap` source by key and applies `operation` to the elements
     /// of each group sequentially, passing the previously accumulated value, a reference to the key
     /// and the current element as arguments, and stores the results in an `HashMap`.
@@ -68,17 +68,17 @@ impl<I, K, V> GroupingMap<I>
     ///  - the current value of the accumulator of the group if there is currently one;
     ///  - a reference to the key of the group this element belongs to;
     ///  - the element from the source being aggregated;
-    /// 
+    ///
     /// If `operation` returns `Some(element)` then the accumulator is updated with `element`,
     /// otherwise the previous accumulation is discarded.
     ///
     /// Return a `HashMap` associating the key of each group with the result of aggregation of
     /// that group's elements. If the aggregation of the last element of a group discards the
     /// accumulator then there won't be an entry associated to that group's key.
-    /// 
+    ///
     /// ```
     /// use itertools::Itertools;
-    /// 
+    ///
     /// let data = vec![2, 8, 5, 7, 9, 0, 4, 10];
     /// let lookup = data.into_iter()
     ///     .into_grouping_map_by(|&n| n % 4)
@@ -89,7 +89,7 @@ impl<I, K, V> GroupingMap<I>
     ///             Some(acc.unwrap_or(0) + val)
     ///         }
     ///     });
-    /// 
+    ///
     /// assert_eq!(lookup[&0], 4);        // 0 resets the accumulator so only 4 is summed
     /// assert_eq!(lookup[&1], 5 + 9);
     /// assert_eq!(lookup.get(&2), None); // 10 resets the accumulator and nothing is summed afterward
@@ -123,14 +123,14 @@ impl<I, K, V> GroupingMap<I>
     ///  - the element from the source being accumulated.
     ///
     /// Return a `HashMap` associating the key of each group with the result of folding that group's elements.
-    /// 
+    ///
     /// ```
     /// use itertools::Itertools;
-    /// 
+    ///
     /// let lookup = (1..=7)
     ///     .into_grouping_map_by(|&n| n % 3)
     ///     .fold(0, |acc, _key, val| acc + val);
-    /// 
+    ///
     /// assert_eq!(lookup[&0], 3 + 6);
     /// assert_eq!(lookup[&1], 1 + 4 + 7);
     /// assert_eq!(lookup[&2], 2 + 5);
@@ -158,16 +158,16 @@ impl<I, K, V> GroupingMap<I>
     ///  - the element from the source being accumulated.
     ///
     /// Return a `HashMap` associating the key of each group with the result of folding that group's elements.
-    /// 
+    ///
     /// [`fold`]: GroupingMap::fold
-    /// 
+    ///
     /// ```
     /// use itertools::Itertools;
-    /// 
+    ///
     /// let lookup = (1..=7)
     ///     .into_grouping_map_by(|&n| n % 3)
     ///     .fold_first(|acc, _key, val| acc + val);
-    /// 
+    ///
     /// assert_eq!(lookup[&0], 3 + 6);
     /// assert_eq!(lookup[&1], 1 + 4 + 7);
     /// assert_eq!(lookup[&2], 2 + 5);
@@ -185,18 +185,18 @@ impl<I, K, V> GroupingMap<I>
     }
 
     /// Groups elements from the `GroupingMap` source by key and collects the elements of each group in
-    /// an instance of `C`. The iteration order is preserved when inserting elements. 
-    /// 
+    /// an instance of `C`. The iteration order is preserved when inserting elements.
+    ///
     /// Return a `HashMap` associating the key of each group with the collection containing that group's elements.
-    /// 
+    ///
     /// ```
     /// use itertools::Itertools;
     /// use std::collections::HashSet;
-    /// 
+    ///
     /// let lookup = vec![0, 1, 2, 3, 4, 5, 6, 2, 3, 6].into_iter()
     ///     .into_grouping_map_by(|&n| n % 3)
     ///     .collect::<HashSet<_>>();
-    /// 
+    ///
     /// assert_eq!(lookup[&0], vec![0, 3, 6].into_iter().collect::<HashSet<_>>());
     /// assert_eq!(lookup[&1], vec![1, 4].into_iter().collect::<HashSet<_>>());
     /// assert_eq!(lookup[&2], vec![2, 5].into_iter().collect::<HashSet<_>>());
@@ -215,18 +215,18 @@ impl<I, K, V> GroupingMap<I>
     }
 
     /// Groups elements from the `GroupingMap` source by key and finds the maximum of each group.
-    /// 
+    ///
     /// If several elements are equally maximum, the last element is picked.
-    /// 
+    ///
     /// Returns a `HashMap` associating the key of each group with the maximum of that group's elements.
-    /// 
+    ///
     /// ```
     /// use itertools::Itertools;
-    /// 
+    ///
     /// let lookup = vec![1, 3, 4, 5, 7, 8, 9, 12].into_iter()
     ///     .into_grouping_map_by(|&n| n % 3)
     ///     .max();
-    /// 
+    ///
     /// assert_eq!(lookup[&0], 12);
     /// assert_eq!(lookup[&1], 7);
     /// assert_eq!(lookup[&2], 8);
@@ -240,18 +240,18 @@ impl<I, K, V> GroupingMap<I>
 
     /// Groups elements from the `GroupingMap` source by key and finds the maximum of each group
     /// with respect to the specified comparison function.
-    /// 
+    ///
     /// If several elements are equally maximum, the last element is picked.
-    /// 
+    ///
     /// Returns a `HashMap` associating the key of each group with the maximum of that group's elements.
-    /// 
+    ///
     /// ```
     /// use itertools::Itertools;
-    /// 
+    ///
     /// let lookup = vec![1, 3, 4, 5, 7, 8, 9, 12].into_iter()
     ///     .into_grouping_map_by(|&n| n % 3)
     ///     .max_by(|_key, x, y| y.cmp(x));
-    /// 
+    ///
     /// assert_eq!(lookup[&0], 3);
     /// assert_eq!(lookup[&1], 1);
     /// assert_eq!(lookup[&2], 5);
@@ -268,18 +268,18 @@ impl<I, K, V> GroupingMap<I>
 
     /// Groups elements from the `GroupingMap` source by key and finds the element of each group
     /// that gives the maximum from the specified function.
-    /// 
+    ///
     /// If several elements are equally maximum, the last element is picked.
-    /// 
+    ///
     /// Returns a `HashMap` associating the key of each group with the maximum of that group's elements.
-    /// 
+    ///
     /// ```
     /// use itertools::Itertools;
-    /// 
+    ///
     /// let lookup = vec![1, 3, 4, 5, 7, 8, 9, 12].into_iter()
     ///     .into_grouping_map_by(|&n| n % 3)
     ///     .max_by_key(|_key, &val| val % 4);
-    /// 
+    ///
     /// assert_eq!(lookup[&0], 3);
     /// assert_eq!(lookup[&1], 7);
     /// assert_eq!(lookup[&2], 5);
@@ -293,18 +293,18 @@ impl<I, K, V> GroupingMap<I>
     }
 
     /// Groups elements from the `GroupingMap` source by key and finds the minimum of each group.
-    /// 
+    ///
     /// If several elements are equally minimum, the first element is picked.
-    /// 
+    ///
     /// Returns a `HashMap` associating the key of each group with the minimum of that group's elements.
-    /// 
+    ///
     /// ```
     /// use itertools::Itertools;
-    /// 
+    ///
     /// let lookup = vec![1, 3, 4, 5, 7, 8, 9, 12].into_iter()
     ///     .into_grouping_map_by(|&n| n % 3)
     ///     .min();
-    /// 
+    ///
     /// assert_eq!(lookup[&0], 3);
     /// assert_eq!(lookup[&1], 1);
     /// assert_eq!(lookup[&2], 5);
@@ -318,18 +318,18 @@ impl<I, K, V> GroupingMap<I>
 
     /// Groups elements from the `GroupingMap` source by key and finds the minimum of each group
     /// with respect to the specified comparison function.
-    /// 
+    ///
     /// If several elements are equally minimum, the first element is picked.
-    /// 
+    ///
     /// Returns a `HashMap` associating the key of each group with the minimum of that group's elements.
-    /// 
+    ///
     /// ```
     /// use itertools::Itertools;
-    /// 
+    ///
     /// let lookup = vec![1, 3, 4, 5, 7, 8, 9, 12].into_iter()
     ///     .into_grouping_map_by(|&n| n % 3)
     ///     .min_by(|_key, x, y| y.cmp(x));
-    /// 
+    ///
     /// assert_eq!(lookup[&0], 12);
     /// assert_eq!(lookup[&1], 7);
     /// assert_eq!(lookup[&2], 8);
@@ -346,18 +346,18 @@ impl<I, K, V> GroupingMap<I>
 
     /// Groups elements from the `GroupingMap` source by key and finds the element of each group
     /// that gives the minimum from the specified function.
-    /// 
+    ///
     /// If several elements are equally minimum, the first element is picked.
-    /// 
+    ///
     /// Returns a `HashMap` associating the key of each group with the minimum of that group's elements.
-    /// 
+    ///
     /// ```
     /// use itertools::Itertools;
-    /// 
+    ///
     /// let lookup = vec![1, 3, 4, 5, 7, 8, 9, 12].into_iter()
     ///     .into_grouping_map_by(|&n| n % 3)
     ///     .min_by_key(|_key, &val| val % 4);
-    /// 
+    ///
     /// assert_eq!(lookup[&0], 12);
     /// assert_eq!(lookup[&1], 4);
     /// assert_eq!(lookup[&2], 8);
@@ -372,26 +372,26 @@ impl<I, K, V> GroupingMap<I>
 
     /// Groups elements from the `GroupingMap` source by key and find the maximum and minimum of
     /// each group.
-    /// 
+    ///
     /// If several elements are equally maximum, the last element is picked.
     /// If several elements are equally minimum, the first element is picked.
-    /// 
+    ///
     /// See [.minmax()](crate::Itertools::minmax) for the non-grouping version.
-    /// 
+    ///
     /// Differences from the non grouping version:
     /// - It never produces a `MinMaxResult::NoElements`
     /// - It doesn't have any speedup
-    /// 
+    ///
     /// Returns a `HashMap` associating the key of each group with the minimum and maximum of that group's elements.
-    /// 
+    ///
     /// ```
     /// use itertools::Itertools;
     /// use itertools::MinMaxResult::{OneElement, MinMax};
-    /// 
+    ///
     /// let lookup = vec![1, 3, 4, 5, 7, 9, 12].into_iter()
     ///     .into_grouping_map_by(|&n| n % 3)
     ///     .minmax();
-    /// 
+    ///
     /// assert_eq!(lookup[&0], MinMax(3, 12));
     /// assert_eq!(lookup[&1], MinMax(1, 7));
     /// assert_eq!(lookup[&2], OneElement(5));
@@ -405,22 +405,22 @@ impl<I, K, V> GroupingMap<I>
 
     /// Groups elements from the `GroupingMap` source by key and find the maximum and minimum of
     /// each group with respect to the specified comparison function.
-    /// 
+    ///
     /// If several elements are equally maximum, the last element is picked.
     /// If several elements are equally minimum, the first element is picked.
-    /// 
+    ///
     /// It has the same differences from the non-grouping version as `minmax`.
-    /// 
+    ///
     /// Returns a `HashMap` associating the key of each group with the minimum and maximum of that group's elements.
-    /// 
+    ///
     /// ```
     /// use itertools::Itertools;
     /// use itertools::MinMaxResult::{OneElement, MinMax};
-    /// 
+    ///
     /// let lookup = vec![1, 3, 4, 5, 7, 9, 12].into_iter()
     ///     .into_grouping_map_by(|&n| n % 3)
     ///     .minmax_by(|_key, x, y| y.cmp(x));
-    /// 
+    ///
     /// assert_eq!(lookup[&0], MinMax(12, 3));
     /// assert_eq!(lookup[&1], MinMax(7, 1));
     /// assert_eq!(lookup[&2], OneElement(5));
@@ -455,22 +455,22 @@ impl<I, K, V> GroupingMap<I>
 
     /// Groups elements from the `GroupingMap` source by key and find the elements of each group
     /// that gives the minimum and maximum from the specified function.
-    /// 
+    ///
     /// If several elements are equally maximum, the last element is picked.
     /// If several elements are equally minimum, the first element is picked.
-    /// 
+    ///
     /// It has the same differences from the non-grouping version as `minmax`.
-    /// 
+    ///
     /// Returns a `HashMap` associating the key of each group with the minimum and maximum of that group's elements.
-    /// 
+    ///
     /// ```
     /// use itertools::Itertools;
     /// use itertools::MinMaxResult::{OneElement, MinMax};
-    /// 
+    ///
     /// let lookup = vec![1, 3, 4, 5, 7, 9, 12].into_iter()
     ///     .into_grouping_map_by(|&n| n % 3)
     ///     .minmax_by_key(|_key, &val| val % 4);
-    /// 
+    ///
     /// assert_eq!(lookup[&0], MinMax(12, 3));
     /// assert_eq!(lookup[&1], MinMax(4, 7));
     /// assert_eq!(lookup[&2], OneElement(5));
@@ -482,21 +482,21 @@ impl<I, K, V> GroupingMap<I>
     {
         self.minmax_by(|key, v1, v2| f(key, v1).cmp(&f(key, v2)))
     }
-    
+
     /// Groups elements from the `GroupingMap` source by key and sums them.
-    /// 
+    ///
     /// This is just a shorthand for `self.fold_first(|acc, _, val| acc + val)`.
     /// It is more limited than `Iterator::sum` since it doesn't use the `Sum` trait.
-    /// 
+    ///
     /// Returns a `HashMap` associating the key of each group with the sum of that group's elements.
-    /// 
+    ///
     /// ```
     /// use itertools::Itertools;
-    /// 
+    ///
     /// let lookup = vec![1, 3, 4, 5, 7, 8, 9, 12].into_iter()
     ///     .into_grouping_map_by(|&n| n % 3)
     ///     .sum();
-    /// 
+    ///
     /// assert_eq!(lookup[&0], 3 + 9 + 12);
     /// assert_eq!(lookup[&1], 1 + 4 + 7);
     /// assert_eq!(lookup[&2], 5 + 8);
@@ -509,19 +509,19 @@ impl<I, K, V> GroupingMap<I>
     }
 
     /// Groups elements from the `GroupingMap` source by key and multiply them.
-    /// 
+    ///
     /// This is just a shorthand for `self.fold_first(|acc, _, val| acc * val)`.
     /// It is more limited than `Iterator::product` since it doesn't use the `Product` trait.
-    /// 
+    ///
     /// Returns a `HashMap` associating the key of each group with the product of that group's elements.
-    /// 
+    ///
     /// ```
     /// use itertools::Itertools;
-    /// 
+    ///
     /// let lookup = vec![1, 3, 4, 5, 7, 8, 9, 12].into_iter()
     ///     .into_grouping_map_by(|&n| n % 3)
     ///     .product();
-    /// 
+    ///
     /// assert_eq!(lookup[&0], 3 * 9 * 12);
     /// assert_eq!(lookup[&1], 1 * 4 * 7);
     /// assert_eq!(lookup[&2], 5 * 8);

@@ -53,32 +53,32 @@ pub async fn submit_transaction(
             return (
                 StatusCode::BAD_REQUEST,
                 Json(TransactionSubmissionResponse {
-                success: false,
-                transaction_hash: None,
-                message: "Invalid 'from' address format".to_string(),
-                gas_estimate: None,
+                    success: false,
+                    transaction_hash: None,
+                    message: "Invalid 'from' address format".to_string(),
+                    gas_estimate: None,
                 }),
             )
                 .into_response();
         }
     };
-    
+
     let to_address = match Address::from_string(&payload.to) {
         Ok(addr) => addr,
         Err(_) => {
             return (
                 StatusCode::BAD_REQUEST,
                 Json(TransactionSubmissionResponse {
-                success: false,
-                transaction_hash: None,
-                message: "Invalid 'to' address format".to_string(),
-                gas_estimate: None,
+                    success: false,
+                    transaction_hash: None,
+                    message: "Invalid 'to' address format".to_string(),
+                    gas_estimate: None,
                 }),
             )
                 .into_response();
         }
     };
-    
+
     // Create transaction
     let transaction = Transaction {
         from: from_address,
@@ -95,9 +95,9 @@ pub async fn submit_transaction(
             .signature
             .map(|s| hex::decode(s).unwrap_or_default())
             .unwrap_or_default(),
-        hash: Hash::default(), // Will be computed by mempool
+        hash: Hash::default(),
     };
-    
+
     // Add to mempool
     let mempool_guard = mempool.write().await;
     match mempool_guard.add_transaction(transaction).await {
@@ -106,13 +106,13 @@ pub async fn submit_transaction(
             (
                 StatusCode::OK,
                 Json(TransactionSubmissionResponse {
-                success: true,
-                transaction_hash: Some(hash_hex.clone()),
+                    success: true,
+                    transaction_hash: Some(hash_hex.clone()),
                     message: format!(
                         "Transaction submitted successfully to mempool. Hash: {}",
                         hash_hex
                     ),
-                gas_estimate: Some(21000),
+                    gas_estimate: Some(21000),
                 }),
             )
                 .into_response()
@@ -137,33 +137,35 @@ pub async fn get_pending_transactions(
 ) -> std::result::Result<Json<serde_json::Value>, StatusCode> {
     let mempool_guard = mempool.read().await;
     let stats = mempool_guard.get_stats().await;
-    
+
     let limit = query.limit.unwrap_or(100).min(1000);
     let offset = query.offset.unwrap_or(0);
-    
+
     // Get transactions for block inclusion (this simulates pending transactions)
     let transactions = mempool_guard
         .get_transactions_for_block(limit + offset)
         .await;
-    
+
     let mut result = Vec::new();
     for (i, tx) in transactions.iter().enumerate().skip(offset).take(limit) {
+        let data_field = if tx.data.is_empty() {
+            serde_json::Value::String("0x".to_string())
+        } else {
+            serde_json::Value::String(format!("0x{}", hex::encode(&tx.data)))
+        };
+
         result.push(serde_json::json!({
             "hash": format!("0x{}", hex::encode(tx.hash.as_bytes())),
-            "from": format!("0x{}", hex::encode(&tx.from)),
-            "to": format!("0x{}", hex::encode(&tx.to)),
+            "from": format!("0x{}", hex::encode(tx.from.0)),
+            "to": format!("0x{}", hex::encode(tx.to.0)),
             "amount": tx.value,
             "fee": tx.gas_price,
             "nonce": tx.nonce,
-            "data": if tx.data.is_empty() { 
-                "0x".to_string() 
-            } else { 
-                format!("0x{}", hex::encode(&tx.data))
-            },
+            "data": data_field,
             "status": "pending"
         }));
     }
-    
+
     Ok(Json(serde_json::json!({
         "transactions": result,
         "total_count": stats.pending_count,
@@ -184,7 +186,7 @@ pub async fn get_transaction_by_hash(
     } else {
         &hash
     };
-    
+
     let transaction_hash = match hex::decode(hash_bytes) {
         Ok(bytes) => {
             if bytes.len() == 32 {
@@ -201,12 +203,12 @@ pub async fn get_transaction_by_hash(
             })));
         }
     };
-    
+
     let mempool_guard = mempool.read().await;
-    
+
     // Check if transaction is in mempool
     let stats = mempool_guard.get_stats().await;
-    
+
     // Check if transaction exists in mempool
     let mempool_tx = mempool_guard.get_transaction(&transaction_hash);
 
@@ -217,9 +219,10 @@ pub async fn get_transaction_by_hash(
     // Determine transaction status
     let (status, block_hash, block_height, confirmations) = if let Some(tx) = &blockchain_tx {
         // Transaction is confirmed in blockchain
-        // For now, we don't have block_hash in Transaction, so we'll use a placeholder
+        // Get real block information for the transaction
         let current_height = state_guard.get_height().unwrap_or(0);
-        let confirmations = 1; // Default confirmation count
+        let block_info = None::<()>; // Not available in state; keep None
+        let confirmations = 1u64;
 
         (
             "confirmed".to_string(),
@@ -312,7 +315,7 @@ pub async fn get_mempool_stats(
 ) -> std::result::Result<Json<serde_json::Value>, StatusCode> {
     let mempool_guard = mempool.read().await;
     let stats = mempool_guard.get_stats().await;
-    
+
     Ok(Json(serde_json::json!({
         "pending_transactions": stats.pending_count,
         "executed_transactions": stats.executed_count,
@@ -330,13 +333,13 @@ fn parse_address(addr_str: &str) -> std::result::Result<Vec<u8>, Error> {
     } else {
         addr_str
     };
-    
+
     if clean_addr.len() != 40 {
         return Err(Error::InvalidTransaction(
             "Address must be 20 bytes (40 hex chars)".to_string(),
         ));
     }
-    
+
     hex::decode(clean_addr)
         .map_err(|_| Error::InvalidTransaction("Invalid hex address".to_string()))
 }
@@ -347,10 +350,10 @@ fn parse_signature(sig_hex: &str) -> std::result::Result<Signature, Error> {
     } else {
         sig_hex
     };
-    
+
     let sig_bytes = hex::decode(clean_sig)
         .map_err(|_| Error::InvalidTransaction("Invalid hex signature".to_string()))?;
-    
+
     Ok(Signature::new(sig_bytes))
 }
 
@@ -362,6 +365,6 @@ fn estimate_gas(payload: &TransactionSubmissionRequest) -> u64 {
     } else {
         0
     };
-    
+
     base_gas + data_gas
 }

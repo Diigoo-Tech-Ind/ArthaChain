@@ -16,11 +16,11 @@ peg::parser!( grammar ra() for str {
     rule ident() = ['a'..='z']+
     rule _ = [' ']*
     pub rule ifelse() = keyword("if") _ ident() _ keyword("then") _ ident() _ keyword("else") _ ident()
-    
+
     pub rule repeated_a(i: usize) = ['a']*<{i}>
 
     rule i(literal: &'static str) = input:$([_]*<{literal.len()}>) {? if input.eq_ignore_ascii_case(literal) { Ok(()) } else { Err(literal) } }
-    
+
     pub rule test_i() = i("foo") i("bar")
 
     rule recursive(r: rule<()>) = " " recursive(r) // Issue #226

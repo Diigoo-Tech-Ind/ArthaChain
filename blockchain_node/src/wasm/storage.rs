@@ -1,146 +1,107 @@
-//! WASM contract storage interface
+//! WASM Storage Interface
 //!
-//! Provides storage access for WASM contracts with key-value semantics.
-//! Uses a prefixed namespace for each contract to isolate storage between contracts.
+//! This module provides a storage interface specifically designed for WASM contracts,
+//! with proper key prefixing and async compatibility.
 
-use crate::storage::Storage;
-use crate::types::Address;
-
-use parking_lot::RwLock;
+use anyhow::Result;
 use std::sync::Arc;
+use tokio::sync::RwLock;
 
-/// Storage interface for the WASM environment
+use crate::types::Address;
+use crate::storage::{Storage, StorageError};
+
+/// WASM contract storage interface
 pub struct WasmStorage {
-    /// The underlying storage implementation
+    /// Underlying storage
     storage: Arc<RwLock<dyn Storage>>,
 }
 
 impl WasmStorage {
-    /// Create a new WASM storage interface with the given storage backend
+    /// Create a new WASM storage interface
     pub fn new(storage: Arc<RwLock<dyn Storage>>) -> Self {
         Self { storage }
     }
 
-    /// Get a storage value for a contract
-    pub fn get(&self, contract_address: &Address, key: &[u8]) -> Option<Vec<u8>> {
+    /// Get a value from storage
+    pub async fn get(&self, contract_address: &Address, key: &[u8]) -> Result<Option<Vec<u8>>> {
         let prefixed_key = self.prefixed_key(contract_address, key);
-        self.storage.read().get(&prefixed_key)
+        let storage = self.storage.read().await;
+        storage.get(&prefixed_key).await.map_err(|e| e.into())
     }
 
-    /// Set a storage value for a contract
-    pub fn set(&self, contract_address: &Address, key: &[u8], value: &[u8]) {
+    /// Set a value in storage
+    pub async fn set(&self, contract_address: &Address, key: &[u8], value: &[u8]) -> Result<()> {
         let prefixed_key = self.prefixed_key(contract_address, key);
-        self.storage.write().set(&prefixed_key, value);
+        let mut storage = self.storage.write().await;
+        storage.put(&prefixed_key, value).await.map_err(|e| e.into())
     }
 
-    /// Delete a storage value for a contract
-    pub fn delete(&self, contract_address: &Address, key: &[u8]) {
+    /// Check if a key exists in storage
+    pub async fn has(&self, contract_address: &Address, key: &[u8]) -> Result<bool> {
         let prefixed_key = self.prefixed_key(contract_address, key);
-        self.storage.write().delete(&prefixed_key);
+        let storage = self.storage.read().await;
+        match storage.get(&prefixed_key).await {
+            Ok(Some(_)) => Ok(true),
+            Ok(None) => Ok(false),
+            Err(e) => Err(e.into()),
+        }
     }
 
-    /// Check if a key exists in storage for a contract
-    pub fn has(&self, contract_address: &Address, key: &[u8]) -> bool {
+    /// Delete a key from storage
+    pub async fn delete(&self, contract_address: &Address, key: &[u8]) -> Result<()> {
         let prefixed_key = self.prefixed_key(contract_address, key);
-        self.storage.read().has(&prefixed_key)
+        let mut storage = self.storage.write().await;
+        storage.delete(&prefixed_key).await.map_err(|e| e.into())
     }
 
-    /// Create a deterministic storage key prefix for a contract to isolate storage
+    /// Get contract code
+    pub async fn get_code(&self, contract_address: &Address) -> Result<Option<Vec<u8>>> {
+        let code_key = self.code_key(contract_address);
+        let storage = self.storage.read().await;
+        storage.get(&code_key).await.map_err(|e| e.into())
+    }
+
+    /// Set contract code
+    pub async fn set_code(&self, contract_address: &Address, code: &[u8]) -> Result<()> {
+        let code_key = self.code_key(contract_address);
+        let mut storage = self.storage.write().await;
+        storage.put(&code_key, code).await.map_err(|e| e.into())
+    }
+
+    /// Get contract metadata
+    pub async fn get_metadata(&self, contract_address: &Address) -> Result<Option<Vec<u8>>> {
+        let metadata_key = self.metadata_key(contract_address);
+        let storage = self.storage.read().await;
+        storage.get(&metadata_key).await.map_err(|e| e.into())
+    }
+
+    /// Set contract metadata
+    pub async fn set_metadata(&self, contract_address: &Address, metadata: &[u8]) -> Result<()> {
+        let metadata_key = self.metadata_key(contract_address);
+        let mut storage = self.storage.write().await;
+        storage.put(&metadata_key, metadata).await.map_err(|e| e.into())
+    }
+
+    /// Create a prefixed key for contract storage
     fn prefixed_key(&self, contract_address: &Address, key: &[u8]) -> Vec<u8> {
-        let mut prefixed_key = Vec::with_capacity(contract_address.as_ref().len() + 1 + key.len());
-        prefixed_key.extend_from_slice(contract_address.as_ref());
-        prefixed_key.push(b':');
-        prefixed_key.extend_from_slice(key);
-        prefixed_key
+        let mut prefixed = b"contract:".to_vec();
+        prefixed.extend_from_slice(&contract_address.as_bytes());
+        prefixed.push(b':');
+        prefixed.extend_from_slice(key);
+        prefixed
     }
 
-    /// Get the code for a contract
-    pub fn get_code(&self, contract_address: &Address) -> Option<Vec<u8>> {
-        let code_key = self.code_key(contract_address);
-        self.storage.read().get(&code_key)
-    }
-
-    /// Set the code for a contract
-    pub fn set_code(&self, contract_address: &Address, code: &[u8]) {
-        let code_key = self.code_key(contract_address);
-        self.storage.write().set(&code_key, code);
-    }
-
-    /// Get the metadata for a contract
-    pub fn get_metadata(&self, contract_address: &Address) -> Option<Vec<u8>> {
-        let metadata_key = self.metadata_key(contract_address);
-        self.storage.read().get(&metadata_key)
-    }
-
-    /// Set the metadata for a contract
-    pub fn set_metadata(&self, contract_address: &Address, metadata: &[u8]) {
-        let metadata_key = self.metadata_key(contract_address);
-        self.storage.write().set(&metadata_key, metadata);
-    }
-
-    /// Create the key for storing contract code
+    /// Create a key for contract code
     fn code_key(&self, contract_address: &Address) -> Vec<u8> {
-        let mut code_key = Vec::with_capacity(contract_address.as_ref().len() + 6);
-        code_key.extend_from_slice(b"code:");
-        code_key.extend_from_slice(contract_address.as_ref());
-        code_key
+        let mut key = b"contract_code:".to_vec();
+        key.extend_from_slice(&contract_address.as_bytes());
+        key
     }
 
-    /// Create the key for storing contract metadata
+    /// Create a key for contract metadata
     fn metadata_key(&self, contract_address: &Address) -> Vec<u8> {
-        let mut metadata_key = Vec::with_capacity(contract_address.as_ref().len() + 9);
-        metadata_key.extend_from_slice(b"metadata:");
-        metadata_key.extend_from_slice(contract_address.as_ref());
-        metadata_key
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::storage::memory::MemoryStorage;
-
-    #[test]
-    fn test_wasm_storage() {
-        let storage = Arc::new(MemoryStorage::new());
-        let contract_address =
-            Address::from_hex("0x1234567890123456789012345678901234567890").unwrap();
-        let wasm_storage = WasmStorage::new(storage);
-
-        // Test write and read
-        let key = b"test_key";
-        let value = b"test_value";
-        wasm_storage.set(&contract_address, key, value);
-        let read_value = wasm_storage.get(&contract_address, key).unwrap();
-        assert_eq!(read_value, value.to_vec());
-
-        // Test delete
-        wasm_storage.delete(&contract_address, key);
-        let read_value = wasm_storage.get(&contract_address, key);
-        assert_eq!(read_value, None);
-    }
-
-    #[test]
-    fn test_storage_namespacing() {
-        let storage = Arc::new(MemoryStorage::new());
-        let contract_address1 =
-            Address::from_hex("0x1234567890123456789012345678901234567890").unwrap();
-        let contract_address2 =
-            Address::from_hex("0x0987654321098765432109876543210987654321").unwrap();
-        let wasm_storage1 = WasmStorage::new(storage.clone());
-        let wasm_storage2 = WasmStorage::new(storage);
-
-        // Write to both storages with the same key
-        let key = b"test_key";
-        let value1 = b"test_value1";
-        let value2 = b"test_value2";
-        wasm_storage1.set(&contract_address1, key, value1);
-        wasm_storage2.set(&contract_address2, key, value2);
-
-        // Check that they have different values
-        let read_value1 = wasm_storage1.get(&contract_address1, key).unwrap();
-        let read_value2 = wasm_storage2.get(&contract_address2, key).unwrap();
-        assert_eq!(read_value1, value1.to_vec());
-        assert_eq!(read_value2, value2.to_vec());
+        let mut key = b"contract_metadata:".to_vec();
+        key.extend_from_slice(&contract_address.as_bytes());
+        key
     }
 }

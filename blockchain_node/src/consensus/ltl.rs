@@ -99,7 +99,7 @@ impl LTLFormula {
         match self {
             LTLFormula::Atom(s) => { atoms.insert(s.clone()); }
             LTLFormula::Not(phi) => phi.collect_atoms(atoms),
-            LTLFormula::And(phi, psi) | LTLFormula::Or(phi, psi) | 
+            LTLFormula::And(phi, psi) | LTLFormula::Or(phi, psi) |
             LTLFormula::Implies(phi, psi) | LTLFormula::Until(phi, psi) |
             LTLFormula::WeakUntil(phi, psi) | LTLFormula::Release(phi, psi) => {
                 phi.collect_atoms(atoms);
@@ -221,7 +221,7 @@ impl LTLParser {
                             break;
                         }
                     }
-                    
+
                     let token = match identifier.as_str() {
                         "true" => Token::True,
                         "false" => Token::False,
@@ -238,7 +238,7 @@ impl LTLParser {
                 _ => return Err(LTLError::ParseError(format!("Invalid character '{}'", ch))),
             }
         }
-        
+
         self.tokens.push(Token::EOF);
         Ok(())
     }
@@ -260,43 +260,43 @@ impl LTLParser {
 
     fn parse_implies(&mut self) -> Result<LTLFormula, LTLError> {
         let mut left = self.parse_or()?;
-        
+
         while matches!(self.current_token(), Token::Implies) {
             self.advance();
             let right = self.parse_or()?;
             left = LTLFormula::Implies(Box::new(left), Box::new(right));
         }
-        
+
         Ok(left)
     }
 
     fn parse_or(&mut self) -> Result<LTLFormula, LTLError> {
         let mut left = self.parse_and()?;
-        
+
         while matches!(self.current_token(), Token::Or) {
             self.advance();
             let right = self.parse_and()?;
             left = LTLFormula::Or(Box::new(left), Box::new(right));
         }
-        
+
         Ok(left)
     }
 
     fn parse_and(&mut self) -> Result<LTLFormula, LTLError> {
         let mut left = self.parse_until()?;
-        
+
         while matches!(self.current_token(), Token::And) {
             self.advance();
             let right = self.parse_until()?;
             left = LTLFormula::And(Box::new(left), Box::new(right));
         }
-        
+
         Ok(left)
     }
 
     fn parse_until(&mut self) -> Result<LTLFormula, LTLError> {
         let mut left = self.parse_unary()?;
-        
+
         while matches!(self.current_token(), Token::Until | Token::WeakUntil | Token::Release) {
             match self.current_token() {
                 Token::Until => {
@@ -317,7 +317,7 @@ impl LTLParser {
                 _ => unreachable!(),
             }
         }
-        
+
         Ok(left)
     }
 
@@ -429,11 +429,11 @@ impl LTLModelChecker {
     /// Check if an LTL formula holds in the given Petri net
     pub async fn check(&mut self, net: &PetriNet, formula: &LTLFormula) -> Result<ModelCheckingResult, LTLError> {
         let start_time = std::time::Instant::now();
-        
+
         // Get initial marking
         let initial_marking = net.get_marking().await
             .map_err(|e| LTLError::ModelCheckingError(format!("Failed to get initial marking: {}", e)))?;
-        
+
         let initial_state = ModelState {
             marking: initial_marking,
             propositions: self.extract_propositions(net, &initial_marking).await?,
@@ -441,9 +441,9 @@ impl LTLModelChecker {
 
         // Use bounded model checking
         let result = self.bounded_model_check(&initial_state, formula, net, 0).await?;
-        
+
         let verification_time = start_time.elapsed().as_millis() as u64;
-        
+
         // Generate counterexamples and witnesses based on verification result
         let (counterexample, witness) = if result {
             // Formula satisfied - generate witness trace
@@ -454,7 +454,7 @@ impl LTLModelChecker {
             let counterexample_trace = self.generate_counterexample(&initial_state, formula, &net).await?;
             (Some(counterexample_trace), None)
         };
-        
+
         Ok(ModelCheckingResult {
             satisfied: result,
             counterexample,
@@ -562,7 +562,7 @@ impl LTLModelChecker {
 
         visited.insert(state.clone());
         let next_states = self.get_next_states(state, net).await?;
-        
+
         for next_state in next_states {
             if self.check_until(&next_state, phi, psi, net, depth + 1, visited).await? {
                 visited.remove(state);
@@ -600,7 +600,7 @@ impl LTLModelChecker {
 
         visited.insert(state.clone());
         let next_states = self.get_next_states(state, net).await?;
-        
+
         // All paths must satisfy weak until
         for next_state in next_states {
             if !self.check_weak_until(&next_state, phi, psi, net, depth + 1, visited).await? {
@@ -639,7 +639,7 @@ impl LTLModelChecker {
 
         visited.insert(state.clone());
         let next_states = self.get_next_states(state, net).await?;
-        
+
         // All next states must satisfy release
         for next_state in next_states {
             if !self.check_release(&next_state, phi, psi, net, depth + 1, visited).await? {
@@ -672,7 +672,7 @@ impl LTLModelChecker {
 
         visited.insert(state.clone());
         let next_states = self.get_next_states(state, net).await?;
-        
+
         for next_state in next_states {
             if self.check_finally(&next_state, phi, net, depth + 1, visited).await? {
                 visited.remove(state);
@@ -704,7 +704,7 @@ impl LTLModelChecker {
 
         visited.insert(state.clone());
         let next_states = self.get_next_states(state, net).await?;
-        
+
         // phi must hold in all reachable states
         for next_state in next_states {
             if !self.check_globally(&next_state, phi, net, depth + 1, visited).await? {
@@ -720,7 +720,7 @@ impl LTLModelChecker {
     /// Get next states from current state via Petri net transitions
     async fn get_next_states(&self, state: &ModelState, net: &PetriNet) -> Result<Vec<ModelState>, LTLError> {
         let mut next_states = Vec::new();
-        
+
         // Get enabled transitions
         let enabled_transitions = net.get_enabled_transitions().await
             .map_err(|e| LTLError::ModelCheckingError(format!("Failed to get enabled transitions: {}", e)))?;
@@ -730,7 +730,7 @@ impl LTLModelChecker {
             // This is a simplified state computation - in practice, you'd need
             // to properly compute the new marking after firing the transition
             let mut new_marking = state.marking.clone();
-            
+
             // Simple transition firing simulation (would be more complex in practice)
             for input_place in &transition.input_places {
                 if let Some(tokens) = new_marking.get_mut(input_place) {
@@ -739,13 +739,13 @@ impl LTLModelChecker {
                     }
                 }
             }
-            
+
             for output_place in &transition.output_places {
                 *new_marking.entry(output_place.clone()).or_insert(0) += 1;
             }
 
             let propositions = self.extract_propositions(net, &new_marking).await?;
-            
+
             next_states.push(ModelState {
                 marking: new_marking,
                 propositions,
@@ -758,7 +758,7 @@ impl LTLModelChecker {
     /// Extract propositions that are true in the given marking
     async fn extract_propositions(&self, _net: &PetriNet, marking: &Marking) -> Result<HashSet<String>, LTLError> {
         let mut propositions = HashSet::new();
-        
+
         // Example propositions based on marking
         for (place, tokens) in marking {
             if *tokens > 0 {
@@ -768,17 +768,17 @@ impl LTLModelChecker {
                 propositions.insert(format!("many_tokens_{}", place));
             }
         }
-        
+
         // Add custom consensus-related propositions
         let total_tokens: u32 = marking.values().sum();
         if total_tokens > 10 {
             propositions.insert("system_active".to_string());
         }
-        
+
         if marking.len() > 3 {
             propositions.insert("distributed_state".to_string());
         }
-        
+
         Ok(propositions)
     }
 
@@ -807,28 +807,28 @@ impl LTLModelChecker {
         let always_eventually_enabled = LTLFormula::Globally(Box::new(eventually_enabled));
         self.check(net, &always_eventually_enabled).await
     }
-    
+
     /// Generate a witness trace showing how the formula is satisfied
     async fn generate_witness_trace(
-        &mut self, 
-        initial_state: &ModelState, 
-        formula: &LTLFormula, 
+        &mut self,
+        initial_state: &ModelState,
+        formula: &LTLFormula,
         petri_net: &PetriNet
     ) -> Result<ExecutionTrace, anyhow::Error> {
         info!("Generating witness trace for satisfied formula");
-        
+
         let mut trace = ExecutionTrace {
             states: Vec::new(),
             transitions: Vec::new(),
             execution_time_ms: 0,
         };
-        
+
         let start_time = std::time::Instant::now();
-        
+
         // Start with initial state
         let mut current_state = initial_state.clone();
         trace.states.push(current_state.clone());
-        
+
         // Generate trace that demonstrates formula satisfaction
         match formula {
             LTLFormula::Atom(prop) => {
@@ -842,12 +842,12 @@ impl LTLModelChecker {
                     trace.transitions.push(format!("Transition to state where '{}' holds", prop));
                 }
             }
-            
+
             LTLFormula::Finally(inner_formula) => {
                 // Show path to a state where inner formula holds
                 let target_state = self.find_eventually_satisfying_state(inner_formula, &current_state, petri_net).await?;
                 let path = self.generate_path_to_state(&current_state, &target_state, petri_net).await?;
-                
+
                 for (i, state) in path.iter().enumerate() {
                     trace.states.push(state.clone());
                     if i > 0 {
@@ -856,21 +856,21 @@ impl LTLModelChecker {
                 }
                 trace.transitions.push("Finally condition satisfied".to_string());
             }
-            
+
             LTLFormula::Globally(inner_formula) => {
                 // Show multiple states where formula always holds
                 let witness_states = self.generate_global_witness_states(inner_formula, &current_state, petri_net).await?;
-                
+
                 for (i, state) in witness_states.iter().enumerate() {
                     trace.states.push(state.clone());
                     trace.transitions.push(format!("State {} where formula holds globally", i + 1));
                 }
             }
-            
+
             LTLFormula::Until(left, right) => {
                 // Show path where left holds until right becomes true
                 let witness_path = self.generate_until_witness(left, right, &current_state, petri_net).await?;
-                
+
                 for (i, state) in witness_path.iter().enumerate() {
                     trace.states.push(state.clone());
                     if i == witness_path.len() - 1 {
@@ -880,61 +880,61 @@ impl LTLModelChecker {
                     }
                 }
             }
-            
+
             _ => {
                 // For other complex formulas, generate a generic witness
                 trace.transitions.push("Complex formula satisfied (witness generation simplified)".to_string());
             }
         }
-        
+
         trace.execution_time_ms = start_time.elapsed().as_millis() as u64;
         Ok(trace)
     }
-    
+
     /// Generate a counterexample trace showing how the formula is violated
     async fn generate_counterexample(
-        &mut self, 
-        initial_state: &ModelState, 
-        formula: &LTLFormula, 
+        &mut self,
+        initial_state: &ModelState,
+        formula: &LTLFormula,
         petri_net: &PetriNet
     ) -> Result<ExecutionTrace, anyhow::Error> {
         info!("Generating counterexample trace for violated formula");
-        
+
         let mut trace = ExecutionTrace {
             states: Vec::new(),
             transitions: Vec::new(),
             execution_time_ms: 0,
         };
-        
+
         let start_time = std::time::Instant::now();
-        
+
         // Start with initial state
         let mut current_state = initial_state.clone();
         trace.states.push(current_state.clone());
-        
+
         // Generate trace that demonstrates formula violation
         match formula {
             LTLFormula::Atom(prop) => {
                 // Show state where atomic property doesn't hold
                 trace.transitions.push(format!("Property '{}' does not hold in initial state", prop));
             }
-            
+
             LTLFormula::Finally(inner_formula) => {
                 // Show infinite path where inner formula never becomes true
                 let counterexample_loop = self.generate_finally_counterexample(inner_formula, &current_state, petri_net).await?;
-                
+
                 for (i, state) in counterexample_loop.iter().enumerate() {
                     trace.states.push(state.clone());
                     trace.transitions.push(format!("Step {} in infinite path where Finally never satisfied", i + 1));
                 }
                 trace.transitions.push("Loop back to earlier state (infinite path)".to_string());
             }
-            
+
             LTLFormula::Globally(inner_formula) => {
                 // Show path to a state where inner formula is violated
                 let violation_state = self.find_global_violation_state(inner_formula, &current_state, petri_net).await?;
                 let path = self.generate_path_to_state(&current_state, &violation_state, petri_net).await?;
-                
+
                 for (i, state) in path.iter().enumerate() {
                     trace.states.push(state.clone());
                     if i == path.len() - 1 {
@@ -944,11 +944,11 @@ impl LTLModelChecker {
                     }
                 }
             }
-            
+
             LTLFormula::Until(left, right) => {
                 // Show path where left stops holding before right becomes true
                 let violation_path = self.generate_until_violation(left, right, &current_state, petri_net).await?;
-                
+
                 for (i, state) in violation_path.iter().enumerate() {
                     trace.states.push(state.clone());
                     if i == violation_path.len() - 1 {
@@ -958,19 +958,19 @@ impl LTLModelChecker {
                     }
                 }
             }
-            
+
             _ => {
                 // For other complex formulas, generate a generic counterexample
                 trace.transitions.push("Complex formula violated (counterexample generation simplified)".to_string());
             }
         }
-        
+
         trace.execution_time_ms = start_time.elapsed().as_millis() as u64;
         Ok(trace)
     }
-    
+
     // Helper methods for witness and counterexample generation
-    
+
     async fn find_state_satisfying_property(&mut self, prop: &str, petri_net: &PetriNet) -> Result<ModelState, anyhow::Error> {
         // Generate a state where the given property holds
         let mut state = ModelState {
@@ -984,7 +984,7 @@ impl LTLModelChecker {
                 .unwrap_or_default()
                 .as_secs(),
         };
-        
+
         // Simulate state that satisfies the property
         match prop {
             "safety" => {
@@ -1002,75 +1002,75 @@ impl LTLModelChecker {
                 state.block_height += 1;
             }
         }
-        
+
         Ok(state)
     }
-    
+
     async fn find_eventually_satisfying_state(&mut self, formula: &LTLFormula, current: &ModelState, _petri_net: &PetriNet) -> Result<ModelState, anyhow::Error> {
         // Generate a future state where the formula will be satisfied
         let mut target_state = current.clone();
         target_state.block_height += 5; // Advance some blocks
         target_state.consensus_stage = crate::consensus::types::ConsensusStage::Finalized;
         target_state.timestamp += 300; // 5 minutes later
-        
+
         Ok(target_state)
     }
-    
+
     async fn generate_global_witness_states(&mut self, _formula: &LTLFormula, current: &ModelState, _petri_net: &PetriNet) -> Result<Vec<ModelState>, anyhow::Error> {
         // Generate multiple states showing global property holds
         let mut states = Vec::new();
-        
+
         for i in 1..=3 {
             let mut state = current.clone();
             state.block_height += i;
             state.timestamp += i * 60; // 1 minute intervals
             states.push(state);
         }
-        
+
         Ok(states)
     }
-    
+
     async fn generate_until_witness(&mut self, _left: &LTLFormula, _right: &LTLFormula, current: &ModelState, _petri_net: &PetriNet) -> Result<Vec<ModelState>, anyhow::Error> {
         // Generate path showing Until formula satisfaction
         let mut path = Vec::new();
-        
+
         // Start with current state (left holds)
         path.push(current.clone());
-        
+
         // Intermediate state (left still holds)
         let mut intermediate = current.clone();
         intermediate.block_height += 1;
         intermediate.timestamp += 60;
         path.push(intermediate);
-        
+
         // Final state (right becomes true)
         let mut final_state = current.clone();
         final_state.block_height += 2;
         final_state.consensus_stage = crate::consensus::types::ConsensusStage::Finalized;
         final_state.timestamp += 120;
         path.push(final_state);
-        
+
         Ok(path)
     }
-    
+
     async fn generate_path_to_state(&mut self, _from: &ModelState, to: &ModelState, _petri_net: &PetriNet) -> Result<Vec<ModelState>, anyhow::Error> {
         // Generate intermediate states leading to target
         let mut path = Vec::new();
         let mut current = _from.clone();
-        
+
         while current.block_height < to.block_height {
             current.block_height += 1;
             current.timestamp += 60;
             path.push(current.clone());
         }
-        
+
         Ok(path)
     }
-    
+
     async fn generate_finally_counterexample(&mut self, _formula: &LTLFormula, current: &ModelState, _petri_net: &PetriNet) -> Result<Vec<ModelState>, anyhow::Error> {
         // Generate loop showing formula never becomes true
         let mut loop_states = Vec::new();
-        
+
         for i in 0..3 {
             let mut state = current.clone();
             state.block_height += i;
@@ -1079,34 +1079,34 @@ impl LTLModelChecker {
             state.consensus_stage = crate::consensus::types::ConsensusStage::ViewChange;
             loop_states.push(state);
         }
-        
+
         Ok(loop_states)
     }
-    
+
     async fn find_global_violation_state(&mut self, _formula: &LTLFormula, current: &ModelState, _petri_net: &PetriNet) -> Result<ModelState, anyhow::Error> {
         // Generate state that violates the global property
         let mut violation_state = current.clone();
         violation_state.block_height += 2;
         violation_state.consensus_stage = crate::consensus::types::ConsensusStage::Failed;
         violation_state.timestamp += 120;
-        
+
         Ok(violation_state)
     }
-    
+
     async fn generate_until_violation(&mut self, _left: &LTLFormula, _right: &LTLFormula, current: &ModelState, _petri_net: &PetriNet) -> Result<Vec<ModelState>, anyhow::Error> {
         // Generate path where left stops holding before right becomes true
         let mut path = Vec::new();
-        
+
         // Initial state (left holds)
         path.push(current.clone());
-        
+
         // State where left stops holding
         let mut violation = current.clone();
         violation.block_height += 1;
         violation.consensus_stage = crate::consensus::types::ConsensusStage::Failed;
         violation.timestamp += 60;
         path.push(violation);
-        
+
         Ok(path)
     }
 }
@@ -1163,21 +1163,21 @@ mod tests {
     #[tokio::test]
     async fn test_ltl_parser() {
         let mut parser = LTLParser::new();
-        
+
         // Test basic parsing
         let formula = parser.parse("G(safety)").unwrap();
         assert!(matches!(formula, LTLFormula::Globally(_)));
-        
+
         let formula = parser.parse("F(liveness)").unwrap();
         assert!(matches!(formula, LTLFormula::Finally(_)));
-        
+
         let formula = parser.parse("X(next_state)").unwrap();
         assert!(matches!(formula, LTLFormula::Next(_)));
-        
+
         // Test complex formula
         let formula = parser.parse("G(safety) && F(liveness)").unwrap();
         assert!(matches!(formula, LTLFormula::And(_, _)));
-        
+
         // Test until
         let formula = parser.parse("safe U goal").unwrap();
         assert!(matches!(formula, LTLFormula::Until(_, _)));
@@ -1187,12 +1187,12 @@ mod tests {
     async fn test_model_checker() {
         let net = PetriNet::new();
         let mut checker = LTLModelChecker::new(10);
-        
+
         // Add some places and transitions to the net
         net.add_place("start".to_string(), 1).await.unwrap();
         net.add_place("end".to_string(), 0).await.unwrap();
         net.add_transition("t1".to_string(), None).await.unwrap();
-        
+
         // Test safety property
         let safety = LTLFormula::Atom("system_active".to_string());
         let result = checker.check_safety(&net, &safety).await.unwrap();
@@ -1203,10 +1203,10 @@ mod tests {
     async fn test_consensus_properties() {
         let agreement = ConsensusProperties::agreement();
         assert!(matches!(agreement, LTLFormula::Globally(_)));
-        
+
         let validity = ConsensusProperties::validity();
         assert!(matches!(validity, LTLFormula::Globally(_)));
-        
+
         let termination = ConsensusProperties::termination();
         assert!(matches!(termination, LTLFormula::Finally(_)));
     }
@@ -1219,7 +1219,7 @@ mod tests {
         );
         let simplified = formula.simplify();
         assert_eq!(simplified, LTLFormula::Atom("p".to_string()));
-        
+
         let formula = LTLFormula::Or(
             Box::new(LTLFormula::False),
             Box::new(LTLFormula::Atom("q".to_string()))
@@ -1227,4 +1227,4 @@ mod tests {
         let simplified = formula.simplify();
         assert_eq!(simplified, LTLFormula::Atom("q".to_string()));
     }
-} 
+}

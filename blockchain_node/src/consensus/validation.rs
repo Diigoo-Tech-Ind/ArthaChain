@@ -252,8 +252,15 @@ impl ValidationEngine {
                     gas_price: tx.fee,
                     gas_limit: 21000, // Default gas limit
                     data: tx.data.clone(),
-                    signature: tx.signature.as_ref().map(|s| s.as_bytes().to_vec()).unwrap_or_default(),
-                    timestamp: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(),
+                    signature: tx
+                        .signature
+                        .as_ref()
+                        .map(|s| s.as_bytes().to_vec())
+                        .unwrap_or_default(),
+                    timestamp: std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs(),
                     status: crate::ledger::transaction::TransactionStatus::Pending,
                 };
                 let tx_result = self.validate_transaction(tx_converted).await?;
@@ -601,7 +608,8 @@ impl ValidationEngine {
         // - Check proof integrity
 
         // Simple check for example
-        if false { // ZKP validation disabled for now
+        if false {
+            // ZKP validation disabled for now
             return Ok(false);
         }
 

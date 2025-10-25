@@ -1,0 +1,31 @@
+tunnel: cc3311b0-2a5c-4444-aacc-668576634499
+credentials-file: /Users/sainathtangallapalli/.cloudflared/cc3311b0-2a5c-4444-aacc-668576634499.json
+
+ingress:
+  # Main API
+  - hostname: api.arthachain.in
+    service: http://localhost:1900
+    originRequest:
+      httpHostHeader: api.arthachain.in
+  # Testnet API
+  - hostname: testnet.arthachain.in
+    service: http://localhost:1900
+    originRequest:
+      httpHostHeader: testnet.arthachain.in
+  # Explorer
+  - hostname: explorer.arthachain.in
+    service: http://localhost:1900
+    originRequest:
+      httpHostHeader: explorer.arthachain.in
+  # Faucet
+  - hostname: faucet.arthachain.in
+    service: http://localhost:1900
+    originRequest:
+      httpHostHeader: faucet.arthachain.in
+  # Validators
+  - hostname: validators.arthachain.in
+    service: http://localhost:1900
+    originRequest:
+      httpHostHeader: validators.arthachain.in
+  # Catch-all rule
+  - service: http_status:404

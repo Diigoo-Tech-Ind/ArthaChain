@@ -1,7 +1,7 @@
+use super::{Result, Storage, StorageError, StorageStats};
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use super::{Storage, StorageStats, StorageError, Result};
 
 /// Simple in-memory storage implementation for testing
 pub struct MemoryStorage {

@@ -340,7 +340,7 @@ impl<'a> HyphenatedRef<'a> {
     ///             .encode_lower(&mut Uuid::encode_buffer()),
     ///         "936da01f-9abd-4d9d-80c7-02af85c822a8"
     ///     );
-    ///     
+    ///
     ///     // the buffer is mutated directly, and trailing contents remains
     ///     let mut buf = [b'!'; 40];
     ///     uuid.to_hyphenated().encode_lower(&mut buf);
@@ -699,7 +699,7 @@ impl Urn {
     ///         &buf as &[_],
     ///         b"urn:uuid:936da01f-9abd-4d9d-80c7-02af85c822a8!!!!" as &[_]
     ///     );
-    ///     
+    ///
     ///     Ok(())
     /// }
     /// ```

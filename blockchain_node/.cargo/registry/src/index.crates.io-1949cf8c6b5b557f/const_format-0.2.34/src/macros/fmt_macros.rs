@@ -205,12 +205,12 @@ macro_rules! __concatcp_inner {
 /// {
 ///     const TEXT: &str = r#"hello " \ world"#;
 ///     const MSG: &str = formatcp!("{TEXT}____{TEXT:?}");
-///    
+///
 ///     assert_eq!(MSG, r#"hello " \ world____"hello \" \\ world""#);
 /// }
 /// {
 ///     const CHARS: &str = formatcp!("{0:?} - {0} - {1} - {1:?}", '"', '👀');
-///    
+///
 ///     assert_eq!(CHARS, r#"'\"' - " - 👀 - '👀'"#);
 /// }
 /// ```

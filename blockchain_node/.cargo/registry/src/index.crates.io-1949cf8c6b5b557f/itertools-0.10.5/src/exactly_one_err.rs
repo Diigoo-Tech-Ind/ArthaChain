@@ -72,7 +72,7 @@ where
 
 impl<I> ExactSizeIterator for ExactlyOneError<I> where I: ExactSizeIterator {}
 
-impl<I> Display for ExactlyOneError<I> 
+impl<I> Display for ExactlyOneError<I>
     where I: Iterator,
 {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
@@ -85,7 +85,7 @@ impl<I> Display for ExactlyOneError<I>
     }
 }
 
-impl<I> Debug for ExactlyOneError<I> 
+impl<I> Debug for ExactlyOneError<I>
     where I: Iterator + Debug,
           I::Item: Debug,
 {

@@ -1,0 +1,104 @@
+# ArthaChain Node Configuration Template
+# This template should be customized for each node
+
+# Node identity and basic settings
+node_id: ""
+network_id: "arthachain-mainnet"
+data_dir: "/opt/arthachain/data"
+
+# Network configuration
+listen_address: "0.0.0.0"
+port: 30303
+bootstrap_peers:
+  - "/dns/seed1.arthachain.in/tcp/30303"
+  - "/dns/seed2.arthachain.in/tcp/30303"
+  - "/dns/seed3.arthachain.in/tcp/30303"
+
+# Consensus configuration
+validator_key: null
+is_validator: false
+
+# AI engine settings
+ai_enabled: true
+model_path: "/opt/arthachain/models"
+
+# Storage settings
+storage_path: "/opt/arthachain/data/storage"
+max_storage_size: 107374182400  # 100 GB
+
+# Performance settings
+max_connections: 50
+sync_timeout: 30
+
+# Network settings
+network:
+  p2p_port: 30303
+  max_peers: 50
+  bootstrap_nodes:
+    - "/dns/seed1.arthachain.in/tcp/30303"
+    - "/dns/seed2.arthachain.in/tcp/30303"
+    - "/dns/seed3.arthachain.in/tcp/30303"
+  network_name: "arthachain-mainnet"
+  bootnodes: []
+  connection_timeout: 30
+  discovery_enabled: true
+  version: "1.0.0"
+
+# Consensus settings
+consensus:
+  block_time: 15
+  max_block_size: 5242880  # 5MB
+  consensus_type: "svbft"
+  difficulty_adjustment_period: 2016
+  reputation_decay_rate: 0.05
+
+# Storage settings
+storage:
+  db_type: "rocksdb"
+  max_open_files: 512
+  db_path: "/opt/arthachain/data/db"
+  svdb_url: "http://localhost:3000"
+  size_threshold: 1048576  # 1MB
+
+# API settings
+api:
+  enabled: true
+  port: 8080
+  host: "0.0.0.0"
+  address: "0.0.0.0"
+  cors_domains:
+    - "*"
+  allow_origin:
+    - "*"
+  max_request_body_size: 10485760  # 10MB
+  max_connections: 100
+  enable_websocket: true
+  enable_graphql: false
+
+# Sharding settings
+sharding:
+  enabled: false
+  shard_count: 1
+  primary_shard: 0
+  shard_id: 0
+  cross_shard_timeout: 30
+  assignment_strategy: "static"
+  cross_shard_strategy: "atomic"
+
+# Node settings
+node_id: null
+private_key_file: null
+p2p_listen_addr: "0.0.0.0:30303"
+rpc_listen_addr: "0.0.0.0:8545"
+api_listen_addr: "0.0.0.0:8080"
+bootstrap_peers: null
+log_level: "info"
+enable_metrics: true
+metrics_addr: "0.0.0.0:9184"
+svdb_url: null
+enable_ai: true
+ai_model_dir: "/opt/arthachain/models"
+is_genesis: false
+enable_api: true
+enable_fuzz_testing: false
+genesis_path: "/opt/arthachain/config/genesis.json"

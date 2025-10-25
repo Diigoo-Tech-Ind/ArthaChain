@@ -512,7 +512,11 @@ impl AnomalyDetector {
         }
 
         // Calculate block size (approximate)
-        let block_size = block.transactions.iter().map(|tx| tx.data.len() as u64).sum::<u64>() as f64;
+        let block_size = block
+            .transactions
+            .iter()
+            .map(|tx| tx.data.len() as u64)
+            .sum::<u64>() as f64;
 
         if let Some(anomaly) = self.record_metric("block_size", block_size).await? {
             // Add block information to the anomaly

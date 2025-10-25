@@ -198,20 +198,36 @@ pub fn create_cors_layer() -> CorsLayer {
 // Helper functions for formatting
 
 fn format_hash(hash: &str) -> String {
-    // Return full hash with 0x prefix for EVM compatibility
-    if hash.starts_with("0x") {
-        hash.to_string()
+    // Truncate long hashes for display
+    let clean_hash = if hash.starts_with("0x") {
+        &hash[2..]
     } else {
-        format!("0x{}", hash)
+        hash
+    };
+    
+    if clean_hash.len() > 8 {
+        format!("0x{}...", &clean_hash[..8])
+    } else {
+        format!("0x{}", clean_hash)
     }
 }
 
 fn format_address(address: &str) -> String {
-    // Return full address with 0x prefix for EVM compatibility
-    if address.starts_with("0x") {
-        address.to_string()
+    // Truncate long addresses for display
+    let clean_address = if address.starts_with("0x") {
+        &address[2..]
     } else {
-        format!("0x{}", address)
+        address
+    };
+
+    if clean_address.len() > 6 {
+        format!("0x{}...", &clean_address[..6])
+    } else {
+        if address.starts_with("0x") {
+            address.to_string()
+        } else {
+            format!("0x{}", address)
+        }
     }
 }
 

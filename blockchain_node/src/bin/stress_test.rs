@@ -1,15 +1,15 @@
 use anyhow::Result;
 use arthachain_node::{
-    types::{Address, Transaction},
     transaction::Mempool,
+    types::{Address, Transaction},
     utils::crypto::Hash as CryptoHash,
 };
+use rand::Rng;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
 use tokio::time::interval;
-use rand::Rng;
-use serde::{Deserialize, Serialize};
 
 /// Stress test configuration
 #[derive(Debug, Clone)]
@@ -26,13 +26,13 @@ struct StressTestConfig {
 impl Default for StressTestConfig {
     fn default() -> Self {
         Self {
-            total_transactions: 10_000,        // Reduced from 100,000 to 10,000
-            transaction_size_mb: 1,            // Reduced from 2MB to 1MB
+            total_transactions: 10_000,              // Reduced from 100,000 to 10,000
+            transaction_size_mb: 1,                  // Reduced from 2MB to 1MB
             transaction_size_bytes: 1 * 1024 * 1024, // 1MB in bytes
             duration_minutes: 1,
-            target_tps: 167,                   // Reduced from 1667 to 167
-            batch_size: 100,                   // Reduced from 1000 to 100
-            concurrent_workers: 5,             // Reduced from 10 to 5
+            target_tps: 167,       // Reduced from 1667 to 167
+            batch_size: 100,       // Reduced from 1000 to 100
+            concurrent_workers: 5, // Reduced from 10 to 5
         }
     }
 }
@@ -112,30 +112,43 @@ impl StressTestOrchestrator {
     async fn run_stress_test(&self) -> Result<()> {
         println!("🚀 Starting Massive Stress Test!");
         println!("📊 Configuration:");
-        println!("   - Total Transactions: {} ({} MB each)", 
-                self.config.total_transactions, self.config.transaction_size_mb);
+        println!(
+            "   - Total Transactions: {} ({} MB each)",
+            self.config.total_transactions, self.config.transaction_size_mb
+        );
         println!("   - Duration: {} minutes", self.config.duration_minutes);
         println!("   - Target TPS: {}", self.config.target_tps);
         println!("   - Batch Size: {}", self.config.batch_size);
-        println!("   - Concurrent Workers: {}", self.config.concurrent_workers);
-        println!("   - Total Data: {:.2} GB", 
-                (self.config.total_transactions as f64 * self.config.transaction_size_mb as f64) / 1024.0);
+        println!(
+            "   - Concurrent Workers: {}",
+            self.config.concurrent_workers
+        );
+        println!(
+            "   - Total Data: {:.2} GB",
+            (self.config.total_transactions as f64 * self.config.transaction_size_mb as f64)
+                / 1024.0
+        );
 
         // Start concurrent transaction generators
         let mut handles = Vec::new();
-        
+
         for worker_id in 0..self.config.concurrent_workers {
             let config = self.config.clone();
             let mempool = self.mempool.clone();
             let metrics = self.metrics.clone();
             let performance_metrics = self.performance_metrics.clone();
-            
+
             let handle = tokio::spawn(async move {
                 Self::transaction_generator_worker(
-                    worker_id, config, mempool, metrics, performance_metrics
-                ).await;
+                    worker_id,
+                    config,
+                    mempool,
+                    metrics,
+                    performance_metrics,
+                )
+                .await;
             });
-            
+
             handles.push(handle);
         }
 
@@ -169,7 +182,7 @@ impl StressTestOrchestrator {
         performance_metrics: Arc<RwLock<PerformanceMetrics>>,
     ) {
         println!("👷 Worker {} starting...", worker_id);
-        
+
         let transactions_per_worker = config.total_transactions / config.concurrent_workers;
         let interval_ms = (1000 / config.target_tps).max(1) as u64; // Ensure minimum 1ms interval
         let mut interval_timer = interval(Duration::from_millis(interval_ms));
@@ -177,9 +190,8 @@ impl StressTestOrchestrator {
         for i in 0..transactions_per_worker {
             interval_timer.tick().await;
 
-            let transaction = Self::generate_large_transaction(
-                worker_id, i, config.transaction_size_bytes
-            );
+            let transaction =
+                Self::generate_large_transaction(worker_id, i, config.transaction_size_bytes);
 
             let submission_time = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -188,7 +200,7 @@ impl StressTestOrchestrator {
 
             // Add transaction to mempool
             let result = mempool.write().await.add_transaction(transaction).await;
-            
+
             let status = if result.is_ok() {
                 TransactionStatus::Submitted
             } else {
@@ -211,7 +223,7 @@ impl StressTestOrchestrator {
             let mut perf_metrics = performance_metrics.write().await;
             perf_metrics.total_transactions += 1;
             perf_metrics.total_data_mb += config.transaction_size_mb as f64;
-            
+
             match status {
                 TransactionStatus::Submitted => perf_metrics.successful_transactions += 1,
                 TransactionStatus::Failed => perf_metrics.failed_transactions += 1,
@@ -223,13 +235,16 @@ impl StressTestOrchestrator {
             }
         }
 
-        println!("✅ Worker {} completed: {} transactions", worker_id, transactions_per_worker);
+        println!(
+            "✅ Worker {} completed: {} transactions",
+            worker_id, transactions_per_worker
+        );
     }
 
     /// Generate a large transaction with specified size
     fn generate_large_transaction(worker_id: u32, tx_id: u32, size_bytes: u32) -> Transaction {
         let mut rng = rand::thread_rng();
-        
+
         // Generate random addresses
         let mut from_bytes = [0u8; 20];
         let mut to_bytes = [0u8; 20];
@@ -262,23 +277,34 @@ impl StressTestOrchestrator {
         };
 
         // Compute hash from transaction data
-        let hash_data = format!("{}{}{}{}{}{}{:?}", 
-            transaction.from.0.iter().map(|b| format!("{:02x}", b)).collect::<String>(),
-            transaction.to.0.iter().map(|b| format!("{:02x}", b)).collect::<String>(),
+        let hash_data = format!(
+            "{}{}{}{}{}{}{:?}",
+            transaction
+                .from
+                .0
+                .iter()
+                .map(|b| format!("{:02x}", b))
+                .collect::<String>(),
+            transaction
+                .to
+                .0
+                .iter()
+                .map(|b| format!("{:02x}", b))
+                .collect::<String>(),
             transaction.value,
             transaction.gas_price,
             transaction.gas_limit,
             transaction.nonce,
             transaction.data
         );
-        
+
         // Create a 32-byte hash from the data
         let mut hash_bytes = [0u8; 32];
         let data_bytes = hash_data.as_bytes();
         for (i, &byte) in data_bytes.iter().take(32).enumerate() {
             hash_bytes[i] = byte;
         }
-        
+
         transaction.hash = CryptoHash::new(hash_bytes);
 
         transaction
@@ -298,26 +324,31 @@ impl StressTestOrchestrator {
 
             let current_time = Instant::now();
             let elapsed = current_time.duration_since(start_time);
-            
-            if elapsed.as_secs() >= 60 { // 1 minute test
+
+            if elapsed.as_secs() >= 60 {
+                // 1 minute test
                 break;
             }
 
             let metrics = performance_metrics.read().await;
             let current_total_tx = metrics.total_transactions;
             let time_diff = current_time.duration_since(last_time).as_secs_f64();
-            
+
             if time_diff > 0.0 {
                 let current_tps = (current_total_tx - last_total_tx) as f64 / time_diff;
-                
+
                 // Update peak TPS
                 if current_tps > metrics.peak_tps {
                     let mut perf_metrics = performance_metrics.write().await;
                     perf_metrics.peak_tps = current_tps;
                 }
 
-                println!("📊 Real-time TPS: {:.2}, Total TX: {}, Elapsed: {:.1}s", 
-                        current_tps, current_total_tx, elapsed.as_secs_f64());
+                println!(
+                    "📊 Real-time TPS: {:.2}, Total TX: {}, Elapsed: {:.1}s",
+                    current_tps,
+                    current_total_tx,
+                    elapsed.as_secs_f64()
+                );
             }
 
             last_total_tx = current_total_tx;
@@ -329,13 +360,14 @@ impl StressTestOrchestrator {
     async fn generate_final_report(&self) -> Result<()> {
         let end_time = Instant::now();
         let test_duration = end_time.duration_since(self.start_time);
-        
+
         let metrics = self.metrics.read().await;
         let mut perf_metrics = self.performance_metrics.write().await;
 
         // Calculate final metrics
         perf_metrics.test_duration_seconds = test_duration.as_secs_f64();
-        perf_metrics.average_tps = perf_metrics.total_transactions as f64 / perf_metrics.test_duration_seconds;
+        perf_metrics.average_tps =
+            perf_metrics.total_transactions as f64 / perf_metrics.test_duration_seconds;
 
         // Calculate confirmation times
         let mut confirmation_times: Vec<u64> = metrics
@@ -346,12 +378,15 @@ impl StressTestOrchestrator {
         if !confirmation_times.is_empty() {
             confirmation_times.sort();
             perf_metrics.min_confirmation_time_ms = confirmation_times[0];
-            perf_metrics.max_confirmation_time_ms = confirmation_times[confirmation_times.len() - 1];
-            perf_metrics.average_confirmation_time_ms = confirmation_times.iter().sum::<u64>() as f64 / confirmation_times.len() as f64;
+            perf_metrics.max_confirmation_time_ms =
+                confirmation_times[confirmation_times.len() - 1];
+            perf_metrics.average_confirmation_time_ms =
+                confirmation_times.iter().sum::<u64>() as f64 / confirmation_times.len() as f64;
         }
 
         // Calculate network bandwidth
-        perf_metrics.network_bandwidth_mbps = (perf_metrics.total_data_mb * 8.0) / perf_metrics.test_duration_seconds;
+        perf_metrics.network_bandwidth_mbps =
+            (perf_metrics.total_data_mb * 8.0) / perf_metrics.test_duration_seconds;
 
         println!("\n🎯 STRESS TEST COMPLETED!");
         println!("==========================================");
@@ -359,16 +394,37 @@ impl StressTestOrchestrator {
         println!("   Total Transactions: {}", perf_metrics.total_transactions);
         println!("   Successful: {}", perf_metrics.successful_transactions);
         println!("   Failed: {}", perf_metrics.failed_transactions);
-        println!("   Total Data: {:.2} GB", perf_metrics.total_data_mb / 1024.0);
-            println!("   Test Duration: {:.2} seconds", perf_metrics.test_duration_seconds);
+        println!(
+            "   Total Data: {:.2} GB",
+            perf_metrics.total_data_mb / 1024.0
+        );
+        println!(
+            "   Test Duration: {:.2} seconds",
+            perf_metrics.test_duration_seconds
+        );
         println!("   Average TPS: {:.2}", perf_metrics.average_tps);
         println!("   Peak TPS: {:.2}", perf_metrics.peak_tps);
-        println!("   Average Confirmation: {:.2} ms", perf_metrics.average_confirmation_time_ms);
-        println!("   Min Confirmation: {} ms", perf_metrics.min_confirmation_time_ms);
-        println!("   Max Confirmation: {} ms", perf_metrics.max_confirmation_time_ms);
-        println!("   Network Bandwidth: {:.2} Mbps", perf_metrics.network_bandwidth_mbps);
-        println!("   Success Rate: {:.2}%", 
-                (perf_metrics.successful_transactions as f64 / perf_metrics.total_transactions as f64) * 100.0);
+        println!(
+            "   Average Confirmation: {:.2} ms",
+            perf_metrics.average_confirmation_time_ms
+        );
+        println!(
+            "   Min Confirmation: {} ms",
+            perf_metrics.min_confirmation_time_ms
+        );
+        println!(
+            "   Max Confirmation: {} ms",
+            perf_metrics.max_confirmation_time_ms
+        );
+        println!(
+            "   Network Bandwidth: {:.2} Mbps",
+            perf_metrics.network_bandwidth_mbps
+        );
+        println!(
+            "   Success Rate: {:.2}%",
+            (perf_metrics.successful_transactions as f64 / perf_metrics.total_transactions as f64)
+                * 100.0
+        );
 
         // Save detailed report to file
         let report = serde_json::to_string_pretty(&*perf_metrics)?;

@@ -357,7 +357,7 @@ impl<T: Scalar, R: Dim, C: Dim, S: Storage<T, R, C>> Matrix<T, R, C, S> {
         self.remove_fixed_columns::<1>(i)
     }
 
-    /// Removes all columns in `indices`   
+    /// Removes all columns in `indices`
     #[cfg(any(feature = "std", feature = "alloc"))]
     pub fn remove_columns_at(self, indices: &[usize]) -> OMatrix<T, R, Dyn>
     where
@@ -408,7 +408,7 @@ impl<T: Scalar, R: Dim, C: Dim, S: Storage<T, R, C>> Matrix<T, R, C, S> {
         }
     }
 
-    /// Removes all rows in `indices`   
+    /// Removes all rows in `indices`
     #[cfg(any(feature = "std", feature = "alloc"))]
     pub fn remove_rows_at(self, indices: &[usize]) -> OMatrix<T, Dyn, C>
     where

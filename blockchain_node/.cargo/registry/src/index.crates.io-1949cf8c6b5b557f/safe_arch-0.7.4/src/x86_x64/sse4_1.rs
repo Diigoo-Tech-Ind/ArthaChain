@@ -892,7 +892,7 @@ pub fn test_all_zeroes_m128i(a: m128i, mask: m128i) -> i32 {
 /// Returns if, among the masked bits, there's both 0s and 1s
 /// * **Intrinsic:** [`_mm_test_mix_ones_zeros`]
 /// * **Assembly:** ptest xmm, xmm
-/// 
+///
 /// * Zero Flag = `(a & mask) as u128 == 0`
 /// * Carry Flag = `((!a) & mask) as u128 == 0`
 /// * Return `ZeroFlag == 0 && Carry Flag == 0`

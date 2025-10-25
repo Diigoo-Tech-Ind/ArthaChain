@@ -25,19 +25,19 @@ enum SamplingMethod {
 }
 
 /// The hypergeometric distribution `Hypergeometric(N, K, n)`.
-/// 
+///
 /// This is the distribution of successes in samples of size `n` drawn without
 /// replacement from a population of size `N` containing `K` success states.
 /// It has the density function:
 /// `f(k) = binomial(K, k) * binomial(N-K, n-k) / binomial(N, n)`,
 /// where `binomial(a, b) = a! / (b! * (a - b)!)`.
-/// 
+///
 /// The [binomial distribution](crate::Binomial) is the analogous distribution
 /// for sampling with replacement. It is a good approximation when the population
 /// size is much larger than the sample size.
-/// 
+///
 /// # Example
-/// 
+///
 /// ```
 /// use rand_distr::{Distribution, Hypergeometric};
 ///
@@ -97,20 +97,20 @@ fn fraction_of_products_of_factorials(numerator: (u64, u64), denominator: (u64, 
         if i <= min_top {
             result *= i as f64;
         }
-        
+
         if i <= min_bottom {
             result /= i as f64;
         }
-        
+
         if i <= max_top {
             result *= i as f64;
         }
-        
+
         if i <= max_bottom {
             result /= i as f64;
         }
     }
-    
+
     result
 }
 
@@ -151,7 +151,7 @@ impl Hypergeometric {
         };
         // when sampling more than half the total population, take the smaller
         // group as sampled instead (we can then return n1-x instead).
-        // 
+        //
         // Note: the boundary condition given in the paper is `sample_size < n / 2`;
         // we're deviating here, because when n is even, it doesn't matter whether
         // we switch here or not, but when n is odd `n/2 < n - n/2`, so switching
@@ -167,7 +167,7 @@ impl Hypergeometric {
         // Algorithm H2PE has bounded runtime only if `M - max(0, k-n2) >= 10`,
         // where `M` is the mode of the distribution.
         // Use algorithm HIN for the remaining parameter space.
-        // 
+        //
         // Voratas Kachitvichyanukul and Bruce W. Schmeiser. 1985. Computer
         // generation of hypergeometric random variates.
         // J. Statist. Comput. Simul. Vol.22 (August 1985), 127-145
@@ -209,7 +209,7 @@ impl Hypergeometric {
                 ln_of_factorial(n1 as f64 - x_r + 1.0) -
                 ln_of_factorial(k as f64 - x_r + 1.0) -
                 ln_of_factorial((n2 - k) as f64 + x_r - 1.0));
-            
+
             let numerator = x_l * ((n2 - k) as f64 + x_l);
             let denominator = (n1 as f64 - x_l + 1.0) * (k as f64 - x_l + 1.0);
             let lambda_l = -((numerator / denominator).ln());
@@ -256,7 +256,7 @@ impl Distribution<u64> for Hypergeometric {
                     let (y, v) = loop {
                         let u = distr_region_select.sample(rng);
                         let v = rng.gen::<f64>(); // for the accept/reject decision
-            
+
                         if u <= p1 {
                             // Region 1, central bell
                             let y = (x_l + u).floor();
@@ -277,7 +277,7 @@ impl Distribution<u64> for Hypergeometric {
                             }
                         }
                     };
-        
+
                     // Step 4: Acceptance/Rejection Comparison
                     if m < 100.0 || y <= 50.0 {
                         // Step 4.1: evaluate f(y) via recursive relationship
@@ -293,7 +293,7 @@ impl Distribution<u64> for Hypergeometric {
                                 f /= (n1 - i) as f64 * (k - i) as f64;
                             }
                         }
-        
+
                         if v <= f { break y as i64; }
                     } else {
                         // Step 4.2: Squeezing
@@ -345,16 +345,16 @@ impl Distribution<u64> for Hypergeometric {
                         } else {
                             nm * e.powi(4)
                         };
-        
+
                         if av < ub - 0.25*(dr + ds + dt + de) + (y + m)*(gl - gu) - 0.0078 {
                             break y as i64;
                         }
-        
+
                         // Step 4.3: Final Acceptance/Rejection Test
                         let av_critical = a -
                             ln_of_factorial(y) -
-                            ln_of_factorial(n1 as f64 - y) - 
-                            ln_of_factorial(k as f64 - y) - 
+                            ln_of_factorial(n1 as f64 - y) -
+                            ln_of_factorial(k as f64 - y) -
                             ln_of_factorial((n2 - k) as f64 + y);
                         if v.ln() <= av_critical {
                             break y as i64;

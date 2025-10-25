@@ -391,7 +391,7 @@ fn compile_expr_continuation(context: &Context, e: &SpannedExpr, result_name: Op
 fn compile_literal_expr(s: &Literal, continuation: TokenStream) -> TokenStream {
     let span = s.span().resolved_at(Span::mixed_site());
     let escaped_str = s.to_string();
-    quote_spanned! { span => 
+    quote_spanned! { span =>
             match ::peg::ParseLiteral::parse_string_literal(__input, __pos, #s) {
             ::peg::RuleResult::Matched(__pos, __val) => { #continuation }
             ::peg::RuleResult::Failed => { __err_state.mark_failure(__pos, #escaped_str); ::peg::RuleResult::Failed }

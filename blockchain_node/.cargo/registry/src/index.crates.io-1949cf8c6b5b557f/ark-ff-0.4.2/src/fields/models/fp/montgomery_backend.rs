@@ -161,9 +161,9 @@ pub trait MontConfig<const N: usize>: 'static + Sync + Send + Sized {
             {
                 #[cfg(
                     all(
-                        feature = "asm", 
-                        target_feature = "bmi2", 
-                        target_feature = "adx", 
+                        feature = "asm",
+                        target_feature = "bmi2",
+                        target_feature = "adx",
                         target_arch = "x86_64"
                     )
                 )]

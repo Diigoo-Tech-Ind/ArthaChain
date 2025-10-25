@@ -383,7 +383,7 @@ mod tests {
         test_exact(0.0, 2.0, 2.270362845461478, entropy);
         test_exact(0.1, 4.0, 2.9635100260214235, entropy);
         test_exact(1.0, 10.0, 3.8798007578955787, entropy);
-        test_exact(10.0, 11.0, 3.9751109376999034, entropy); 
+        test_exact(10.0, 11.0, 3.9751109376999034, entropy);
     }
 
     #[test]

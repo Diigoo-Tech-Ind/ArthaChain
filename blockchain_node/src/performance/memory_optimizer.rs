@@ -937,7 +937,9 @@ impl EnterpriseMemoryOptimizer {
 
         // Fallback to system deallocator
         let layout = Layout::from_size_align(size, std::mem::align_of::<u8>()).unwrap();
-        unsafe { System.dealloc(ptr, layout) };
+        unsafe { 
+            System.dealloc(ptr, layout);
+        }
     }
 
     /// Get memory statistics

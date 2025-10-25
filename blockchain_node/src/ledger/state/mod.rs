@@ -11,10 +11,10 @@ use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
 
 use std::collections::{HashMap, VecDeque};
-use std::sync::{Arc, RwLock};
-use std::time::{SystemTime, UNIX_EPOCH};
 use std::fs;
 use std::path::Path;
+use std::sync::{Arc, RwLock};
+use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::{broadcast, Mutex as TokioMutex};
 
 /// Interface for sharding configuration
@@ -79,7 +79,7 @@ struct Snapshot {
 pub struct State {
     /// Data directory for persistence
     data_dir: String,
-    
+
     /// Account balances
     balances: RwLock<HashMap<String, u64>>,
 
@@ -135,7 +135,7 @@ impl State {
     pub fn new(_config: &Config) -> Result<Self> {
         let (sync_sender, _) = broadcast::channel(1000);
         let data_dir = "data/blockchain".to_string();
-        
+
         // Create data directory if it doesn't exist
         if !Path::new(&data_dir).exists() {
             fs::create_dir_all(&data_dir)?;
@@ -171,12 +171,12 @@ impl State {
                 pending_updates: HashMap::new(),
             })),
         };
-        
+
         // Try to load existing state
         if let Err(e) = state.load_state() {
             warn!("Failed to load existing state: {}, starting fresh", e);
         }
-        
+
         Ok(state)
     }
 
@@ -266,6 +266,11 @@ impl State {
 
     /// Get current block height
     pub fn get_height(&self) -> Result<u64> {
+        Ok(*self.height.read().unwrap())
+    }
+
+    /// Get the current block height (async version)
+    pub async fn get_height_async(&self) -> Result<u64> {
         Ok(*self.height.read().unwrap())
     }
 
@@ -481,19 +486,83 @@ impl State {
     /// Get transactions for an account
     pub fn get_account_transactions(&self, address: &str) -> Vec<Transaction> {
         let tx_history = self.tx_history.read().unwrap();
-        let _hashes = match tx_history.get(address) {
+        let hashes = match tx_history.get(address) {
             Some(h) => h,
             None => return Vec::new(),
         };
 
-        // This implementation would need to retrieve transactions by hash
-        // from a transaction store - this is a placeholder
-        Vec::new()
+        // Retrieve transactions by hash from transaction store
+        let mut transactions: Vec<crate::ledger::transaction::Transaction> = Vec::new();
+        let blocks = self.blocks.read().unwrap();
+        
+        for hash in hashes {
+            // Search through all blocks to find the transaction
+            for block in blocks.values() {
+                for tx in &block.transactions {
+                    if tx.hash().map(|h| hex::encode(h.as_ref())).unwrap_or_default() == *hash {
+                        // Convert block::Transaction into ledger::transaction::Transaction form
+                        transactions.push(crate::ledger::transaction::Transaction::new(
+                            crate::ledger::transaction::TransactionType::Transfer,
+                            hex::encode(&tx.from),
+                            hex::encode(&tx.to),
+                            tx.amount,
+                            tx.nonce,
+                            tx.fee, // approximate
+                            21000,
+                            tx.data.clone(),
+                        ));
+                        break;
+                    }
+                }
+            }
+        }
+        
+        transactions
     }
 
     /// Get a transaction by its hash
-    pub fn get_transaction_by_hash(&self, _hash: &str) -> Option<(Transaction, String, u64)> {
-        // Dummy implementation - return (transaction, block_hash, block_height)
+    pub fn get_transaction_by_hash(&self, hash: &str) -> Option<(Transaction, String, u64)> {
+        // Search through all blocks to find the transaction
+        let blocks = self.blocks.read().unwrap();
+        
+        // Normalize the hash (remove 0x prefix if present)
+        let normalized_hash = hash.trim_start_matches("0x").to_lowercase();
+        
+        for (height, block) in blocks.iter() {
+            for block_tx in &block.transactions {
+                // Use the same hash generation as the transaction list API
+                let tx_hash = hex::encode(block_tx.id.to_bytes()).to_lowercase();
+                
+                // Try multiple hash formats
+                if tx_hash == normalized_hash 
+                    || tx_hash == hash.to_lowercase()
+                    || format!("0x{}", tx_hash) == hash.to_lowercase() {
+                    
+                    let block_hash = match block.hash() {
+                        Ok(h) => hex::encode(h.as_ref()),
+                        Err(_) => continue,
+                    };
+                    
+                    // Convert block::Transaction to transaction::Transaction
+                    let tx = Transaction {
+                        tx_type: crate::ledger::transaction::TransactionType::Transfer,
+                        sender: hex::encode(&block_tx.from),
+                        recipient: hex::encode(&block_tx.to),
+                        amount: block_tx.amount,
+                        nonce: block_tx.nonce,
+                        gas_price: 1000000000, // Default gas price
+                        gas_limit: 21000, // Default gas limit
+                        data: block_tx.data.clone(),
+                        signature: block_tx.signature.as_ref().map(|s| s.as_ref().to_vec()).unwrap_or_default(),
+                        timestamp: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs(),
+                        status: crate::ledger::transaction::TransactionStatus::Confirmed,
+                    };
+                    
+                    return Some((tx, block_hash, *height));
+                }
+            }
+        }
+        
         None
     }
 
@@ -530,6 +599,24 @@ impl State {
             total += block.transactions.len();
         }
         total
+    }
+
+    /// Get number of transactions in the last 24 hours
+    pub fn get_daily_transactions(&self) -> usize {
+        let blocks = self.blocks.read().unwrap();
+        let now = chrono::Utc::now();
+        let one_day_ago = now - chrono::Duration::days(1);
+        
+        let mut daily_count = 0;
+        for block in blocks.values() {
+            // Use block header timestamp
+            let block_time = chrono::DateTime::from_timestamp(block.header.timestamp as i64, 0)
+                .unwrap_or_else(|| chrono::DateTime::from_timestamp(0, 0).unwrap());
+            if block_time >= one_day_ago {
+                    daily_count += block.transactions.len();
+            }
+        }
+        daily_count
     }
 
     /// Get number of validators (REAL implementation)
@@ -716,8 +803,12 @@ impl State {
 
     /// Get transaction by hash
     pub fn get_transaction(&self, hash: &str) -> Option<Transaction> {
-        // For now, return None as we don't have transaction storage implemented
-        None
+        // Use the same logic as get_transaction_by_hash but return just the transaction
+        if let Some((tx, _, _)) = self.get_transaction_by_hash(hash) {
+            Some(tx)
+        } else {
+            None
+        }
     }
 
     /// Get the total count of transactions in the blockchain

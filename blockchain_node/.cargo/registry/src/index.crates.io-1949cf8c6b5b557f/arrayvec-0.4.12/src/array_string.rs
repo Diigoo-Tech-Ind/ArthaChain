@@ -228,7 +228,7 @@ impl<A: Array<Item=u8>> ArrayString<A> {
     ///
     /// ```
     /// use arrayvec::ArrayString;
-    /// 
+    ///
     /// let mut s = ArrayString::<[_; 3]>::from("foo").unwrap();
     ///
     /// assert_eq!(s.pop(), Some('o'));
@@ -270,7 +270,7 @@ impl<A: Array<Item=u8>> ArrayString<A> {
     pub fn truncate(&mut self, new_len: usize) {
         if new_len <= self.len() {
             assert!(self.is_char_boundary(new_len));
-            unsafe { 
+            unsafe {
                 // In libstd truncate is called on the underlying vector,
                 // which in turns drops each element.
                 // As we know we don't have to worry about Drop,
@@ -290,7 +290,7 @@ impl<A: Array<Item=u8>> ArrayString<A> {
     ///
     /// ```
     /// use arrayvec::ArrayString;
-    /// 
+    ///
     /// let mut s = ArrayString::<[_; 3]>::from("foo").unwrap();
     ///
     /// assert_eq!(s.remove(0), 'f');

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.arthachain.tunnel</string>
+    
+    <key>ProgramArguments</key>
+    <array>
+        <string>/opt/homebrew/bin/cloudflared</string>
+        <string>tunnel</string>
+        <string>--config</string>
+        <string>/Users/sainathtangallapalli/blockchain/ArthaChain/blockchain_node/cloudflared/config.yml</string>
+        <string>run</string>
+        <string>arthachain-testnet</string>
+    </array>
+    
+    <key>RunAtLoad</key>
+    <true/>
+    
+    <key>KeepAlive</key>
+    <true/>
+    
+    <key>StandardOutPath</key>
+    <string>/Users/sainathtangallapalli/blockchain/ArthaChain/blockchain_node/logs/cloudflared.out.log</string>
+    
+    <key>StandardErrorPath</key>
+    <string>/Users/sainathtangallapalli/blockchain/ArthaChain/blockchain_node/logs/cloudflared.err.log</string>
+    
+    <key>WorkingDirectory</key>
+    <string>/Users/sainathtangallapalli/blockchain/ArthaChain/blockchain_node</string>
+    
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+</dict>
+</plist>

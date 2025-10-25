@@ -472,7 +472,12 @@ impl Clone for BatchValidator {
     fn clone(&self) -> Self {
         // This is a partial clone for internal use
         Self {
-            config: RwLock::new(self.config.try_read().map(|guard| (*guard).clone()).unwrap_or(BatchValidationConfig::default())),
+            config: RwLock::new(
+                self.config
+                    .try_read()
+                    .map(|guard| (*guard).clone())
+                    .unwrap_or(BatchValidationConfig::default()),
+            ),
             validation_engine: self.validation_engine.clone(),
             pending_transactions: RwLock::new(Vec::new()),
             batch_results: RwLock::new(HashMap::new()),

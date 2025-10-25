@@ -42,7 +42,7 @@ impl EnhancedCrossShardManager {
         let manager = CrossShardManager::new(config.clone());
 
         // Generate quantum-resistant keys
-        let (_public_key, private_key) = generate_quantum_resistant_keypair()?;
+        let (private_key, _public_key) = generate_quantum_resistant_keypair()?;
 
         // Create coordinator message channels
         let (coord_sender, coord_receiver) = mpsc::channel(100);
@@ -189,6 +189,17 @@ impl EnhancedCrossShardManager {
 
         info!("Handled timeout for transaction: {}", tx_id);
         Ok(())
+    }
+
+    /// Get real-time shard statistics
+    pub async fn get_shard_stats(&self, shard_id: u64) -> Result<crate::network::cross_shard::ShardStats> {
+        // Delegate to underlying manager if available
+        self.manager.get_shard_stats(shard_id).await
+    }
+
+    /// Get the list of currently connected shards
+    pub async fn get_connected_shards(&self) -> Result<Vec<u32>> {
+        Ok(self.manager.get_connected_shards().await)
     }
 }
 

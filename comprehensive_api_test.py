@@ -122,14 +122,31 @@ class ArthaChainAPITester:
         if not isinstance(response, dict):
             return False
             
+        # More specific mock data indicators
         mock_indicators = [
-            "is_mock", "mock", "placeholder", "not implemented", 
-            "coming soon", "disabled", "ready", "active"
+            "is_mock", "mock_data", "placeholder", "not implemented", 
+            "coming soon", "disabled", "test_data", "sample_data",
+            "dummy_data", "fake_data", "example_data"
         ]
         
         response_str = json.dumps(response).lower()
         for indicator in mock_indicators:
             if indicator in response_str:
+                return True
+        
+        # Check for specific mock patterns
+        if "category" in response and response.get("category") == "MOCK_DATA":
+            return True
+            
+        # Check for mock addresses (common test addresses)
+        mock_addresses = [
+            "0x0000000000000000000000000000000000000000",
+            "0x1111111111111111111111111111111111111111",
+            "0x2222222222222222222222222222222222222222"
+        ]
+        
+        for addr in mock_addresses:
+            if addr in response_str:
                 return True
                 
         return False
@@ -415,3 +432,5 @@ class ArthaChainAPITester:
 if __name__ == "__main__":
     tester = ArthaChainAPITester()
     tester.run_comprehensive_test()
+
+

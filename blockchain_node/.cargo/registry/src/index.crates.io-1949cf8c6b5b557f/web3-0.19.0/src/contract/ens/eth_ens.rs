@@ -465,7 +465,7 @@ impl<T: Transport> Ens<T> {
     /// | url         | A URL                                                                                                                                                     |
     /// | avatar      | A URL to an image used as an avatar or logo                                                                                                               |
     /// | description | A description of the name                                                                                                                                 |
-    /// | notice      | A notice regarding this name                                                                                                                              |     
+    /// | notice      | A notice regarding this name                                                                                                                              |
     /// | keywords    | A list of comma-separated keywords, ordered by most significant first; clients that interpresent this field may choose a threshold beyond which to ignore |
     ///
     /// In addition, anyone may specify vendor-specific keys, which must be prefixed with ```vnd.```. The following vendor-specific keys are currently known:

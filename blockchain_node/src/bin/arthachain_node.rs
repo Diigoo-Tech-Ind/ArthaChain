@@ -8,19 +8,24 @@ use arthachain_node::{
     },
     network::p2p::P2PNetwork,
     transaction::Mempool,
-    types::{Hash, Address},
+    types::{Address, Hash},
+    api::arthachain_router::{create_arthachain_api_router, AppState as ArthaChainAppState},
 };
+use axum::{
+    extract::State as AxumState,
+    routing::{get, post},
+    Json, Router,
+};
+use clap::Parser;
+use hex;
+use log;
+use rand::Rng;
+use serde_json::json;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
 use tokio::time::interval;
-use log;
-use axum::{Router, Json, extract::State as AxumState, routing::{get, post}};
-use serde_json::json;
-use clap::Parser;
-use std::path::PathBuf;
-use rand::Rng;
-use hex;
 
 /// ArthaChain Node Arguments
 #[derive(Parser)]
@@ -56,7 +61,7 @@ struct Args {
 #[derive(Debug, Clone)]
 struct GlobalConfig {
     /// ArthaChain API port
-    api_port: u16,      // ArthaChain standard port
+    api_port: u16, // ArthaChain standard port
     /// Fixed P2P port (ArthaChain standard)
     p2p_port: u16,
     /// Fixed metrics port (ArthaChain standard)
@@ -74,16 +79,16 @@ struct GlobalConfig {
 impl Default for GlobalConfig {
     fn default() -> Self {
         Self {
-            api_port: 1900,      // ArthaChain standard port
-            p2p_port: 8084,      // Fixed P2P port like major blockchains
-            metrics_port: 9184,   // Fixed metrics port like major blockchains
+            api_port: 1900,     // ArthaChain standard port
+            p2p_port: 8084,     // Fixed P2P port like major blockchains
+            metrics_port: 9184, // Fixed metrics port like major blockchains
             seed_nodes: vec![
                 // Real seed nodes for global deployment (ArthaChain network)
                 "seed1.arthachain.in:8084".to_string(),
                 "seed2.arthachain.in:8084".to_string(),
                 "seed3.arthachain.in:8084".to_string(),
             ],
-            chain_id: 201766,     // ArthaChain testnet
+            chain_id: 201766, // ArthaChain testnet
             enable_faucet: true,
             enable_testnet_features: true,
         }
@@ -97,7 +102,7 @@ fn generate_unique_node_id() -> String {
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_millis();
-    
+
     // Format: ArthaX + 15 random alphanumeric characters
     let random_chars: String = (0..15)
         .map(|_| {
@@ -105,7 +110,7 @@ fn generate_unique_node_id() -> String {
             chars.chars().nth(rng.gen_range(0..chars.len())).unwrap()
         })
         .collect();
-    
+
     format!("ArthaX{}", random_chars)
 }
 
@@ -125,10 +130,10 @@ async fn main() -> Result<()> {
 
     // Parse command line arguments
     let args = Args::parse();
-    
+
     // Load global configuration
     let mut config = GlobalConfig::default();
-    
+
     // Override with command line arguments
     config.api_port = args.api_port;
     config.p2p_port = args.p2p_port;
@@ -140,16 +145,33 @@ async fn main() -> Result<()> {
     println!("📋 Configuration (ArthaChain Production Architecture):");
     println!("   API Port: {} (ArthaChain standard)", config.api_port);
     println!("   P2P Port: {} (ArthaChain standard)", config.p2p_port);
-    println!("   Metrics Port: {} (ArthaChain standard)", config.metrics_port);
+    println!(
+        "   Metrics Port: {} (ArthaChain standard)",
+        config.metrics_port
+    );
     println!("   Chain ID: {}", config.chain_id);
-    println!("   Faucet: {}", if config.enable_faucet { "✅ Enabled" } else { "❌ Disabled" });
-    println!("   Testnet Features: {}", if config.enable_testnet_features { "✅ Enabled" } else { "❌ Disabled" });
+    println!(
+        "   Faucet: {}",
+        if config.enable_faucet {
+            "✅ Enabled"
+        } else {
+            "❌ Disabled"
+        }
+    );
+    println!(
+        "   Testnet Features: {}",
+        if config.enable_testnet_features {
+            "✅ Enabled"
+        } else {
+            "❌ Disabled"
+        }
+    );
 
     // Initialize blockchain state
     let mut artha_config = Config::default();
     artha_config.network.p2p_port = config.p2p_port;
     artha_config.network.bootstrap_nodes = config.seed_nodes.clone();
-    
+
     let state = Arc::new(RwLock::new(State::new(&artha_config)?));
     println!("✅ Blockchain state initialized");
 
@@ -180,7 +202,7 @@ async fn main() -> Result<()> {
     // Start P2P network (ArthaChain standard)
     println!("🌐 Starting P2P network...");
     let (shutdown_tx, _shutdown_rx) = tokio::sync::mpsc::channel(1);
-    
+
     match P2PNetwork::new(artha_config.clone(), state.clone(), shutdown_tx).await {
         Ok(mut p2p) => {
             println!("✅ P2P network initialized");
@@ -191,18 +213,30 @@ async fn main() -> Result<()> {
             }
         }
         Err(e) => {
-            println!("⚠️ P2P initialization failed: {}, continuing without P2P", e);
+            println!(
+                "⚠️ P2P initialization failed: {}, continuing without P2P",
+                e
+            );
         }
     }
 
-    // Create the API router
-    let app = Router::new()
-        .route("/", get(|| async { 
+    // Create the comprehensive ArthaChain API router
+    let arthachain_router = create_arthachain_api_router()
+        .with_state(ArthaChainAppState {
+            state: Arc::clone(&state),
+            mempool: Arc::clone(&mempool),
+            validator_manager: Arc::clone(&validator_manager),
+            config: artha_config.clone(),
+        });
+    
+    // Create the basic API router for backward compatibility
+    let basic_router = Router::new()
+        .route("/", get(|| async {
             r#"
             <!DOCTYPE html>
             <html>
             <head>
-                <title>ArthaChain Node</title>
+                <title>ArthaChain Node - Testnet</title>
                 <style>
                     body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
                     .container { max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
@@ -212,55 +246,117 @@ async fn main() -> Result<()> {
                     .method { display: inline-block; background: #3498db; color: white; padding: 5px 10px; border-radius: 3px; font-size: 12px; font-weight: bold; }
                     .url { font-family: monospace; color: #2c3e50; }
                     .description { color: #7f8c8d; margin-top: 5px; }
+                    .feature { background: #e8f5e8; border-left: 4px solid #27ae60; }
+                    .advanced { background: #fff3cd; border-left: 4px solid #ffc107; }
                 </style>
             </head>
             <body>
                 <div class="container">
-                    <h1>🚀 ArthaChain Node</h1>
+                    <h1>🚀 ArthaChain Testnet</h1>
                     <p style="text-align: center; color: #7f8c8d;">Next-generation blockchain with AI-native features, quantum resistance, and ultra-high performance</p>
-                    
+
                     <div class="section">
-                        <h2>📡 API Endpoints</h2>
-                        
+                        <h2>📡 Basic API Endpoints</h2>
+
                         <div class="endpoint">
                             <span class="method">GET</span>
                             <span class="url">/health</span>
                             <div class="description">Check node health and status</div>
                         </div>
-                        
+
                         <div class="endpoint">
                             <span class="method">GET</span>
                             <span class="url">/api/v1/node/id</span>
                             <div class="description">Get unique node identifier</div>
                         </div>
-                        
+
                         <div class="endpoint">
                             <span class="method">GET</span>
                             <span class="url">/api/v1/blockchain/height</span>
                             <div class="description">Get current blockchain height</div>
                         </div>
-                        
+
                         <div class="endpoint">
                             <span class="method">POST</span>
                             <span class="url">/api/v1/transactions/submit</span>
                             <div class="description">Submit a new transaction</div>
                         </div>
-                        
+
                         <div class="endpoint">
                             <span class="method">GET</span>
                             <span class="url">/api/v1/blockchain/status</span>
                             <div class="description">Get blockchain status and metrics</div>
                         </div>
                     </div>
-                    
+
+                    <div class="section">
+                        <h2>🧠 Advanced ArthaChain Features</h2>
+
+                        <div class="endpoint feature">
+                            <span class="method">GET</span>
+                            <span class="url">/api/arthachain/consensus/status</span>
+                            <div class="description">SVCP-SVBFT Consensus Status</div>
+                        </div>
+
+                        <div class="endpoint feature">
+                            <span class="method">GET</span>
+                            <span class="url">/api/arthachain/dag/status</span>
+                            <div class="description">DAG Parallel Processing Status</div>
+                        </div>
+
+                        <div class="endpoint feature">
+                            <span class="method">GET</span>
+                            <span class="url">/api/arthachain/ai/status</span>
+                            <div class="description">AI-Native Features Status</div>
+                        </div>
+
+                        <div class="endpoint feature">
+                            <span class="method">GET</span>
+                            <span class="url">/api/arthachain/quantum/status</span>
+                            <div class="description">Quantum Resistance Status</div>
+                        </div>
+
+                        <div class="endpoint feature">
+                            <span class="method">GET</span>
+                            <span class="url">/api/arthachain/healing/status</span>
+                            <div class="description">Self-Healing System Status</div>
+                        </div>
+
+                        <div class="endpoint feature">
+                            <span class="method">GET</span>
+                            <span class="url">/api/arthachain/roles/status</span>
+                            <div class="description">Dynamic Role Allocation Status</div>
+                        </div>
+
+                        <div class="endpoint feature">
+                            <span class="method">GET</span>
+                            <span class="url">/api/arthachain/bridges/status</span>
+                            <div class="description">Cross-Chain Bridge Status</div>
+                        </div>
+
+                        <div class="endpoint feature">
+                            <span class="method">GET</span>
+                            <span class="url">/api/arthachain/mobile/status</span>
+                            <div class="description">Mobile Optimization Status</div>
+                        </div>
+
+                        <div class="endpoint feature">
+                            <span class="method">GET</span>
+                            <span class="url">/api/arthachain/enterprise/status</span>
+                            <div class="description">Enterprise Features Status</div>
+                        </div>
+                    </div>
+
                     <div class="section">
                         <h2>🔧 Node Information</h2>
                         <p><strong>Node ID:</strong> <span id="nodeId">Loading...</span></p>
                         <p><strong>Status:</strong> <span id="nodeStatus">Loading...</span></p>
                         <p><strong>Block Height:</strong> <span id="blockHeight">Loading...</span></p>
+                        <p><strong>Consensus:</strong> <span id="consensusStatus">Loading...</span></p>
+                        <p><strong>AI Status:</strong> <span id="aiStatus">Loading...</span></p>
                     </div>
                 </div>
-                
+
                 <script>
                     // Load node information
                     fetch('/health')
@@ -268,17 +364,35 @@ async fn main() -> Result<()> {
                         .then(data => {
                             document.getElementById('nodeStatus').textContent = data.status;
                         });
-                    
+
                     fetch('/api/v1/node/id')
                         .then(response => response.json())
                         .then(data => {
                             document.getElementById('nodeId').textContent = data.node_id;
                         });
-                    
+
                     fetch('/api/v1/blockchain/height')
                         .then(response => response.json())
                         .then(data => {
                             document.getElementById('blockHeight').textContent = data.height;
+                        });
+
+                    fetch('/api/arthachain/consensus/status')
+                        .then(response => response.json())
+                        .then(data => {
+                            document.getElementById('consensusStatus').textContent = data.health_status || 'Active';
+                        })
+                        .catch(() => {
+                            document.getElementById('consensusStatus').textContent = 'Available';
+                        });
+
+                    fetch('/api/arthachain/ai/status')
+                        .then(response => response.json())
+                        .then(data => {
+                            document.getElementById('aiStatus').textContent = data.status || 'Active';
+                        })
+                        .catch(() => {
+                            document.getElementById('aiStatus').textContent = 'Available';
                         });
                 </script>
             </body>
@@ -304,14 +418,26 @@ async fn main() -> Result<()> {
             config: config.clone(),
         });
 
+    // Combine both routers
+    let app = basic_router.merge(arthachain_router);
+
     // Bind to all interfaces for global access (ArthaChain standard)
     let addr = format!("0.0.0.0:{}", config.api_port);
     let listener = tokio::net::TcpListener::bind(&addr).await?;
 
     println!("🚀 ArthaChain Node starting...");
-    println!("📡 API listening on http://{} (Global access like major blockchains)", addr);
-    println!("🌐 P2P listening on 0.0.0.0:{} (Global access like major blockchains)", config.p2p_port);
-    println!("📊 Metrics available on http://0.0.0.0:{} (Global access like major blockchains)", config.metrics_port);
+    println!(
+        "📡 API listening on http://{} (Global access like major blockchains)",
+        addr
+    );
+    println!(
+        "🌐 P2P listening on 0.0.0.0:{} (Global access like major blockchains)",
+        config.p2p_port
+    );
+    println!(
+        "📊 Metrics available on http://0.0.0.0:{} (Global access like major blockchains)",
+        config.metrics_port
+    );
     println!("⛏️ Continuous mining system: ACTIVE");
     println!("🔄 SVCP-SVBFT consensus: ENABLED");
     println!("🎯 Ready for global deployment!");
@@ -348,7 +474,7 @@ async fn get_blockchain_height(
 ) -> Json<serde_json::Value> {
     let state_read = state.state.read().await;
     let height = state_read.get_height().unwrap_or(0);
-    
+
     Json(serde_json::json!({
         "height": height,
         "timestamp": chrono::Utc::now().to_rfc3339()
@@ -362,7 +488,7 @@ async fn get_blockchain_status(
     let state_read = state.state.read().await;
     let height = state_read.get_height().unwrap_or(0);
     let latest_hash = state_read.get_latest_block_hash().unwrap_or_default();
-    
+
     Json(serde_json::json!({
         "height": height,
         "latest_block_hash": latest_hash,
@@ -378,7 +504,7 @@ async fn submit_transaction(
 ) -> Json<serde_json::Value> {
     // Parse and validate transaction data
     let mempool = state.mempool.clone();
-    
+
     // Extract transaction data from JSON
     let transactions = match tx_data.get("transactions") {
         Some(txs) => txs,
@@ -390,11 +516,11 @@ async fn submit_transaction(
             }));
         }
     };
-    
+
     let mut mempool_write = mempool.write().await;
     let mut processed_count = 0;
     let mut errors = Vec::new();
-    
+
     // Process each transaction in the batch
     if let Some(tx_array) = transactions.as_array() {
         for (idx, tx) in tx_array.iter().enumerate() {
@@ -413,7 +539,7 @@ async fn submit_transaction(
             }
         }
     }
-    
+
     // Return real processing results
     if errors.is_empty() {
         Json(serde_json::json!({
@@ -434,47 +560,57 @@ async fn submit_transaction(
 }
 
 /// Parse and validate a single transaction from JSON
-fn parse_and_validate_transaction(tx_data: &serde_json::Value) -> Result<arthachain_node::types::Transaction> {
-    let from = tx_data.get("from")
+fn parse_and_validate_transaction(
+    tx_data: &serde_json::Value,
+) -> Result<arthachain_node::types::Transaction> {
+    let from = tx_data
+        .get("from")
         .and_then(|v| v.as_str())
         .ok_or_else(|| anyhow::anyhow!("Missing or invalid 'from' address"))?;
-    
-    let to = tx_data.get("to")
+
+    let to = tx_data
+        .get("to")
         .and_then(|v| v.as_str())
         .ok_or_else(|| anyhow::anyhow!("Missing or invalid 'to' address"))?;
-    
-    let amount = tx_data.get("value")
+
+    let amount = tx_data
+        .get("value")
         .and_then(|v| v.as_u64())
         .ok_or_else(|| anyhow::anyhow!("Missing or invalid 'value'"))?;
-    
-    let nonce = tx_data.get("nonce")
+
+    let nonce = tx_data
+        .get("nonce")
         .and_then(|v| v.as_u64())
         .ok_or_else(|| anyhow::anyhow!("Missing or invalid 'nonce'"))?;
-    
-    let gas_price = tx_data.get("gas_price")
+
+    let gas_price = tx_data
+        .get("gas_price")
         .and_then(|v| v.as_u64())
         .unwrap_or(1000000000); // Default gas price
-    
-    let gas_limit = tx_data.get("gas_limit")
+
+    let gas_limit = tx_data
+        .get("gas_limit")
         .and_then(|v| v.as_u64())
         .unwrap_or(21000); // Default gas limit
-    
-    let data = tx_data.get("data")
+
+    let data = tx_data
+        .get("data")
         .and_then(|v| v.as_str())
         .map(|s| hex::decode(s.trim_start_matches("0x")).unwrap_or_default())
         .unwrap_or_default();
-    
-    let signature = tx_data.get("signature")
+
+    let signature = tx_data
+        .get("signature")
         .and_then(|v| v.as_str())
         .map(|s| hex::decode(s.trim_start_matches("0x")).unwrap_or_default())
         .unwrap_or_default();
-    
+
     // Parse addresses (remove 0x prefix if present)
     let from_bytes = hex::decode(from.trim_start_matches("0x"))
         .map_err(|e| anyhow::anyhow!("Invalid 'from' address: {}", e))?;
     let to_bytes = hex::decode(to.trim_start_matches("0x"))
         .map_err(|e| anyhow::anyhow!("Invalid 'to' address: {}", e))?;
-    
+
     // Validate address length
     if from_bytes.len() != 20 {
         return Err(anyhow::anyhow!("'from' address must be 20 bytes"));
@@ -482,11 +618,11 @@ fn parse_and_validate_transaction(tx_data: &serde_json::Value) -> Result<arthach
     if to_bytes.len() != 20 {
         return Err(anyhow::anyhow!("'to' address must be 20 bytes"));
     }
-    
+
     // Create real transaction using the correct types::Transaction
     let from_address = Address::new(from_bytes.try_into().unwrap());
     let to_address = Address::new(to_bytes.try_into().unwrap());
-    
+
     let transaction = arthachain_node::types::Transaction {
         from: from_address,
         to: to_address,
@@ -498,7 +634,7 @@ fn parse_and_validate_transaction(tx_data: &serde_json::Value) -> Result<arthach
         signature,
         hash: arthachain_node::utils::crypto::Hash::default(), // Will be calculated when added to mempool
     };
-    
+
     Ok(transaction)
 }
 
@@ -544,7 +680,7 @@ async fn get_mempool_transactions(
 ) -> Json<serde_json::Value> {
     let mempool = state.mempool.clone();
     let transactions = mempool.read().await.get_pending_transactions().await;
-    
+
     Json(serde_json::json!({
         "transactions": transactions.len(),
         "pending": transactions.len(),
@@ -590,7 +726,8 @@ async fn generate_genesis_block(state: &Arc<RwLock<State>>) -> Result<()> {
 
     // Create genesis block
     let previous_hash =
-        Hash::from_hex("0x0000000000000000000000000000000000000000000000000000000000000000").unwrap();
+        Hash::from_hex("0x0000000000000000000000000000000000000000000000000000000000000000")
+            .unwrap();
     let producer = arthachain_node::ledger::block::BlsPublicKey::default();
     let genesis_block = Block::new(
         previous_hash,
@@ -698,7 +835,10 @@ async fn generate_real_transactions(
             };
             transactions.push(ledger_tx);
         }
-        println!("✅ Added {} real transactions from mempool to block", mempool_transactions.len());
+        println!(
+            "✅ Added {} real transactions from mempool to block",
+            mempool_transactions.len()
+        );
     }
 
     Ok(transactions)
@@ -710,18 +850,18 @@ async fn get_transaction_status(
     axum::extract::Path(tx_hash): axum::extract::Path<String>,
 ) -> Json<serde_json::Value> {
     let state_read = state.state.read().await;
-    
-        // Try to find the transaction in recent blocks
+
+    // Try to find the transaction in recent blocks
     let mut tx_status = "pending";
     let mut gas_used = 0;
     let mut block_height = 0;
     let mut block_hash = "0x".to_string();
-    
+
     // Check if transaction exists in mempool first
     let mempool = state.mempool.clone();
     let mempool_guard = mempool.read().await;
     let mempool_txs = mempool_guard.get_transactions_for_block(1000).await;
-    
+
     for tx in &mempool_txs {
         if format!("0x{}", hex::encode(tx.hash.as_bytes())) == tx_hash {
             tx_status = "pending";
@@ -729,17 +869,31 @@ async fn get_transaction_status(
             break;
         }
     }
-    
-    // If not in mempool, check if it was mined (simplified check)
+
+    // If not in mempool, check if it was mined in the blockchain
     if tx_status == "pending" {
-        // For now, assume if not in mempool, it was mined
-        // In a real implementation, you'd check the blockchain state
-        tx_status = "mined";
-        gas_used = 21000; // Standard transfer gas
-        block_height = state_read.get_height().unwrap_or(0);
-        block_hash = state_read.get_latest_block_hash().unwrap_or_default();
+        if let Some(tx) = state_read.get_transaction(&tx_hash) {
+            tx_status = "mined";
+            gas_used = tx.gas_limit;
+            // Try to get block information for this transaction
+            if let Some((_, block_hash_str, height)) = state_read.get_transaction_by_hash(&tx_hash) {
+                block_height = height;
+                block_hash = block_hash_str;
+            } else {
+                block_height = state_read.get_height().unwrap_or(0);
+                block_hash = state_read.get_latest_block_hash().unwrap_or_default();
+            }
+        } else {
+            // Transaction not found anywhere
+            return Json(serde_json::json!({
+                "error": "Transaction not found",
+                "requested_hash": tx_hash,
+                "current_height": state_read.get_height().unwrap_or(0),
+                "timestamp": chrono::Utc::now().to_rfc3339()
+            }));
+        }
     }
-    
+
     Json(serde_json::json!({
         "transaction_hash": tx_hash,
         "status": tx_status,

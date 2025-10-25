@@ -843,7 +843,7 @@ mod tests {
         let config = GasOptimizationConfig::default();
         let engine = GasOptimizationEngine::new(config);
 
-        let contract_address = Address::from_bytes(b"test_contract_addr_12").unwrap();
+        let contract_address = Address::from_bytes(b"test_contract_addr_1").unwrap();
         let result = engine
             .optimize_gas(&contract_address, "test_function", b"test_data", 1_000_000)
             .await;

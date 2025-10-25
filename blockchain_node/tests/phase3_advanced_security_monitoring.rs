@@ -122,7 +122,7 @@ async fn test_phase31_advanced_security_monitoring() {
 
     // Test incident notification system
     println!("    Real-time Notification: System ready");
-    
+
     // Test incident creation directly
     let test_data = vec![0u8; 20000];
     let _ = monitor
@@ -195,10 +195,7 @@ async fn test_phase31_advanced_security_monitoring() {
     println!("\n📋 TESTING INCIDENT RETRIEVAL:");
 
     let recent_incidents = monitor.get_recent_incidents(5);
-    println!(
-        "    Recent Incidents Retrieved: {}",
-        recent_incidents.len()
-    );
+    println!("    Recent Incidents Retrieved: {}", recent_incidents.len());
 
     for (i, incident) in recent_incidents.iter().enumerate() {
         println!(

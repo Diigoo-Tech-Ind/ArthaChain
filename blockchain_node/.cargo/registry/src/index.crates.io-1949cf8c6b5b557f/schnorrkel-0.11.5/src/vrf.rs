@@ -155,8 +155,8 @@ where
 /// VRF SigningTranscript for malleable VRF outputs.
 ///
 /// *Warning*  We caution that malleable VRF outputs are insecure when
-/// used in conjunction with HDKD, as provided in dervie.rs. 
-/// Attackers could translate malleable VRF outputs from one soft subkey 
+/// used in conjunction with HDKD, as provided in dervie.rs.
+/// Attackers could translate malleable VRF outputs from one soft subkey
 /// to another soft subkey, gaining early knowledge of the VRF output.
 /// We think most VRF applications for which HDKH sounds suitable
 /// benefit from using implicit certificates instead of HDKD anyways,

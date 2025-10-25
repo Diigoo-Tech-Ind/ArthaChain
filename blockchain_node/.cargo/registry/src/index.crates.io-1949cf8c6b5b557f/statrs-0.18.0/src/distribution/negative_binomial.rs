@@ -481,7 +481,7 @@ mod tests {
         test::check_discrete_distribution(&create_ok(5.0, 0.3), 35);
         test::check_discrete_distribution(&create_ok(10.0, 0.7), 21);
     }
-    
+
     #[test]
     fn test_sf_upper_bound() {
         let sf = |arg: u64| move |x: NegativeBinomial| x.sf(arg);

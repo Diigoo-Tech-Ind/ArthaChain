@@ -390,7 +390,7 @@ impl AdaptiveConsensusManager {
 
                 self.switch_algorithm(best_algo).await?;
             } else {
-                debug!("Potential algorithm switch skipped - improvement of {:.2}% below threshold of {:.2}%", 
+                debug!("Potential algorithm switch skipped - improvement of {:.2}% below threshold of {:.2}%",
                        improvement * 100.0, config.adaptation_threshold * 100.0);
             }
         }
@@ -700,10 +700,14 @@ impl Clone for AdaptiveConsensusManager {
         // This is a partial clone for use in async tasks
         // The RwLocks will be new but the references within will be the same
         Self {
-            config: RwLock::new(self.config.try_read().map(|guard| (*guard).clone()).unwrap_or(AdaptiveConsensusConfig::default())),
+            config: RwLock::new(
+                self.config
+                    .try_read()
+                    .map(|guard| (*guard).clone())
+                    .unwrap_or(AdaptiveConsensusConfig::default()),
+            ),
             current_algorithm: RwLock::new(
-                self
-                    .current_algorithm
+                self.current_algorithm
                     .try_read()
                     .map(|guard| *guard)
                     .unwrap_or(ConsensusType::Svbft),

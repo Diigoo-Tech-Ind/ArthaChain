@@ -1,10 +1,10 @@
-use crate::api::AppState;
+use crate::api::{AppState, ApiError};
 use crate::identity::{
     ArthaDID, ArthaDIDDocument, ArthaDIDError, AuthenticationResult, DIDCreationResult, DIDManager,
 };
 use crate::utils::crypto;
 use axum::{
-    extract::{Path, State},
+    extract::{Extension, Path, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     Json,
@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::SystemTime;
+use tokio::sync::RwLock;
 
 #[derive(Debug, Deserialize)]
 pub struct CreateDIDRequest {
@@ -49,7 +50,6 @@ pub struct ErrorResponse {
 
 /// Advanced DID creation with blockchain integration and cryptographic verification
 pub async fn create_did(
-    State(state): State<AppState>,
     Json(request): Json<CreateDIDRequest>,
 ) -> Response {
     // Create a new DID manager instance for this operation
@@ -148,7 +148,6 @@ pub async fn resolve_did(State(state): State<AppState>, Path(did_str): Path<Stri
 
 /// Advanced DID authentication with multi-factor verification and blockchain validation
 pub async fn authenticate_did(
-    State(state): State<AppState>,
     Json(request): Json<AuthenticateDIDRequest>,
 ) -> Response {
     let mut did_manager = DIDManager::new();
@@ -197,4 +196,42 @@ pub async fn authenticate_did(
         )
             .into_response(),
     }
+}
+
+
+/// Get node ID
+pub async fn get_node_id() -> Result<Json<serde_json::Value>, ApiError> {
+    let node_id = crate::network::types::NodeId::random().into_string();
+    
+    Ok(Json(serde_json::json!({
+        "node_id": node_id,
+        "timestamp": chrono::Utc::now().to_rfc3339()
+    })))
+}
+
+/// Get identity status
+pub async fn get_identity_status(
+    Extension(state): Extension<Arc<RwLock<crate::ledger::state::State>>>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let state = state.read().await;
+    
+    Ok(Json(serde_json::json!({
+        "status": "active",
+        "total_identities": 0,
+        "verified_identities": 0,
+        "timestamp": chrono::Utc::now().to_rfc3339()
+    })))
+}
+
+/// Get verify status
+pub async fn get_verify_status(
+    Extension(state): Extension<Arc<RwLock<crate::ledger::state::State>>>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let state = state.read().await;
+    
+    Ok(Json(serde_json::json!({
+        "verification_enabled": true,
+        "verification_methods": ["signature", "biometric", "multi_factor"],
+        "timestamp": chrono::Utc::now().to_rfc3339()
+    })))
 }

@@ -273,8 +273,9 @@ impl Mempool {
     pub async fn get_pending_transactions(&self) -> Vec<Transaction> {
         let txs = self.transactions.read().unwrap();
         let queue = self.pending_queue.read().unwrap();
-        
-        queue.iter()
+
+        queue
+            .iter()
             .filter_map(|hash| txs.get(hash))
             .map(|mempool_tx| mempool_tx.transaction.clone())
             .collect()
@@ -284,8 +285,9 @@ impl Mempool {
     pub async fn get_mempool_transactions_for_api(&self) -> Vec<serde_json::Value> {
         let txs = self.transactions.read().unwrap();
         let queue = self.pending_queue.read().unwrap();
-        
-        queue.iter()
+
+        queue
+            .iter()
             .filter_map(|hash| txs.get(hash))
             .map(|mempool_tx| {
                 serde_json::json!({

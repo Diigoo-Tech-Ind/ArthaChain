@@ -151,7 +151,7 @@ enum WriterBackend<'w> {
 ///
 /// impl_fmt!{
 ///     impl[] Foo;
-///     
+///
 ///     const fn const_display_fmt(&self, mut f: Formatter<'_>) -> Result<(), Error> {
 ///         let string = "foo bar baz";
 ///         try_!(f.write_u8_display(100));
@@ -442,7 +442,7 @@ impl<'w> Formatter<'w> {
     ///     pub const fn const_debug_fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
     ///         let mut f = f.debug_struct("Foo");
     ///         try_!(PWrapper(self.x).const_debug_fmt(f.field("x")));
-    ///         
+    ///
     ///         let mut fmt_y = f.field("y");
     ///         let flags = fmt_y.flags().set_binary();
     ///         try_!(coerce_to_fmt!(&self.y).const_debug_fmt(&mut fmt_y.make_formatter(flags)));
@@ -671,7 +671,7 @@ macro_rules! finish_method_impl {
 /// fn main() {
 ///     const STRUC: &str = formatc!("{:?}", Foo { a: 5, b: [8, 13, 21], c: "34" });
 ///     const ENUM_: &str = formatc!("{:?}", Bar::Baz { d: false, e: None });
-///     
+///
 ///     assert_eq!(STRUC, "Foo { a: 5, b: [8, 13, 21], c: \"34\" }");
 ///     assert_eq!(ENUM_, "Baz { d: false, e: None }");
 /// }
@@ -691,7 +691,7 @@ macro_rules! finish_method_impl {
 ///
 /// impl_fmt!{
 ///     impl Foo;
-///     
+///
 ///     const fn const_debug_fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
 ///         let mut f = f.debug_struct("Foo");
 ///         try_!(coerce_to_fmt!(&self.a).const_debug_fmt(f.field("a")));
@@ -703,17 +703,17 @@ macro_rules! finish_method_impl {
 ///
 /// impl_fmt!{
 ///     impl Bar;
-///     
+///
 ///     const fn const_debug_fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
 ///         match self {
 ///             Bar::Baz{d, e} => {
 ///                 let mut f = f.debug_struct("Baz");
-///                 
+///
 ///                 // This macro allows debug formatting some generic types that
 ///                 // don't have a const_debug_fmt fn, like Options which wrap non-std types.
 ///                 call_debug_fmt!(std, d, f.field("d"));
 ///                 call_debug_fmt!(Option, e, f.field("e"));
-///                 
+///
 ///                 f.finish()
 ///             }
 ///         }
@@ -768,7 +768,7 @@ impl<'f, 'w> DebugStruct<'f, 'w> {
 /// fn main() {
 ///     const STRUC: &str = formatc!("{:?}", Foo(5, [8, 13, 21], "34"));
 ///     const ENUM_: &str = formatc!("{:?}", Bar::Baz(false, None));
-///     
+///
 ///     assert_eq!(STRUC, "Foo(5, [8, 13, 21], \"34\")");
 ///     assert_eq!(ENUM_, "Baz(false, None)");
 /// }
@@ -781,7 +781,7 @@ impl<'f, 'w> DebugStruct<'f, 'w> {
 ///
 /// impl_fmt!{
 ///     impl Foo;
-///     
+///
 ///     const fn const_debug_fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
 ///         let mut f = f.debug_tuple("Foo");
 ///         try_!(coerce_to_fmt!(&self.0).const_debug_fmt(f.field()));
@@ -793,17 +793,17 @@ impl<'f, 'w> DebugStruct<'f, 'w> {
 ///
 /// impl_fmt!{
 ///     impl Bar;
-///     
+///
 ///     const fn const_debug_fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
 ///         match self {
 ///             Bar::Baz(f0, f1) => {
 ///                 let mut f = f.debug_tuple("Baz");
-///                 
+///
 ///                 // This macro allows debug formatting some generic types that
 ///                 // don't have a const_debug_fmt fn, like Options which wrap non-std types.
 ///                 call_debug_fmt!(std, f0, f.field());
 ///                 call_debug_fmt!(Option, f1, f.field());
-///                 
+///
 ///                 f.finish()
 ///             }
 ///         }
@@ -893,7 +893,7 @@ macro_rules! finish_listset_method_impl {
 ///
 /// fn main() {
 ///     const LIST: &str = formatc!("{:?}", RangeList(0..5));
-///     
+///
 ///     assert_eq!(LIST, "[0, 1, 2, 3, 4]");
 /// }
 ///
@@ -901,7 +901,7 @@ macro_rules! finish_listset_method_impl {
 ///
 /// impl_fmt!{
 ///     impl RangeList;
-///     
+///
 ///     const fn const_debug_fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
 ///         let mut f = f.debug_list();
 ///         let mut i = self.0.start;
@@ -951,7 +951,7 @@ impl<'f, 'w> DebugList<'f, 'w> {
 ///
 /// fn main() {
 ///     const SET: &str = formatc!("{:?}", StrSet(&["foo", "bar", "baz"]));
-///     
+///
 ///     assert_eq!(SET, r#"{"foo", "bar", "baz"}"#);
 /// }
 ///
@@ -959,7 +959,7 @@ impl<'f, 'w> DebugList<'f, 'w> {
 ///
 /// impl_fmt!{
 ///     impl StrSet;
-///     
+///
 ///     const fn const_debug_fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
 ///         let mut f = f.debug_set();
 ///         let mut i = 0;

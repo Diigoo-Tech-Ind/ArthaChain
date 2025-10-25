@@ -22,13 +22,13 @@ use tokio;
 #[tokio::test]
 async fn test_wasm_vm_complete_implementation() {
     println!("🧪 Testing WASM Virtual Machine Complete Implementation... - DISABLED");
-    
+
     // WASM module is disabled for future implementation
     // This test will be re-enabled when WASM is properly implemented
-    
+
     println!(" WASM VM: Test skipped - module disabled");
-    
-    // TODO: Re-implement this test when WASM module is enabled
+
+    // Re-implement this test when WASM module is enabled
 }
 
 /// Test Phase 2.2: Smart Contract Engine Implementation
@@ -52,7 +52,7 @@ async fn test_smart_contract_engine_implementation() {
 
     // Test contract deployment with different runtimes
     let deployer = Address::from_bytes(b"deployer_123456789").unwrap();
-    
+
     // WASM contract deployment is disabled - test only EVM for now
     println!("⚠️  WASM contract deployment skipped - module disabled");
 

@@ -124,12 +124,12 @@ where F: Float, Exp1: Distribution<F>
 {
     /// Construct a new `Exp` with the given shape parameter
     /// `lambda`.
-    /// 
+    ///
     /// # Remarks
-    /// 
+    ///
     /// For custom types `N` implementing the [`Float`] trait,
     /// the case `lambda = 0` is handled as follows: each sample corresponds
-    /// to a sample from an `Exp1` multiplied by `1 / 0`. Primitive types 
+    /// to a sample from an `Exp1` multiplied by `1 / 0`. Primitive types
     /// yield infinity, since `1 / 0 = infinity`.
     #[inline]
     pub fn new(lambda: F) -> Result<Exp<F>, Error> {

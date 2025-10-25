@@ -307,7 +307,7 @@ impl<'data> CodePointInversionList<'data> {
     /// Returns [`CodePointInversionList`] spanning entire Unicode range
     ///
     /// The range spans from `0x0 -> 0x10FFFF` inclusive.
-    ///  
+    ///
     /// # Examples
     ///
     /// ```

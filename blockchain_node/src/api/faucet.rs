@@ -312,11 +312,12 @@ impl Faucet {
 
 // API endpoints for the faucet
 use axum::{
-    extract::{Extension, Json, Path, Query},
+    extract::{Extension, Json, Path, Query, ConnectInfo},
     http::StatusCode,
     response::{Html, IntoResponse},
     routing::{get, post},
 };
+use std::net::SocketAddr;
 // Remove duplicate import - already imported at top
 
 /// Faucet request payload
@@ -377,7 +378,7 @@ pub async fn faucet_dashboard() -> impl IntoResponse {
         <div class="container">
             <h1>🚰 ArthaChain Faucet</h1>
             <p style="text-align: center; color: #7f8c8d;">Get testnet tokens for development and testing</p>
-            
+
             <div class="status">
                 <h3>📊 Faucet Status</h3>
                 <p><strong>Status:</strong> <span style="color: green;">✅ Active</span></p>
@@ -385,36 +386,41 @@ pub async fn faucet_dashboard() -> impl IntoResponse {
                 <p><strong>Cooldown:</strong> 5 minutes between requests</p>
                 <p><strong>Amount per Request:</strong> 2 ARTHA (Precious Token)</p>
             </div>
-            
+
             <form id="faucetForm">
                 <div class="form-group">
                     <label for="recipient">Recipient Address:</label>
-                    <input type="text" id="recipient" name="recipient" placeholder="0x..." required>
+                    <input type="text" id="recipient" name="recipient" 
+                           placeholder="Enter your wallet address (e.g., 0x742d35Cc6634C0532925a3b844Bc454e4438f44e)" 
+                           pattern="0x[a-fA-F0-9]{40}"
+                           title="Valid Ethereum-style address starting with 0x followed by 40 hexadecimal characters."
+                           required>
+                    <small class="form-help">Enter your wallet address to receive testnet ARTHA tokens. Must be a valid 42-character address.</small>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="amount">Amount (ARTHA):</label>
                     <input type="number" id="amount" name="amount" value="2" min="1" max="2" readonly>
                 </div>
-                
+
                 <button type="submit">🚰 Request Tokens</button>
             </form>
-            
+
             <div id="result" style="margin-top: 20px;"></div>
-            
+
             <script>
                 document.getElementById('faucetForm').addEventListener('submit', async (e) => {
                     e.preventDefault();
                     const recipient = document.getElementById('recipient').value;
                     const amount = document.getElementById('amount').value;
-                    
+
                     try {
                         const response = await fetch('/api/v1/testnet/faucet/request', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ recipient, amount: parseInt(amount) })
                         });
-                        
+
                         const result = await response.json();
                         document.getElementById('result').innerHTML = `
                             <div class="status" style="background: ${result.success ? '#d4edda' : '#f8d7da'}; color: ${result.success ? '#155724' : '#721c24'};">
@@ -442,22 +448,37 @@ pub async fn faucet_dashboard() -> impl IntoResponse {
 }
 
 /// Request tokens from faucet
-pub async fn request_tokens(Json(request): Json<FaucetRequest>) -> impl IntoResponse {
-    // This is a placeholder - in a real implementation, you'd use the Faucet service
+pub async fn request_tokens(
+    Extension(faucet_service): Extension<Arc<Faucet>>,
+    Json(request): Json<FaucetRequest>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+) -> impl IntoResponse {
     let amount = request.amount.unwrap_or(1000);
 
-    // Simulate faucet response
-    let response = FaucetResponse {
-        success: true,
-        message: format!(
-            "Successfully sent {} ARTHA to {}",
-            amount, request.recipient
-        ),
-        transaction_hash: Some(format!("0x{:x}", chrono::Utc::now().timestamp())),
-        amount,
-    };
-
-    (StatusCode::OK, Json(response))
+    // Use real faucet service to process the request
+    match faucet_service.request_tokens(&request.recipient, addr.ip()).await {
+        Ok(tx_hash) => {
+            let response = FaucetResponse {
+                success: true,
+                message: format!(
+                    "Successfully sent {} ARTHA to {}",
+                    amount, request.recipient
+                ),
+                transaction_hash: Some(tx_hash),
+                amount,
+            };
+            (StatusCode::OK, Json(response))
+        }
+        Err(e) => {
+            let response = FaucetResponse {
+                success: false,
+                message: format!("Failed to send tokens: {}", e),
+                transaction_hash: None,
+                amount: 0,
+            };
+            (StatusCode::BAD_REQUEST, Json(response))
+        }
+    }
 }
 
 /// Get faucet status

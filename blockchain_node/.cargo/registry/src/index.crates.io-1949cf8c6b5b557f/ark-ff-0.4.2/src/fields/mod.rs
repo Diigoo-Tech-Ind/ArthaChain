@@ -42,7 +42,7 @@ use ark_std::cmp::max;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
-/// The interface for a generic field.  
+/// The interface for a generic field.
 /// Types implementing [`Field`] support common field operations such as addition, subtraction, multiplication, and inverses.
 ///
 /// ## Defining your own field

@@ -5,11 +5,13 @@ use tokio::sync::RwLock;
 use serde::{Deserialize, Serialize};
 use rand::Rng;
 use log::{info, warn, error};
+use anyhow::Result;
+use base64;
 
 /// Generate unique 21-character node ID
 pub fn generate_unique_node_id() -> String {
     let mut rng = rand::thread_rng();
-    
+
     // Format: ArthaX + 15 random alphanumeric characters = 21 characters total
     let random_chars: String = (0..15)
         .map(|_| {
@@ -17,7 +19,7 @@ pub fn generate_unique_node_id() -> String {
             chars.chars().nth(rng.gen_range(0..chars.len())).unwrap()
         })
         .collect();
-    
+
     format!("ArthaX{}", random_chars)
 }
 
@@ -109,9 +111,9 @@ impl ArthaDiscoveryService {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        
+
         let network_constants = NetworkConstants::default();
-        
+
         let our_info = ArthaNodeInfo {
             node_id: node_id.clone(),
             addresses: vec![
@@ -125,7 +127,7 @@ impl ArthaDiscoveryService {
                 NodeCapability::Sharding,
             ],
             timestamp,
-            signature: "self_signed".to_string(), // TODO: Implement proper crypto signing
+            signature: self.generate_node_signature(&node_id, &address, timestamp).unwrap_or_else(|_| "signature_error".to_string()),
             status: NodeStatus::Active,
             last_seen: timestamp,
             health_score: 1.0,
@@ -136,7 +138,7 @@ impl ArthaDiscoveryService {
         info!("📍 API Endpoint: http://0.0.0.0:{}", network_constants.api_port);
         info!("🌐 P2P Endpoint: tcp://0.0.0.0:{}", network_constants.p2p_port);
         info!("📊 Metrics Endpoint: http://0.0.0.0:{}", network_constants.metrics_port);
-        
+
         if is_seed_node {
             info!("🌱 This node is configured as a SEED NODE");
         }
@@ -170,10 +172,10 @@ impl ArthaDiscoveryService {
     /// Initialize seed nodes (ArthaChain network)
     pub async fn initialize_seed_nodes(&self) {
         let mut peers = self.known_peers.write().await;
-        
+
         for seed_address in &self.network_constants.seed_nodes {
             let seed_node_id = format!("seed_{}", seed_address.replace(":", "_"));
-            
+
             let seed_info = ArthaNodeInfo {
                 node_id: seed_node_id.clone(),
                 addresses: vec![
@@ -193,7 +195,7 @@ impl ArthaDiscoveryService {
                 health_score: 1.0,
                 is_seed_node: true,
             };
-            
+
             peers.insert(seed_node_id.clone(), seed_info);
             info!("🌱 Added seed node: {} at {}", seed_node_id, seed_address);
         }
@@ -206,10 +208,10 @@ impl ArthaDiscoveryService {
         // 2. Exchange node information with discovered peers
         // 3. Validate peer signatures and capabilities
         // 4. Add valid peers to the known peers list
-        
+
         // For now, we'll simulate the P2P discovery process
         let mut peers = self.known_peers.write().await;
-        
+
         // Simulate discovering peers through P2P networking
         // These would be actual peers discovered on the network
         let discovered_peers = vec![
@@ -224,7 +226,7 @@ impl ArthaDiscoveryService {
                     .duration_since(UNIX_EPOCH)
                     .unwrap()
                     .as_secs();
-                
+
                 let peer_info = ArthaNodeInfo {
                     node_id: node_id.to_string(),
                     addresses: vec![
@@ -244,7 +246,7 @@ impl ArthaDiscoveryService {
                     health_score: 1.0,
                     is_seed_node: false,
                 };
-                
+
                 peers.insert(node_id.to_string(), peer_info);
                 info!("🔍 Discovered new peer via P2P: {} at {}", node_id, ip_address);
             }
@@ -255,7 +257,7 @@ impl ArthaDiscoveryService {
     pub async fn check_peer_health(&self) -> NetworkHealth {
         let mut healthy_nodes = 0;
         let mut total_nodes = 1; // Start with our own node
-        
+
         // Check our own health
         if self.our_info.status == NodeStatus::Active {
             healthy_nodes += 1;
@@ -263,13 +265,13 @@ impl ArthaDiscoveryService {
 
         let peers = self.known_peers.read().await;
         let mut peer_status = self.peer_status.write().await;
-        
+
         for (node_id, peer_info) in peers.iter() {
             total_nodes += 1;
-            
+
             // Real health check - ping the peer's API endpoint
             let is_healthy = self.perform_real_health_check(peer_info).await;
-            
+
             let status = peer_status.entry(node_id.clone()).or_insert_with(|| PeerStatus {
                 node_id: node_id.clone(),
                 status: NodeStatus::Active,
@@ -279,7 +281,7 @@ impl ArthaDiscoveryService {
                 is_healthy: true,
                 connection_established: false,
             });
-            
+
             if is_healthy {
                 healthy_nodes += 1;
                 status.is_healthy = true;
@@ -289,7 +291,7 @@ impl ArthaDiscoveryService {
             } else {
                 status.is_healthy = false;
                 status.consecutive_failures += 1;
-                
+
                 // Remove peer if too many failures (like real blockchains do)
                 if status.consecutive_failures >= 3 {
                     warn!("🚨 Removing unhealthy peer: {} ({} failures)", node_id, status.consecutive_failures);
@@ -317,18 +319,18 @@ impl ArthaDiscoveryService {
         let api_endpoint = peer_info.addresses.iter()
             .find(|addr| addr.starts_with("http://"))
             .cloned();
-        
+
         if let Some(endpoint) = api_endpoint {
             // In real implementation, this would:
             // 1. Send HTTP GET to /health endpoint
             // 2. Check response time and status
             // 3. Verify node signature
             // 4. Update peer status
-            
+
             // For now, simulate network latency and success rate
             let mut rng = rand::thread_rng();
             let success_rate = if peer_info.is_seed_node { 0.99 } else { 0.95 };
-            
+
             if rng.gen_bool(success_rate) {
                 // Simulate network latency (10-100ms)
                 let latency = rng.gen_range(10..100);
@@ -346,10 +348,10 @@ impl ArthaDiscoveryService {
     pub async fn get_network_stats(&self) -> NetworkStats {
         let peers = self.known_peers.read().await;
         let peer_status = self.peer_status.read().await;
-        
+
         let total_peers = peers.len();
         let healthy_peers = peer_status.values().filter(|p| p.is_healthy).count();
-        
+
         NetworkStats {
             our_node_id: self.our_node_id.clone(),
             total_peers,
@@ -362,10 +364,10 @@ impl ArthaDiscoveryService {
     pub async fn start(&self) {
         info!("🚀 Starting ArthaChain Discovery Service");
         *self.discovery_active.write().await = true;
-        
+
         // Initialize seed nodes first (like real blockchains)
         self.initialize_seed_nodes().await;
-        
+
         // Spawn background tasks
         self.spawn_peer_discovery().await;
         self.spawn_health_monitoring().await;
@@ -381,10 +383,10 @@ impl ArthaDiscoveryService {
     async fn spawn_peer_discovery(&self) {
         let discovery_active = self.discovery_active.clone();
         let discovery_service = self.clone();
-        
+
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(Duration::from_secs(30));
-            
+
             while *discovery_active.read().await {
                 discovery_service.discover_peers().await;
                 interval.tick().await;
@@ -396,24 +398,44 @@ impl ArthaDiscoveryService {
     async fn spawn_health_monitoring(&self) {
         let discovery_active = self.discovery_active.clone();
         let discovery_service = self.clone();
-        
+
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(Duration::from_secs(10));
-            
+
             while *discovery_active.read().await {
                 let health = discovery_service.check_peer_health().await;
-                
+
                 if health.consensus_health < 0.5 {
-                    warn!("⚠️ Low consensus health: {:.2} ({}/{})", 
+                    warn!("⚠️ Low consensus health: {:.2} ({}/{})",
                           health.consensus_health, health.active_nodes, health.total_nodes);
                 } else {
-                    info!("✅ Network health: {:.2} ({}/{})", 
+                    info!("✅ Network health: {:.2} ({}/{})",
                           health.consensus_health, health.active_nodes, health.total_nodes);
                 }
-                
+
                 interval.tick().await;
             }
         });
+    }
+
+    /// Generate a cryptographic signature for a node
+    fn generate_node_signature(&self, node_id: &str, address: &str, timestamp: u64) -> Result<String> {
+        use crate::utils::crypto::{generate_quantum_resistant_keypair, dilithium_sign};
+        
+        // Create data to sign: node_id + address + timestamp
+        let mut data_to_sign = Vec::new();
+        data_to_sign.extend_from_slice(node_id.as_bytes());
+        data_to_sign.extend_from_slice(address.as_bytes());
+        data_to_sign.extend_from_slice(&timestamp.to_be_bytes());
+        
+        // Generate a keypair for signing (in a real implementation, this would be persistent)
+        let (private_key, _public_key) = generate_quantum_resistant_keypair()?;
+        
+        // Sign the data
+        let signature_bytes = dilithium_sign(&private_key, &data_to_sign)?;
+        
+        // Encode signature as base64
+        Ok(base64::encode(signature_bytes))
     }
 }
 

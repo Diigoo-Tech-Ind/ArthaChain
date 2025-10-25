@@ -511,7 +511,7 @@ impl SecureBCIInterface {
     /// Verify user consent for specific permissions
     async fn verify_user_consent(&self, user_id: &str, required_permissions: &[BCIPermission]) -> Result<bool> {
         let consent_manager = self.consent_manager.read().await;
-        
+
         if let Some(consent) = consent_manager.consents.get(user_id) {
             // Check if consent is active and not expired
             if !consent.active {
@@ -773,4 +773,4 @@ mod tests {
 
         assert!(verified);
     }
-} 
+}

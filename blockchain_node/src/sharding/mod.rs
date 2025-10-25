@@ -120,7 +120,7 @@ pub struct ShardingConfig {
     pub dynamic_allocation: bool,
     pub performance_monitoring: bool,
     pub cross_shard_batching: bool,
-    pub load_balancing: LoadBalancingStrategy,
+    pub load_balancing: LoadBalancingStrategyType,
 }
 
 impl Default for ShardingConfig {
@@ -131,19 +131,98 @@ impl Default for ShardingConfig {
             dynamic_allocation: true,
             performance_monitoring: true,
             cross_shard_batching: true,
-            load_balancing: LoadBalancingStrategy::PerformanceBased,
+            load_balancing: LoadBalancingStrategyType::PerformanceBased,
         }
     }
 }
 
 /// Load balancing strategies for shard distribution
+/// Load balancing strategy trait
+pub trait LoadBalancingStrategy: Send + Sync {
+    fn select_shard(&self, shards: &HashMap<u64, ShardInfo>) -> Option<u64>;
+}
+
+/// Round-robin load balancing strategy
+#[derive(Debug)]
+pub struct RoundRobinStrategy {
+    current_index: std::sync::atomic::AtomicUsize,
+}
+
+impl RoundRobinStrategy {
+    pub fn new() -> Self {
+        Self {
+            current_index: std::sync::atomic::AtomicUsize::new(0),
+        }
+    }
+}
+
+impl Clone for RoundRobinStrategy {
+    fn clone(&self) -> Self {
+        Self {
+            current_index: std::sync::atomic::AtomicUsize::new(0),
+        }
+    }
+}
+
+impl LoadBalancingStrategy for RoundRobinStrategy {
+    fn select_shard(&self, shards: &HashMap<u64, ShardInfo>) -> Option<u64> {
+        if shards.is_empty() {
+            return None;
+        }
+        
+        let shard_ids: Vec<u64> = shards.keys().cloned().collect();
+        let current = self.current_index.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let index = current % shard_ids.len();
+        Some(shard_ids[index])
+    }
+}
+
+/// Least loaded shard strategy
 #[derive(Debug, Clone)]
-pub enum LoadBalancingStrategy {
+pub struct LeastLoadedStrategy;
+
+impl LoadBalancingStrategy for LeastLoadedStrategy {
+    fn select_shard(&self, shards: &HashMap<u64, ShardInfo>) -> Option<u64> {
+        shards
+            .iter()
+            .min_by(|(_, a), (_, b)| {
+                let load_a = a.performance.current_load.load(Ordering::Relaxed) as f64;
+                let load_b = b.performance.current_load.load(Ordering::Relaxed) as f64;
+                load_a.partial_cmp(&load_b).unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .map(|(id, _)| *id)
+    }
+}
+
+/// Performance-based load balancing strategy
+#[derive(Debug, Clone)]
+pub struct PerformanceBasedStrategy;
+
+impl LoadBalancingStrategy for PerformanceBasedStrategy {
+    fn select_shard(&self, shards: &HashMap<u64, ShardInfo>) -> Option<u64> {
+        shards
+            .iter()
+            .max_by(|(_, a), (_, b)| {
+                let tps_a = a.performance.transactions_processed.load(Ordering::Relaxed) as f64;
+                let load_a = a.performance.current_load.load(Ordering::Relaxed) as f64;
+                let score_a = if load_a > 0.0 { tps_a / load_a } else { tps_a };
+
+                let tps_b = b.performance.transactions_processed.load(Ordering::Relaxed) as f64;
+                let load_b = b.performance.current_load.load(Ordering::Relaxed) as f64;
+                let score_b = if load_b > 0.0 { tps_b / load_b } else { tps_b };
+
+                score_a.partial_cmp(&score_b).unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .map(|(id, _)| *id)
+    }
+}
+
+/// Load balancing strategy enum that can be cloned
+#[derive(Debug, Clone)]
+pub enum LoadBalancingStrategyType {
     RoundRobin,
     LeastLoaded,
     PerformanceBased,
-    // TODO: Custom load balancing strategy - temporarily disabled due to Clone constraints
-    // Custom(Box<dyn Fn(&HashMap<u64, ShardInfo>) -> u64 + Send + Sync>),
 }
 
 /// Shard load information
@@ -420,13 +499,19 @@ pub struct GlobalShardMetrics {
 
 /// Load balancer for distributing transactions across shards
 pub struct ShardLoadBalancer {
-    strategy: LoadBalancingStrategy,
+    strategy: Box<dyn LoadBalancingStrategy>,
     current_shard_index: AtomicU64,
 }
 
 impl ShardLoadBalancer {
     /// Create a new load balancer
-    pub fn new(strategy: LoadBalancingStrategy) -> Self {
+    pub fn new(strategy_type: LoadBalancingStrategyType) -> Self {
+        let strategy: Box<dyn LoadBalancingStrategy> = match strategy_type {
+            LoadBalancingStrategyType::RoundRobin => Box::new(RoundRobinStrategy::new()),
+            LoadBalancingStrategyType::LeastLoaded => Box::new(LeastLoadedStrategy),
+            LoadBalancingStrategyType::PerformanceBased => Box::new(PerformanceBasedStrategy),
+        };
+        
         Self {
             strategy,
             current_shard_index: AtomicU64::new(0),
@@ -435,43 +520,7 @@ impl ShardLoadBalancer {
 
     /// Get the optimal shard based on the current strategy
     pub fn get_optimal_shard(&self, shards: &HashMap<u64, ShardInfo>) -> Option<u64> {
-        if shards.is_empty() {
-            return None;
-        }
-
-        match &self.strategy {
-            LoadBalancingStrategy::RoundRobin => {
-                let current = self.current_shard_index.fetch_add(1, Ordering::Relaxed);
-                let shard_ids: Vec<u64> = shards.keys().cloned().collect();
-                if !shard_ids.is_empty() {
-                    Some(shard_ids[current as usize % shard_ids.len()])
-                } else {
-                    None
-                }
-            }
-            LoadBalancingStrategy::LeastLoaded => shards
-                .iter()
-                .min_by_key(|(_, info)| info.performance.current_load.load(Ordering::Relaxed))
-                .map(|(id, _)| *id),
-            LoadBalancingStrategy::PerformanceBased => shards
-                .iter()
-                .max_by_key(|(_, info)| {
-                    let tps = info
-                        .performance
-                        .transactions_processed
-                        .load(Ordering::Relaxed);
-                    let load = info.performance.current_load.load(Ordering::Relaxed);
-                    if load > 0 {
-                        tps / load
-                    } else {
-                        tps
-                    }
-                })
-                .map(|(id, _)| *id), // TODO: Custom load balancing strategy - temporarily disabled
-                                     // LoadBalancingStrategy::Custom(func) => {
-                                     //     Some(func(shards))
-                                     // }
-        }
+        self.strategy.select_shard(shards)
     }
 
     /// Calculate the current load of a shard

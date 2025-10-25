@@ -4,22 +4,22 @@ use axum::{
     http::{HeaderValue, Method, StatusCode},
     response::Json,
     routing::{get, post},
-    Router,
-    serve,
-    ServiceExt,
+    serve, Router, ServiceExt,
 };
-use tower::Service;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, sync::Arc, time::Duration, net::IpAddr};
+use std::{collections::HashMap, net::IpAddr, sync::Arc, time::Duration};
 use tokio::sync::RwLock;
+use tower::Service;
 use tower_http::cors::{Any, CorsLayer};
 use uuid::Uuid;
 
-use crate::consensus::cross_shard::EnhancedCrossShardManager;
-use crate::network::cross_shard::{CrossShardConfig, CrossShardTransaction, ShardStats, TxPhase};
+use crate::api::errors::ApiError;
+
 use crate::api::handlers::faucet::{self, FaucetConfig};
-use crate::gas_free::GasFreeManager;
 use crate::config::Config;
+use crate::consensus::cross_shard::EnhancedCrossShardManager;
+use crate::gas_free::GasFreeManager;
+use crate::network::cross_shard::{CrossShardConfig, CrossShardTransaction, ShardStats, TxPhase};
 
 // App State for dependency injection will be defined below
 
@@ -35,22 +35,7 @@ impl ApiServer {
     }
 }
 
-/// API Error type
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ApiError {
-    pub code: u16,
-    pub message: String,
-}
-
-impl ApiError {
-    pub fn new(code: u16, message: String) -> Self {
-        Self { code, message }
-    }
-    
-    pub fn account_not_found() -> Self {
-        Self::new(404, "Account not found".to_string())
-    }
-}
+// ApiError is now defined in errors.rs module
 
 // API Models
 #[derive(Serialize, Deserialize)]
@@ -192,13 +177,21 @@ pub async fn get_transaction_status(
 
 pub async fn get_network_stats(State(state): State<AppState>) -> Json<NetworkStatsResponse> {
     let stats = state.stats.read().await;
+    
+    // Calculate real network health based on actual metrics
+    let network_health = if stats.active_nodes > 0 {
+        let health_factor = (stats.active_nodes as f64) / (stats.active_nodes + stats.pending_transactions as u32) as f64;
+        health_factor.min(1.0).max(0.0)
+    } else {
+        0.0
+    };
 
     Json(NetworkStatsResponse {
         total_shards: 4, // From config
         active_nodes: stats.active_nodes,
         pending_transactions: stats.pending_transactions,
         processed_transactions: stats.total_transactions,
-        network_health: 0.95, // Mock health score
+        network_health,
     })
 }
 
@@ -208,27 +201,33 @@ pub async fn get_shard_info(
 ) -> Json<ShardInfoResponse> {
     // Get real shard data from cross-shard manager
     let manager = state.cross_shard_manager.read().await;
-
-    // Get actual shard statistics
-    let shard_stats = ShardStats {
-        shard_id: shard_id.into(),
-        status: "active".to_string(),
-        transaction_count: 1000,
-        last_block_height: 100,
-        connected_peers: 5,
-        active_validators: 3,
-        total_stake: 1000000,
-        health_score: 95.0,
-    };
     let network_stats = state.stats.read().await;
+
+    // Get actual shard statistics from the manager
+    let shard_stats = match manager.get_shard_stats(shard_id as u64).await {
+        Ok(stats) => stats,
+        Err(_) => {
+            // Fallback to network stats if shard-specific data unavailable
+            ShardStats {
+                shard_id: shard_id.into(),
+                status: "active".to_string(),
+                transaction_count: network_stats.total_transactions,
+                last_block_height: network_stats.total_blocks,
+                connected_peers: network_stats.connected_peers as u64,
+                active_validators: network_stats.active_validators as u64,
+                total_stake: network_stats.total_stake,
+                health_score: if network_stats.active_validators > 0 { 100.0 } else { 0.0 },
+            }
+        }
+    };
 
     Json(ShardInfoResponse {
         shard_id: shard_id.into(),
         status: shard_stats.status,
         transaction_count: shard_stats.transaction_count,
         last_block_height: shard_stats.last_block_height,
-        connected_peers: shard_stats.connected_peers.try_into().unwrap_or(0),
-        active_validators: shard_stats.active_validators.try_into().unwrap_or(0),
+        connected_peers: shard_stats.connected_peers as u32,
+        active_validators: shard_stats.active_validators as u32,
         total_stake: shard_stats.total_stake,
         shard_health: shard_stats.health_score,
     })
@@ -241,28 +240,34 @@ pub async fn list_shards(State(state): State<AppState>) -> Json<Vec<ShardInfoRes
     // Get real shard information for all connected shards
     let mut shards = Vec::new();
 
-    // Default shard IDs for now
-    let default_shard_ids = vec![0, 1, 2, 3];
+    // Get actual connected shards from the manager
+    let connected_shards = manager.get_connected_shards().await.unwrap_or_default();
 
-    for shard_id in &default_shard_ids {
-        let shard_stats = ShardStats {
-            shard_id: *shard_id,
-            status: "active".to_string(),
-            transaction_count: 1000,
-            last_block_height: 100,
-            connected_peers: 5,
-            active_validators: 3,
-            total_stake: 1000000,
-            health_score: 95.0,
+    for shard_id in &connected_shards {
+        let shard_stats = match manager.get_shard_stats(*shard_id as u64).await {
+            Ok(stats) => stats,
+            Err(_) => {
+                // Fallback to network stats if shard-specific data unavailable
+                ShardStats {
+                    shard_id: *shard_id as u64,
+                    status: "active".to_string(),
+                    transaction_count: network_stats.total_transactions,
+                    last_block_height: network_stats.total_blocks,
+                    connected_peers: network_stats.connected_peers as u64,
+                    active_validators: network_stats.active_validators as u64,
+                    total_stake: network_stats.total_stake,
+                    health_score: if network_stats.active_validators > 0 { 100.0 } else { 0.0 },
+                }
+            }
         };
 
         shards.push(ShardInfoResponse {
-            shard_id: (*shard_id).try_into().unwrap_or(0),
+            shard_id: *shard_id,
             status: shard_stats.status,
             transaction_count: shard_stats.transaction_count,
             last_block_height: shard_stats.last_block_height,
-            connected_peers: shard_stats.connected_peers.try_into().unwrap_or(0),
-            active_validators: shard_stats.active_validators.try_into().unwrap_or(0),
+            connected_peers: shard_stats.connected_peers as u32,
+            active_validators: shard_stats.active_validators as u32,
             total_stake: shard_stats.total_stake,
             shard_health: shard_stats.health_score,
         });
@@ -278,7 +283,7 @@ pub async fn list_shards(State(state): State<AppState>) -> Json<Vec<ShardInfoRes
             connected_peers: network_stats.connected_peers,
             active_validators: network_stats.active_validators,
             total_stake: network_stats.total_stake,
-            shard_health: 100.0,
+            shard_health: if network_stats.active_validators > 0 { 100.0 } else { 0.0 },
         }];
     }
 
@@ -337,30 +342,36 @@ pub async fn start_api_server(port: u16) -> Result<()> {
 
     // Create the blockchain state
     let config = crate::config::Config::default();
-    let blockchain_state = Arc::new(RwLock::new(crate::ledger::state::State::new(&config).unwrap()));
-    
+    let blockchain_state = Arc::new(RwLock::new(
+        crate::ledger::state::State::new(&config).unwrap(),
+    ));
+
     // Create validator manager
     let validator_config = crate::consensus::validator_set::ValidatorSetConfig::default();
-    let validator_manager = Arc::new(crate::consensus::validator_set::ValidatorSetManager::new(validator_config));
-    
+    let validator_manager = Arc::new(crate::consensus::validator_set::ValidatorSetManager::new(
+        validator_config,
+    ));
+
     // Create mempool
-    let mempool = Arc::new(RwLock::new(crate::transaction::mempool::Mempool::new(10000)));
+    let mempool = Arc::new(RwLock::new(crate::transaction::mempool::Mempool::new(
+        10000,
+    )));
 
     // Use the comprehensive testnet router instead of basic router
-        // Create a basic config for the faucet
-        let faucet_config = crate::config::Config {
-            is_genesis: true,
-            ..Default::default()
-        };
+    // Create a basic config for the faucet
+    let faucet_config = crate::config::Config {
+        is_genesis: true,
+        ..Default::default()
+    };
 
-        let faucet = faucet::Faucet::new(&faucet_config, blockchain_state.clone(), None).await?;
+    let faucet = faucet::Faucet::new(&faucet_config, blockchain_state.clone(), None).await?;
 
-        let app = crate::api::testnet_router::create_testnet_router(
-            blockchain_state.clone(),
-            mempool,
-            Arc::new(faucet),
-            Arc::new(GasFreeManager::new()),
-        );
+    let app = crate::api::testnet_router::create_testnet_router(
+        blockchain_state.clone(),
+        mempool,
+        Arc::new(faucet),
+        Arc::new(GasFreeManager::new()),
+    );
 
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port)).await?;
     println!(

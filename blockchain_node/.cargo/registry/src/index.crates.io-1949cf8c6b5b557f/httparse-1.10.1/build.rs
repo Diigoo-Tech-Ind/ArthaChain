@@ -14,7 +14,7 @@ fn main() {
 
     let raw_version = String::from_utf8(output)
         .expect("rustc version output should be utf-8");
-    
+
     let version = match Version::parse(&raw_version) {
         Ok(version) => version,
         Err(err) => {
@@ -84,7 +84,7 @@ fn enable_simd(version: Version) {
             return
         },
     };
-    
+
     let features = feature_list.split(',').map(|s| s.trim());
     if features.clone().any(|f| f == "sse4.2") {
         println!("cargo:rustc-cfg=httparse_simd_target_feature_sse42");
@@ -103,7 +103,7 @@ impl Version {
             return Err(format!("unrecognized version string: {}", s));
         }
         let s = s.trim_start_matches("rustc ");
-        
+
         let mut iter = s
             .split('.')
             .take(3)
@@ -112,11 +112,11 @@ impl Version {
                 None => s,
             })
             .map(|s| s.parse::<u32>().map_err(|e| e.to_string()));
-    
+
         if iter.clone().count() != 3 {
             return Err(format!("not enough version parts: {:?}", s));
         }
-        
+
         let major = iter.next().unwrap()?;
         let minor = iter.next().unwrap()?;
         let patch = iter.next().unwrap()?;

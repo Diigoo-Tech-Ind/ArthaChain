@@ -348,7 +348,7 @@ impl BrotliDecoderReturnInfo {
         let mut ret = BrotliDecoderReturnInfo{
             result: result,
             decoded_size: output_size,
-            error_code: decode::BrotliDecoderGetErrorCode(&state),  
+            error_code: decode::BrotliDecoderGetErrorCode(&state),
             error_string: if let &Err(msg) = &state.mtf_or_error_string {
                 msg
             } else {
@@ -394,7 +394,7 @@ pub fn brotli_decode_prealloc(
                                       &mut written,
                                       &mut brotli_state);
   let return_info = BrotliDecoderReturnInfo::new(&brotli_state, result.into(), output_offset);
-  return_info    
+  return_info
 }
 
 #[cfg(not(feature="std"))]
@@ -437,7 +437,7 @@ pub fn brotli_decode(
                                       &mut written,
                                       &mut brotli_state);
   let return_info = BrotliDecoderReturnInfo::new(&brotli_state, result.into(), output_offset);
-  return_info    
+  return_info
 }
 
 #[cfg(feature="std")]

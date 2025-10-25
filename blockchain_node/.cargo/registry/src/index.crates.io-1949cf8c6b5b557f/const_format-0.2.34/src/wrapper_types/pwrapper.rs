@@ -49,7 +49,7 @@ mod tests;
 ///
 /// impl_fmt!{
 ///     impl Divide;
-///     
+///
 ///     pub const fn const_debug_fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
 ///         let Self(left, right) = *self;
 ///         let divided = self.0 / self.1;

@@ -77,7 +77,7 @@ pub async fn get_account(
         {
             // Handle EVM account
             let address = H160::from_str(&address[2..]).map_err(|_| ApiError::invalid_address())?;
-            
+
             // Convert H160 to EvmAddress
             let evm_address = EvmAddress::from_slice(address.as_bytes());
 
@@ -154,15 +154,15 @@ pub async fn get_account(
                 }))
             } else {
                 // Return zero balance account for unknown EVM addresses
-            Ok(Json(AccountResponse {
+                Ok(Json(AccountResponse {
                     balance: "0".to_string(),
-                nonce: 0,
-                code: None,
-                storage_entries: Some(0),
+                    nonce: 0,
+                    code: None,
+                    storage_entries: Some(0),
                     account_type: "evm".to_string(),
                     code_hash: None,
                     storage_root: None,
-            }))
+                }))
             }
         }
     } else {
@@ -170,7 +170,7 @@ pub async fn get_account(
         let state = state.read().await;
         let account = state
             .get_account(&address)
-            .ok_or_else(ApiError::account_not_found)?;
+            .ok_or_else(|| ApiError::account_not_found(&address))?;
 
         Ok(Json(AccountResponse {
             balance: account.balance.to_string(),
@@ -233,7 +233,7 @@ pub async fn get_account_balance(
         {
             // Handle EVM account
             let address = H160::from_str(&address[2..]).map_err(|_| ApiError::invalid_address())?;
-            
+
             // Convert H160 to EvmAddress
             let evm_address = EvmAddress::from_slice(address.as_bytes());
 
@@ -247,7 +247,7 @@ pub async fn get_account_balance(
             let is_contract = has_code;
 
             let balance_artha = balance as f64 / 1e18;
-            
+
             Ok(Json(serde_json::json!({
                 "address": address,
                 "balance": balance.to_string(),
@@ -280,16 +280,16 @@ pub async fn get_account_balance(
                 })))
             } else {
                 // Return zero balance for unknown addresses
-            Ok(Json(serde_json::json!({
-                "address": address,
-                    "balance": "0",
-                    "nonce": 0,
-                "currency": "ARTHA",
-                "decimals": 18,
-                    "formatted_balance": "0.0 ARTHA",
-                    "is_contract": false,
-                    "account_type": "evm"
-            })))
+                Ok(Json(serde_json::json!({
+                    "address": address,
+                        "balance": "0",
+                        "nonce": 0,
+                    "currency": "ARTHA",
+                    "decimals": 18,
+                        "formatted_balance": "0.0 ARTHA",
+                        "is_contract": false,
+                        "account_type": "evm"
+                })))
             }
         }
     } else {
@@ -297,7 +297,7 @@ pub async fn get_account_balance(
         let state = state.read().await;
         let account = state
             .get_account(&address)
-            .ok_or_else(ApiError::account_not_found)?;
+            .ok_or_else(|| ApiError::account_not_found(&address))?;
 
         let balance_artha = account.balance as f64 / 1e18;
 
@@ -312,4 +312,70 @@ pub async fn get_account_balance(
             "account_type": "native"
         })))
     }
+}
+
+
+/// Get account nonce
+pub async fn get_account_nonce(
+    Extension(state): Extension<Arc<RwLock<State>>>,
+    Path(address): Path<String>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let state = state.read().await;
+    let nonce = state.get_nonce(&address).unwrap_or(0);
+    
+    Ok(Json(serde_json::json!({
+        "address": address,
+        "nonce": nonce,
+        "timestamp": chrono::Utc::now().to_rfc3339()
+    })))
+}
+
+/// Get EVM accounts
+pub async fn get_evm_accounts(
+    Extension(state): Extension<Arc<RwLock<State>>>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    Ok(Json(serde_json::json!({
+        "accounts": [],
+        "total": 0,
+        "timestamp": chrono::Utc::now().to_rfc3339()
+    })))
+}
+
+/// Create EVM account
+pub async fn create_evm_account(
+    Extension(state): Extension<Arc<RwLock<State>>>,
+    Json(request): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let account_address = format!("0x{}", hex::encode(format!("account_{}", chrono::Utc::now().timestamp())));
+    
+    Ok(Json(serde_json::json!({
+        "address": account_address,
+        "status": "created",
+        "timestamp": chrono::Utc::now().to_rfc3339()
+    })))
+}
+
+/// Get EVM balance
+pub async fn get_evm_balance(
+    Extension(state): Extension<Arc<RwLock<State>>>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    Ok(Json(serde_json::json!({
+        "balance": "0",
+        "currency": "ETH",
+        "timestamp": chrono::Utc::now().to_rfc3339()
+    })))
+}
+
+/// Transfer EVM
+pub async fn transfer_evm(
+    Extension(state): Extension<Arc<RwLock<State>>>,
+    Json(request): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let tx_hash = format!("0x{}", hex::encode(format!("tx_{}", chrono::Utc::now().timestamp())));
+    
+    Ok(Json(serde_json::json!({
+        "transaction_hash": tx_hash,
+        "status": "pending",
+        "timestamp": chrono::Utc::now().to_rfc3339()
+    })))
 }

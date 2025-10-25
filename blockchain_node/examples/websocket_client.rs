@@ -1,8 +1,8 @@
 use futures::{SinkExt, StreamExt};
 use serde_json::{json, Value};
+use std::sync::OnceLock;
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 use url::Url;
-use std::sync::OnceLock;
 
 static EMPTY_VEC: OnceLock<Vec<Value>> = OnceLock::new();
 
@@ -55,7 +55,9 @@ impl ArthaChainWebSocketClient {
             "heartbeat_interval": 30
         });
 
-        write.send(Message::Text(subscribe_msg.to_string().into())).await?;
+        write
+            .send(Message::Text(subscribe_msg.to_string().into()))
+            .await?;
         println!("📡 Subscribed to all blockchain events");
 
         // Handle incoming messages
@@ -192,7 +194,10 @@ impl ArthaChainWebSocketClient {
         );
         println!(
             "   📋 Logs: {} entries",
-            data["logs"].as_array().unwrap_or(EMPTY_VEC.get_or_init(Vec::new)).len()
+            data["logs"]
+                .as_array()
+                .unwrap_or(EMPTY_VEC.get_or_init(Vec::new))
+                .len()
         );
         if let Some(contract_addr) = data["contract_address"].as_str() {
             println!("   📜 Contract Address: {}", contract_addr);
@@ -299,7 +304,9 @@ impl ArthaChainWebSocketClient {
     /// Handle subscription events
     async fn handle_subscription(&self, data: &Value) -> Result<(), Box<dyn std::error::Error>> {
         let success = data["success"].as_bool().unwrap_or(false);
-        let events = data["events"].as_array().unwrap_or(EMPTY_VEC.get_or_init(Vec::new));
+        let events = data["events"]
+            .as_array()
+            .unwrap_or(EMPTY_VEC.get_or_init(Vec::new));
         let message = data["message"].as_str().unwrap_or("No message");
 
         if success {

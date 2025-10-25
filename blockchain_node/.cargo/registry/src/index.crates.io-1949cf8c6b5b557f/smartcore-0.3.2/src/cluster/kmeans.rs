@@ -249,7 +249,7 @@ impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> Predictor<X, Y>
 
 impl<TX: Number, TY: Number, X: Array2<TX>, Y: Array1<TY>> KMeans<TX, TY, X, Y> {
     /// Fit algorithm to _NxM_ matrix where _N_ is number of samples and _M_ is number of features.
-    /// * `data` - training instances to cluster    
+    /// * `data` - training instances to cluster
     /// * `parameters` - cluster parameters
     pub fn fit(data: &X, parameters: KMeansParameters) -> Result<KMeans<TX, TY, X, Y>, Failed> {
         let bbd = BBDTree::new(data);

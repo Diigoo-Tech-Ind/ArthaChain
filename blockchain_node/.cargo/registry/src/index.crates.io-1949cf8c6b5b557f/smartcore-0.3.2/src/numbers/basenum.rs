@@ -3,7 +3,7 @@ use std::fmt::{Debug, Display};
 use std::iter::{Product, Sum};
 use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
 
-/// Define a `Number` set that acquires traits from `num_traits` to make available a base trait  
+/// Define a `Number` set that acquires traits from `num_traits` to make available a base trait
 /// to be used by other usable sets like `FloatNumber`.
 pub trait Number:
     Num

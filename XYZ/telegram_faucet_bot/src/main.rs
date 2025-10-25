@@ -74,12 +74,15 @@ impl BotState {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Load environment variables from .env file
+    dotenv::dotenv().ok();
+    
     env_logger::init();
     
     info!("🚀 Starting ArthaChain Telegram Faucet Bot...");
 
     let bot_token = std::env::var("TELEGRAM_BOT_TOKEN")
-        .expect("TELEGRAM_BOT_TOKEN environment variable not set");
+        .expect("TELEGRAM_BOT_TOKEN environment variable not set. Please set it in .env file or export it.");
     
     let faucet_api_url = std::env::var("FAUCET_API_URL")
         .unwrap_or_else(|_| "https://api.arthachain.in".to_string());
@@ -89,17 +92,20 @@ async fn main() -> Result<()> {
 
     info!("✅ Bot initialized. Faucet API: {}", state.faucet_client.api_url());
     
-    Dispatcher::builder(bot, Update::filter_message().branch(
+    let dispatcher = Dispatcher::builder(bot, Update::filter_message().branch(
         dptree::entry()
             .filter_command::<Command>()
             .endpoint(handle_command)
     ))
     .dependencies(dptree::deps![state])
     .enable_ctrlc_handler()
-    .build()
-    .dispatch()
-    .await;
+    .build();
 
+    info!("🤖 Bot is now running and listening for messages...");
+    
+    dispatcher.dispatch().await;
+
+    info!("🛑 Bot stopped.");
     Ok(())
 }
 
@@ -169,22 +175,6 @@ async fn handle_faucet(bot: Bot, msg: Message, wallet_address: String, state: Bo
         return Ok(());
     }
 
-    // Check rate limiting
-    if !state.rate_limiter.allow_request(user_id).await {
-        state.increment_stat("rate_limited");
-        let next_request = state.rate_limiter.next_allowed_time(user_id).await;
-        bot.send_message(
-            msg.chat.id,
-            format!(
-                "⏰ **Rate limit reached!**\n\n\
-                You can request tokens again in **{}**\n\n\
-                This helps prevent abuse and ensures fair distribution! 🛡️",
-                format_duration(next_request)
-            )
-        ).parse_mode(teloxide::types::ParseMode::Markdown).await?;
-        return Ok(());
-    }
-
     // Send processing message
     let processing_msg = bot.send_message(
         msg.chat.id,
@@ -195,51 +185,88 @@ async fn handle_faucet(bot: Bot, msg: Message, wallet_address: String, state: Bo
     // Request tokens from faucet API
     match state.faucet_client.request_tokens(&wallet_address).await {
         Ok(response) => {
-            state.increment_stat("successful_requests");
-            
-            // Record the request
-            let request = UserRequest {
-                user_id,
-                username: username.clone(),
-                wallet_address: wallet_address.clone(),
-                requested_at: Utc::now(),
-                transaction_hash: response.transaction_hash.clone(),
-                amount: response.amount,
-            };
-            
-            state.user_requests.entry(user_id).or_insert_with(Vec::new).push(request);
+            // Only apply rate limiting if transaction was successful
+            if response.status == "completed" {
+                // Check rate limiting only after successful transaction
+                if !state.rate_limiter.allow_request(user_id).await {
+                    state.increment_stat("rate_limited");
+                    let next_request = state.rate_limiter.next_allowed_time(user_id).await;
+                    bot.edit_message_text(
+                        msg.chat.id,
+                        processing_msg.id,
+                        format!(
+                            "⏰ **Rate limit reached!**\n\n\
+                            You can request tokens again in **{}**\n\n\
+                            This helps prevent abuse and ensures fair distribution! 🛡️",
+                            format_duration(next_request)
+                        )
+                    ).parse_mode(teloxide::types::ParseMode::Markdown).await?;
+                    return Ok(());
+                }
 
-            // Update the message with success
-            bot.edit_message_text(
-                msg.chat.id,
-                processing_msg.id,
-                format!(
-                    "✅ **Faucet request successful!**\n\n\
-                    💰 **Amount:** {} ARTHA\n\
-                    🎯 **Recipient:** `{}`\n\
-                    🔗 **Transaction:** `{}`\n\
-                    ⏱️ **Time:** {}\n\n\
-                    🎉 **Your tokens have been sent!**\n\n\
-                    Use `/balance {}` to check your wallet balance! 💎",
-                    response.amount,
-                    wallet_address,
-                    response.transaction_hash.unwrap_or("Processing...".to_string()),
-                    Utc::now().format("%Y-%m-%d %H:%M:%S UTC"),
-                    wallet_address
-                )
-            ).parse_mode(teloxide::types::ParseMode::Markdown).await?;
+                state.increment_stat("successful_requests");
+                
+                // Record the request
+                let request = UserRequest {
+                    user_id,
+                    username: username.clone(),
+                    wallet_address: wallet_address.clone(),
+                    requested_at: Utc::now(),
+                    transaction_hash: Some(response.transaction_hash.clone()),
+                    amount: response.amount,
+                };
+                
+                state.user_requests.entry(user_id).or_insert_with(Vec::new).push(request);
+
+                // Update the message with success
+                bot.edit_message_text(
+                    msg.chat.id,
+                    processing_msg.id,
+                    format!(
+                        "✅ **Faucet request successful!**\n\n\
+                        💰 **Amount:** {} ARTHA\n\
+                        🎯 **Recipient:** `{}`\n\
+                        🔗 **Transaction:** `{}`\n\
+                        ⏱️ **Time:** {}\n\n\
+                        🎉 **Your tokens have been sent!**\n\n\
+                        Use `/balance {}` to check your wallet balance! 💎",
+                        response.amount,
+                        wallet_address,
+                        response.transaction_hash,
+                        Utc::now().format("%Y-%m-%d %H:%M:%S UTC"),
+                        wallet_address
+                    )
+                ).parse_mode(teloxide::types::ParseMode::Markdown).await?;
+            } else {
+                // Transaction failed - no rate limiting applied
+                state.increment_stat("failed_requests");
+                bot.edit_message_text(
+                    msg.chat.id,
+                    processing_msg.id,
+                    format!(
+                        "❌ **Faucet request failed!**\n\n\
+                        **Error:** {}\n\
+                        **Status:** {}\n\n\
+                        Please try again - no rate limit applied for failed requests! 🔄\n\n\
+                        Use `/status` to check faucet availability! 🔧",
+                        response.error.unwrap_or_else(|| "Unknown error".to_string()),
+                        response.status
+                    )
+                ).parse_mode(teloxide::types::ParseMode::Markdown).await?;
+            }
         }
         Err(e) => {
             state.increment_stat("failed_requests");
             error!("Faucet request failed: {}", e);
             
+            // Update the message with error - no rate limiting for errors
             bot.edit_message_text(
                 msg.chat.id,
                 processing_msg.id,
                 format!(
                     "❌ **Faucet request failed!**\n\n\
                     **Error:** {}\n\n\
-                    Please try again later or contact support if the issue persists.\n\n\
+                    Please try again - no rate limit applied for failed requests! 🔄\n\n\
                     Use `/status` to check faucet availability! 🔧",
                     e
                 )

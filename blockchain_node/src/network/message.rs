@@ -309,14 +309,58 @@ impl NetworkMessage {
         format!("{:x}", hasher.finalize())
     }
 
-    pub fn sign(&mut self, _private_key: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
-        // TODO: Implement actual signature generation
-        self.signature = Some(vec![]);
+    pub fn sign(&mut self, private_key: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
+        use crate::utils::crypto::dilithium_sign;
+        
+        // Create data to sign: message type + payload + timestamp
+        let mut data_to_sign = Vec::new();
+        data_to_sign.extend_from_slice(&(self.message_type.clone() as u8).to_be_bytes());
+        
+        // Serialize payload to bytes
+        let payload_bytes = bincode::serialize(&self.payload)
+            .map_err(|e| format!("Failed to serialize payload: {}", e))?;
+        data_to_sign.extend_from_slice(&payload_bytes);
+        
+        // Convert timestamp to u64 for serialization
+        let timestamp_secs = self.timestamp.duration_since(std::time::UNIX_EPOCH)
+            .map_err(|e| format!("Invalid timestamp: {}", e))?
+            .as_secs();
+        data_to_sign.extend_from_slice(&timestamp_secs.to_be_bytes());
+        
+        // Sign the data
+        let signature_bytes = dilithium_sign(private_key, &data_to_sign)
+            .map_err(|e| format!("Failed to sign message: {}", e))?;
+        
+        self.signature = Some(signature_bytes);
         Ok(())
     }
 
-    pub fn verify(&self, _public_key: &[u8]) -> Result<bool, Box<dyn std::error::Error>> {
-        // TODO: Implement actual signature verification
-        Ok(true)
+    pub fn verify(&self, public_key: &[u8]) -> Result<bool, Box<dyn std::error::Error>> {
+        use crate::utils::crypto::dilithium_verify;
+        
+        // Get signature if present
+        let signature = match &self.signature {
+            Some(sig) => sig,
+            None => return Ok(false),
+        };
+        
+        // Create data to verify: message type + payload + timestamp
+        let mut data_to_verify = Vec::new();
+        data_to_verify.extend_from_slice(&(self.message_type.clone() as u8).to_be_bytes());
+        
+        // Serialize payload to bytes
+        let payload_bytes = bincode::serialize(&self.payload)
+            .map_err(|e| format!("Failed to serialize payload: {}", e))?;
+        data_to_verify.extend_from_slice(&payload_bytes);
+        
+        // Convert timestamp to u64 for serialization
+        let timestamp_secs = self.timestamp.duration_since(std::time::UNIX_EPOCH)
+            .map_err(|e| format!("Invalid timestamp: {}", e))?
+            .as_secs();
+        data_to_verify.extend_from_slice(&timestamp_secs.to_be_bytes());
+        
+        // Verify the signature
+        Ok(dilithium_verify(public_key, &data_to_verify, signature)
+            .map_err(|e| format!("Failed to verify message signature: {}", e))?)
     }
 }

@@ -51,7 +51,7 @@ impl<'a> Argparse<'a> {
             args: strings,
         }
     }
-    
+
     fn get_arg(&self, long: &str) -> Option<(bool, &str)> {
         self.used[0].set(true);
         let arg_spec = self.spec.iter().find(|arg| arg.long() == long).expect("No such argument");
@@ -265,7 +265,7 @@ fn test_matrix<F>(m: usize, k: usize, n: usize, layouts: [Layout; 3],
     let mstrideb = stride_multipliers[1];
     let mstridec = stride_multipliers[2];
 
-    let mut a = vec![F::zero(); m * k * mstridea[0] * mstridea[1]]; 
+    let mut a = vec![F::zero(); m * k * mstridea[0] * mstridea[1]];
     let mut b = vec![F::zero(); k * n * mstrideb[0] * mstrideb[1]];
     let mut c1 = vec![F::zero(); m * n * mstridec[0] * mstridec[1]];
 
@@ -308,7 +308,7 @@ fn test_matrix<F>(m: usize, k: usize, n: usize, layouts: [Layout; 3],
     if !use_csv {
         print!("{}×{}×{} {:?} {} .. {} ns", m, k, n, layouts, use_type.type_name(),
                fmt_thousands_sep(statistics.average, " "));
-        print!(" [minimum: {} ns .. median {} ns .. sample count {}]", 
+        print!(" [minimum: {} ns .. median {} ns .. sample count {}]",
                fmt_thousands_sep(statistics.minimum, " "),
                fmt_thousands_sep(statistics.median, " "),
                statistics.samples.len());

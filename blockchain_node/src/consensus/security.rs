@@ -400,7 +400,8 @@ impl SecurityManager {
         let config = self.config.read().await;
 
         // Check if the block proposer is banned
-        if let Some(proposer) = Some("unknown") { // Block doesn't have proposer field
+        if let Some(proposer) = Some("unknown") {
+            // Block doesn't have proposer field
             if self.is_validator_banned(proposer).await {
                 return Err(anyhow!("Block proposed by banned validator: {}", proposer));
             }
@@ -453,7 +454,10 @@ impl SecurityManager {
                     gas_limit: 21000, // Default gas limit
                     data: tx.data.clone(),
                     signature: vec![],
-                    timestamp: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(),
+                    timestamp: std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs(),
                     status: crate::ledger::transaction::TransactionStatus::Pending,
                 };
                 if !self.verify_transaction(&tx_converted).await? {
@@ -471,23 +475,21 @@ impl SecurityManager {
         let config = self.config.read().await;
 
         // Verify transaction signature if present
-        // TODO: Fix type annotation issue with signature
-        // if config.verify_signatures && !tx.signature.is_empty() {
-        //     if !self
-        //         .verify_signature(
-        //             tx.hash().as_bytes() as &[u8], 
-        //             {
-        //                 let sig: &Vec<u8> = tx.signature.as_ref().unwrap();
-        //                 sig.as_slice()
-        //             }, 
-        //             &tx.sender as &str
-        //         )
-        //         .await
-        //         .is_valid
-        //     {
-        //         return Err(anyhow!("Invalid transaction signature"));
-        //     }
-        // }
+        if config.verify_signatures {
+            if !tx.signature.is_empty() {
+                if !self
+                    .verify_signature(
+                        tx.hash().as_bytes(),
+                        &tx.signature,
+                        &tx.sender,
+                    )
+                    .await
+                    .is_valid
+                {
+                    return Err(anyhow::anyhow!("Invalid transaction signature"));
+                }
+            }
+        }
 
         // Transaction is valid
         Ok(true)
@@ -574,7 +576,9 @@ impl SecurityManager {
         // Count incidents by type
         let mut incidents_by_type = HashMap::new();
         for incident in incidents.values() {
-            *incidents_by_type.entry(incident.fault_type.clone()).or_insert(0) += 1;
+            *incidents_by_type
+                .entry(incident.fault_type.clone())
+                .or_insert(0) += 1;
         }
 
         // Count incidents by severity
@@ -644,7 +648,10 @@ impl SecurityManager {
     /// Unban a validator
     pub async fn unban_validator(&self, node_id: &str) -> Result<()> {
         let mut banned = self.banned_validators.write().await;
-        if banned.remove(&crate::network::types::NodeId(node_id.to_string())).is_some() {
+        if banned
+            .remove(&crate::network::types::NodeId(node_id.to_string()))
+            .is_some()
+        {
             info!("Validator {} manually unbanned", node_id);
             Ok(())
         } else {

@@ -1625,8 +1625,7 @@ pub fn create_testnet_router(
         // Pin / Unpin and GC
         .route("/svdb/pin", post({
             let deal_store = deal_store.clone();
-            move |Json(body): Json<serde_json::Value>, headers: HeaderMap| {
-                async move {
+            move |Json(body): Json<serde_json::Value>, headers: HeaderMap| async move {
                     let client_ip = headers.get("X-Client-IP").and_then(|v| v.to_str().ok()).unwrap_or("unknown");
                     let now_min = (chrono::Utc::now().timestamp() / 60).to_string();
                     let rl_key = format!("ratelimit:pin:{}:{}", client_ip, now_min);
@@ -1643,14 +1642,12 @@ pub fn create_testnet_router(
                     let key = format!("pin:{}", cid_hex);
                     let count = match deal_store.get(key.as_bytes()).await { Ok(Some(b)) => u64::from_le_bytes(b.try_into().unwrap_or([0u8;8])), _ => 0 } + 1;
                     let _ = deal_store.put(key.as_bytes(), &count.to_le_bytes()).await;
-                    Ok(Json(serde_json::json!({"cid": cid_uri, "pins": count})))
-                }
+                    Ok::<_, axum::http::StatusCode>(Json(serde_json::json!({"cid": cid_uri, "pins": count})))
             }
         }))
         .route("/svdb/unpin", post({
             let deal_store = deal_store.clone();
-            move |Json(body): Json<serde_json::Value>, headers: HeaderMap| {
-                async move {
+            move |Json(body): Json<serde_json::Value>, headers: HeaderMap| async move {
                     let client_ip = headers.get("X-Client-IP").and_then(|v| v.to_str().ok()).unwrap_or("unknown");
                     let now_min = (chrono::Utc::now().timestamp() / 60).to_string();
                     let rl_key = format!("ratelimit:unpin:{}:{}", client_ip, now_min);
@@ -1668,8 +1665,7 @@ pub fn create_testnet_router(
                     let count = match deal_store.get(key.as_bytes()).await { Ok(Some(b)) => u64::from_le_bytes(b.try_into().unwrap_or([0u8;8])), _ => 0 };
                     let newc = count.saturating_sub(1);
                     let _ = deal_store.put(key.as_bytes(), &newc.to_le_bytes()).await;
-                    Ok(Json(serde_json::json!({"cid": cid_uri, "pins": newc})))
-                }
+                    Ok::<_, axum::http::StatusCode>(Json(serde_json::json!({"cid": cid_uri, "pins": newc})))
             }
         }))
         .route("/svdb/gc/info", get({
@@ -1814,8 +1810,7 @@ pub fn create_testnet_router(
         .route("/svdb/deals", post({
             let svdb = svdb.clone();
             let deal_store_rl = deal_store.clone();
-            move |Json(payload): Json<serde_json::Value>, headers: HeaderMap| {
-                async move {
+            move |Json(payload): Json<serde_json::Value>, headers: HeaderMap| async move {
                     // Rate limit per IP/minute
                     let client_ip = headers.get("X-Client-IP").and_then(|v| v.to_str().ok()).unwrap_or("unknown");
                     let now_min = (chrono::Utc::now().timestamp() / 60).to_string();
@@ -1934,7 +1929,6 @@ pub fn create_testnet_router(
                         return Ok(Json(onchain));
                     }
                     Err(axum::http::StatusCode::BAD_REQUEST)
-                }
             }
         }))
         .route("/svdb/proofs", post({

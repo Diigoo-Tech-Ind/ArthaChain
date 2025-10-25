@@ -123,12 +123,12 @@ bincode = { workspace = true }
 
 
 # Networking
-# libp2p = { workspace = true, optional = true }
+libp2p = { workspace = true, optional = true }
 hickory-resolver = { workspace = true }
 
 # Storage
 rocksdb = { version = "0.23.0", features = ["multi-threaded-cf"] }
-# light-poseidon = "0.1.0"
+light-poseidon = "0.1.0"
 # reed-solomon-erasure removed to avoid unmaintained transitive deps
 
 # Cryptography and security
@@ -137,7 +137,7 @@ sha2 = { workspace = true }
 sha3 = { workspace = true }
 blake2 = { workspace = true }
 blake3 = { workspace = true }
-# reed-solomon-erasure = { version = "6", optional = true }
+reed-solomon-erasure = { version = "6", optional = true }
 data-encoding = "2.5.0"
 ring = "0.17.12"
 jsonwebtoken = "9.3.0"
@@ -253,7 +253,7 @@ async-trait = "0.1.80"
 
 # JSON-RPC
 jsonrpc-core = "18.0.0"
-# jsonrpc-http-server = "18.0.0"
+jsonrpc-http-server = "18.0.0"
 
 # Metrics and monitoring
 prometheus = { workspace = true }

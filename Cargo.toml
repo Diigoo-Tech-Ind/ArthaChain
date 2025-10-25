@@ -60,5 +60,6 @@ hickory-resolver = "0.24"
 ndarray = "0.15"
 ndarray-rand = "0.14"
 protobuf = ">=3.7.2"
+libp2p = { version = "0.54", features = ["tcp", "tokio", "noise", "yamux", "gossipsub", "kad", "identify", "mdns", "ping", "request-response"] }
 
 

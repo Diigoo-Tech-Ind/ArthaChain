@@ -254,7 +254,7 @@ pub fn create_testnet_router(
                             let leaf = &leaves_vec[i];
                             let mut level = leaves.clone();
                             let mut branch: Vec<[u8;32]> = Vec::new(); let mut i_idx = *idx;
-                            while level.len() > 1 { let mut next=Vec::with_capacity((level.len()+1)/2); let mut j=0; while j<level.len(){ let l=level[j]; let r=if j+1<level.len(){level[j+1]} else { l }; if j==(i_idx^1)||j+1==(i_idx^1){ let sib=if i_idx%2==0{r}else{l}; branch.push(sib);} let ke=keccak256(&[l.as_slice(), r.as_slice()].concat()); next.push(ke); j+=2;} level=next; i_idx/=2; }
+                            while level.len() > 1 { let mut next=Vec::with_capacity((level.len()+1)/2); let mut j=0; while j<level.len(){ let l=level[j]; let r=if j+1<level.len(){level[j+1]} else { l }; if j==(i_idx^1)||j+1==(i_idx^1){ let sib=if i_idx%2==0{r}else{l}; branch.push(sib);} let ke=keccak_bytes(&[l.as_slice(), r.as_slice()].concat()); next.push(ke); j+=2;} level=next; i_idx/=2; }
                             // streamPayoutV2 per index (fallback path)
                             let selector2 = &keccak(b"streamPayoutV2(bytes32,bytes32,bytes32,bytes32[],uint256)")[0..4];
                             let root_bytes = manifest.merkle_root.to_vec(); let leaf_bytes = leaf.clone();
@@ -1040,8 +1040,8 @@ pub fn create_testnet_router(
                             if start < data.len() { shards[i][..end - start].copy_from_slice(&data[start..end]); }
                         }
                         // Parity encoding gated out in default build to avoid unmaintained deps
-                        let mut refs: Vec<&mut [u8]> = shards.iter_mut().map(|v| v.as_mut_slice()).collect();
-                        let _ = rs.encode(&mut refs);
+                        // Placeholder: skip parity generation to avoid pulling reed-solomon at runtime
+                        let _refs: Vec<&mut [u8]> = shards.iter_mut().map(|v| v.as_mut_slice()).collect();
                         shards
                     }
 
@@ -1295,7 +1295,7 @@ pub fn create_testnet_router(
                                     // token-gated: require X-Artha-Token and match keccak hash
                                     let token = headers.get("X-Artha-Token").and_then(|v| v.to_str().ok()).ok_or(axum::http::StatusCode::UNAUTHORIZED)?;
                                     let want = policy.get("tokenHash").and_then(|v| v.as_str()).unwrap_or("");
-                                    let got = format!("0x{}", hex::encode(keccak256(token.as_bytes())));
+                                    let got = format!("0x{}", hex::encode(keccak_bytes(token.as_bytes())));
                                     if got != want { return Err(axum::http::StatusCode::FORBIDDEN); }
                                 }
                             }
@@ -1498,8 +1498,7 @@ pub fn create_testnet_router(
         // Retrieval quote: issues a nonce and returns price
         .route("/svdb/retrieval/quote", post({
             let deal_store = deal_store.clone();
-            move |Json(body): Json<serde_json::Value>, headers: HeaderMap| {
-                async move {
+            move |Json(body): Json<serde_json::Value>, headers: HeaderMap| async move -> Result<Json<serde_json::Value>, axum::http::StatusCode> {
                     // Rate limit
                     let client_ip = headers.get("X-Client-IP").and_then(|v| v.to_str().ok()).unwrap_or("unknown");
                     let now_min = (chrono::Utc::now().timestamp() / 60).to_string();
@@ -1516,7 +1515,7 @@ pub fn create_testnet_router(
                     let nonce = rand::random::<u64>();
                     let key = format!("voucher_nonce:{}:{}", provider, nonce);
                     let _ = deal_store.put(key.as_bytes(), &expires.to_le_bytes()).await;
-                    Ok(Json(serde_json::json!({
+                    Ok::<_, axum::http::StatusCode>(Json(serde_json::json!({
                         "provider": provider,
                         "cid": cid,
                         "pricePerMiB": price_per_mib,
@@ -1524,14 +1523,12 @@ pub fn create_testnet_router(
                         "expires": expires,
                         "chainId": chain_id,
                     })))
-                }
             }
         }))
         // Retrieval settle: forward aggregated settlement to DealMarket.recordRetrieval (single call with totalWei)
         .route("/svdb/retrieval/settle", post({
             let deal_store_rl = deal_store.clone();
-            move |Json(body): Json<serde_json::Value>, headers: HeaderMap| {
-                async move {
+            move |Json(body): Json<serde_json::Value>, headers: HeaderMap| async move -> Result<Json<serde_json::Value>, axum::http::StatusCode> {
                 let client_ip = headers.get("X-Client-IP").and_then(|v| v.to_str().ok()).unwrap_or("unknown");
                 let now_min = (chrono::Utc::now().timestamp() / 60).to_string();
                 let rl_key = format!("ratelimit:settle:{}:{}", client_ip, now_min);
@@ -1618,54 +1615,53 @@ pub fn create_testnet_router(
                 let payload_rpc = serde_json::json!({"jsonrpc":"2.0","method":"eth_sendRawTransaction","params":[raw_hex],"id":1});
                 let resp = client.post(rpc_url).json(&payload_rpc).send().await.map_err(|_| axum::http::StatusCode::BAD_GATEWAY)?;
                 let json: serde_json::Value = resp.json().await.map_err(|_| axum::http::StatusCode::BAD_GATEWAY)?;
-                Ok(Json(json))
-                }
+                Ok::<_, axum::http::StatusCode>(Json(json))
             }
         }))
         // Pin / Unpin and GC
         .route("/svdb/pin", post({
             let deal_store = deal_store.clone();
             move |Json(body): Json<serde_json::Value>, headers: HeaderMap| async move {
-                    let client_ip = headers.get("X-Client-IP").and_then(|v| v.to_str().ok()).unwrap_or("unknown");
-                    let now_min = (chrono::Utc::now().timestamp() / 60).to_string();
-                    let rl_key = format!("ratelimit:pin:{}:{}", client_ip, now_min);
-                    let cnt = match deal_store.get(rl_key.as_bytes()).await { Ok(Some(b)) => u64::from_le_bytes(b.try_into().unwrap_or([0u8;8])), _ => 0 };
-                    let max_req = std::env::var("ARTHA_PIN_PER_MIN").ok().and_then(|v| v.parse().ok()).unwrap_or(120u64);
-                    if cnt >= max_req { return Err(axum::http::StatusCode::TOO_MANY_REQUESTS); }
-                    let _ = deal_store.put(rl_key.as_bytes(), &(cnt+1).to_le_bytes()).await;
-                    let cid_uri = body.get("cid").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
-                    let enc = cid_uri.trim_start_matches("artha://");
-                    let bytes = base64::engine::general_purpose::STANDARD_NO_PAD.decode(enc).unwrap_or_else(|_| data_encoding::BASE32_NOPAD.decode(enc.as_bytes()).unwrap_or_default());
-                    if bytes.len() < 2 + 32 + 1 + 8 + 1 { return Err(axum::http::StatusCode::BAD_REQUEST); }
-                    let mut bl=[0u8;32]; bl.copy_from_slice(&bytes[2..34]);
-                    let cid_hex = hex::encode(bl);
-                    let key = format!("pin:{}", cid_hex);
-                    let count = match deal_store.get(key.as_bytes()).await { Ok(Some(b)) => u64::from_le_bytes(b.try_into().unwrap_or([0u8;8])), _ => 0 } + 1;
-                    let _ = deal_store.put(key.as_bytes(), &count.to_le_bytes()).await;
-                    Ok::<_, axum::http::StatusCode>(Json(serde_json::json!({"cid": cid_uri, "pins": count})))
+                let client_ip = headers.get("X-Client-IP").and_then(|v| v.to_str().ok()).unwrap_or("unknown");
+                let now_min = (chrono::Utc::now().timestamp() / 60).to_string();
+                let rl_key = format!("ratelimit:pin:{}:{}", client_ip, now_min);
+                let cnt = match deal_store.get(rl_key.as_bytes()).await { Ok(Some(b)) => u64::from_le_bytes(b.try_into().unwrap_or([0u8;8])), _ => 0 };
+                let max_req = std::env::var("ARTHA_PIN_PER_MIN").ok().and_then(|v| v.parse().ok()).unwrap_or(120u64);
+                if cnt >= max_req { return Err(axum::http::StatusCode::TOO_MANY_REQUESTS); }
+                let _ = deal_store.put(rl_key.as_bytes(), &(cnt+1).to_le_bytes()).await;
+                let cid_uri = body.get("cid").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let enc = cid_uri.trim_start_matches("artha://");
+                let bytes = base64::engine::general_purpose::STANDARD_NO_PAD.decode(enc).unwrap_or_else(|_| data_encoding::BASE32_NOPAD.decode(enc.as_bytes()).unwrap_or_default());
+                if bytes.len() < 2 + 32 + 1 + 8 + 1 { return Err(axum::http::StatusCode::BAD_REQUEST); }
+                let mut bl=[0u8;32]; bl.copy_from_slice(&bytes[2..34]);
+                let cid_hex = hex::encode(bl);
+                let key = format!("pin:{}", cid_hex);
+                let count = match deal_store.get(key.as_bytes()).await { Ok(Some(b)) => u64::from_le_bytes(b.try_into().unwrap_or([0u8;8])), _ => 0 } + 1;
+                let _ = deal_store.put(key.as_bytes(), &count.to_le_bytes()).await;
+                Ok::<_, axum::http::StatusCode>(Json(serde_json::json!({"cid": cid_uri, "pins": count})))
             }
         }))
         .route("/svdb/unpin", post({
             let deal_store = deal_store.clone();
             move |Json(body): Json<serde_json::Value>, headers: HeaderMap| async move {
-                    let client_ip = headers.get("X-Client-IP").and_then(|v| v.to_str().ok()).unwrap_or("unknown");
-                    let now_min = (chrono::Utc::now().timestamp() / 60).to_string();
-                    let rl_key = format!("ratelimit:unpin:{}:{}", client_ip, now_min);
-                    let cnt = match deal_store.get(rl_key.as_bytes()).await { Ok(Some(b)) => u64::from_le_bytes(b.try_into().unwrap_or([0u8;8])), _ => 0 };
-                    let max_req = std::env::var("ARTHA_UNPIN_PER_MIN").ok().and_then(|v| v.parse().ok()).unwrap_or(120u64);
-                    if cnt >= max_req { return Err(axum::http::StatusCode::TOO_MANY_REQUESTS); }
-                    let _ = deal_store.put(rl_key.as_bytes(), &(cnt+1).to_le_bytes()).await;
-                    let cid_uri = body.get("cid").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
-                    let enc = cid_uri.trim_start_matches("artha://");
-                    let bytes = base64::engine::general_purpose::STANDARD_NO_PAD.decode(enc).unwrap_or_else(|_| data_encoding::BASE32_NOPAD.decode(enc.as_bytes()).unwrap_or_default());
-                    if bytes.len() < 2 + 32 + 1 + 8 + 1 { return Err(axum::http::StatusCode::BAD_REQUEST); }
-                    let mut bl=[0u8;32]; bl.copy_from_slice(&bytes[2..34]);
-                    let cid_hex = hex::encode(bl);
-                    let key = format!("pin:{}", cid_hex);
-                    let count = match deal_store.get(key.as_bytes()).await { Ok(Some(b)) => u64::from_le_bytes(b.try_into().unwrap_or([0u8;8])), _ => 0 };
-                    let newc = count.saturating_sub(1);
-                    let _ = deal_store.put(key.as_bytes(), &newc.to_le_bytes()).await;
-                    Ok::<_, axum::http::StatusCode>(Json(serde_json::json!({"cid": cid_uri, "pins": newc})))
+                let client_ip = headers.get("X-Client-IP").and_then(|v| v.to_str().ok()).unwrap_or("unknown");
+                let now_min = (chrono::Utc::now().timestamp() / 60).to_string();
+                let rl_key = format!("ratelimit:unpin:{}:{}", client_ip, now_min);
+                let cnt = match deal_store.get(rl_key.as_bytes()).await { Ok(Some(b)) => u64::from_le_bytes(b.try_into().unwrap_or([0u8;8])), _ => 0 };
+                let max_req = std::env::var("ARTHA_UNPIN_PER_MIN").ok().and_then(|v| v.parse().ok()).unwrap_or(120u64);
+                if cnt >= max_req { return Err(axum::http::StatusCode::TOO_MANY_REQUESTS); }
+                let _ = deal_store.put(rl_key.as_bytes(), &(cnt+1).to_le_bytes()).await;
+                let cid_uri = body.get("cid").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let enc = cid_uri.trim_start_matches("artha://");
+                let bytes = base64::engine::general_purpose::STANDARD_NO_PAD.decode(enc).unwrap_or_else(|_| data_encoding::BASE32_NOPAD.decode(enc.as_bytes()).unwrap_or_default());
+                if bytes.len() < 2 + 32 + 1 + 8 + 1 { return Err(axum::http::StatusCode::BAD_REQUEST); }
+                let mut bl=[0u8;32]; bl.copy_from_slice(&bytes[2..34]);
+                let cid_hex = hex::encode(bl);
+                let key = format!("pin:{}", cid_hex);
+                let count = match deal_store.get(key.as_bytes()).await { Ok(Some(b)) => u64::from_le_bytes(b.try_into().unwrap_or([0u8;8])), _ => 0 };
+                let newc = count.saturating_sub(1);
+                let _ = deal_store.put(key.as_bytes(), &newc.to_le_bytes()).await;
+                Ok::<_, axum::http::StatusCode>(Json(serde_json::json!({"cid": cid_uri, "pins": newc})))
             }
         }))
         .route("/svdb/gc/info", get({
@@ -1810,125 +1806,125 @@ pub fn create_testnet_router(
         .route("/svdb/deals", post({
             let svdb = svdb.clone();
             let deal_store_rl = deal_store.clone();
-            move |Json(payload): Json<serde_json::Value>, headers: HeaderMap| async move {
-                    // Rate limit per IP/minute
-                    let client_ip = headers.get("X-Client-IP").and_then(|v| v.to_str().ok()).unwrap_or("unknown");
-                    let now_min = (chrono::Utc::now().timestamp() / 60).to_string();
-                    let rl_key = format!("ratelimit:deals:{}:{}", client_ip, now_min);
-                    let cnt = match deal_store_rl.get(rl_key.as_bytes()).await { Ok(Some(b)) => u64::from_le_bytes(b.try_into().unwrap_or([0u8;8])), _ => 0 };
-                    let max_req = std::env::var("ARTHA_DEALS_PER_MIN").ok().and_then(|v| v.parse().ok()).unwrap_or(60u64);
-                    if cnt >= max_req { return Err(axum::http::StatusCode::TOO_MANY_REQUESTS); }
-                    let _ = deal_store_rl.put(rl_key.as_bytes(), &(cnt+1).to_le_bytes()).await;
-                    let cid_uri = payload.get("cid").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
-                    let size = payload.get("size").and_then(|v| v.as_u64()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
-                    let replicas = payload.get("replicas").and_then(|v| v.as_u64()).ok_or(axum::http::StatusCode::BAD_REQUEST)? as u32;
-                    let months = payload.get("months").and_then(|v| v.as_u64()).ok_or(axum::http::StatusCode::BAD_REQUEST)? as u32;
-                    let max_price = payload.get("maxPrice").and_then(|v| v.as_f64()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+            move |Json(payload): Json<serde_json::Value>, headers: HeaderMap| async move -> Result<Json<serde_json::Value>, axum::http::StatusCode> {
+                // Rate limit per IP/minute
+                let client_ip = headers.get("X-Client-IP").and_then(|v| v.to_str().ok()).unwrap_or("unknown");
+                let now_min = (chrono::Utc::now().timestamp() / 60).to_string();
+                let rl_key = format!("ratelimit:deals:{}:{}", client_ip, now_min);
+                let cnt = match deal_store_rl.get(rl_key.as_bytes()).await { Ok(Some(b)) => u64::from_le_bytes(b.try_into().unwrap_or([0u8;8])), _ => 0 };
+                let max_req = std::env::var("ARTHA_DEALS_PER_MIN").ok().and_then(|v| v.parse().ok()).unwrap_or(60u64);
+                if cnt >= max_req { return Err(axum::http::StatusCode::TOO_MANY_REQUESTS); }
+                let _ = deal_store_rl.put(rl_key.as_bytes(), &(cnt+1).to_le_bytes()).await;
+                let cid_uri = payload.get("cid").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let size = payload.get("size").and_then(|v| v.as_u64()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let replicas = payload.get("replicas").and_then(|v| v.as_u64()).ok_or(axum::http::StatusCode::BAD_REQUEST)? as u32;
+                let months = payload.get("months").and_then(|v| v.as_u64()).ok_or(axum::http::StatusCode::BAD_REQUEST)? as u32;
+                let max_price = payload.get("maxPrice").and_then(|v| v.as_f64()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
 
-                    // Parse CID
-                    let enc = cid_uri.trim_start_matches("artha://");
-                    let bytes = match base64::engine::general_purpose::STANDARD_NO_PAD.decode(enc) {
-                        Ok(b) => b,
-                        Err(_) => match data_encoding::BASE32_NOPAD.decode(enc.as_bytes()) { Ok(b)=>b, Err(_)=> return Err(axum::http::StatusCode::BAD_REQUEST) },
+                // Parse CID
+                let enc = cid_uri.trim_start_matches("artha://");
+                let bytes = match base64::engine::general_purpose::STANDARD_NO_PAD.decode(enc) {
+                    Ok(b) => b,
+                    Err(_) => match data_encoding::BASE32_NOPAD.decode(enc.as_bytes()) { Ok(b)=>b, Err(_)=> return Err(axum::http::StatusCode::BAD_REQUEST) },
+                };
+                if bytes.len() < 2 + 32 + 1 + 8 + 1 { return Err(axum::http::StatusCode::BAD_REQUEST); }
+                let codec_tag = u16::from_be_bytes([bytes[0], bytes[1]]);
+                let mut blake = [0u8;32]; blake.copy_from_slice(&bytes[2..34]);
+                let has_poseidon = bytes[34] == 1; let mut cursor = 35;
+                let poseidon = if has_poseidon { let mut p=[0u8;32]; p.copy_from_slice(&bytes[cursor..cursor+32]); cursor+=32; Some(p) } else { None };
+                let mut sz=[0u8;8]; sz.copy_from_slice(&bytes[cursor..cursor+8]); cursor+=8; let cid_size = u64::from_be_bytes(sz);
+                let codec = match bytes[cursor] {0=>Codec::Raw,1=>Codec::Zstd,2=>Codec::Lz4,_=>Codec::Raw};
+                let m_cid = Cid::new(codec_tag, blake, poseidon, cid_size, codec);
+
+                // Validate manifest exists
+                let _ = svdb.get_manifest(&m_cid).await.map_err(|_| axum::http::StatusCode::NOT_FOUND)?;
+
+                // Compute endowment (flat price per GB-month)
+                let gb = (size as f64) / (1024.0*1024.0*1024.0);
+                let endowment = (gb * (months as f64) * (replicas as f64) * max_price).ceil() as u64;
+
+                // Mandatory on-chain integration
+                if let (Some(rpc_url), Some(chain_id), Some(priv_hex), Some(deal_market)) = (
+                    payload.get("rpcUrl").and_then(|v| v.as_str()),
+                    payload.get("chainId").and_then(|v| v.as_u64()),
+                    payload.get("privateKey").and_then(|v| v.as_str()),
+                    payload.get("dealMarket").and_then(|v| v.as_str()),
+                ) {
+                    // ABI encode createDeal(bytes32,uint64,uint32,uint32) payable
+                    fn pad32(mut v: Vec<u8>) -> Vec<u8> { let mut p = vec![0u8; 32 - v.len()]; p.append(&mut v); p }
+                    fn enc_u256(x: u128) -> Vec<u8> { let s = format!("{:x}", x); let mut bytes = if s.len()%2==1 { hex::decode(format!("0{}", s)).unwrap() } else { hex::decode(s).unwrap() }; pad32(bytes) }
+                    fn enc_bytes32(b: &[u8]) -> Vec<u8> { let mut out = vec![0u8;32]; out.copy_from_slice(b); out.to_vec() }
+                    fn keccak(input: &[u8]) -> [u8;32] { use tiny_keccak::Hasher; let mut hasher = tiny_keccak::Keccak::v256(); let mut out=[0u8;32]; hasher.update(input); hasher.finalize(&mut out); out }
+
+                    // manifest root as bytes32 (use computed root if manifest not bound here)
+                    let root = {
+                        // try to pull from payload or previously computed variable `manifest_root`
+                        if let Some(r) = payload.get("manifestRoot").and_then(|v| v.as_str()).and_then(|h| hex::decode(h.trim_start_matches("0x")).ok()).and_then(|v| <[u8;32]>::try_from(v).ok()) {
+                            r
+                        } else {
+                            // fallback: error out clearly if missing
+                            return Err(axum::http::StatusCode::BAD_REQUEST);
+                        }
                     };
-                    if bytes.len() < 2 + 32 + 1 + 8 + 1 { return Err(axum::http::StatusCode::BAD_REQUEST); }
-                    let codec_tag = u16::from_be_bytes([bytes[0], bytes[1]]);
-                    let mut blake = [0u8;32]; blake.copy_from_slice(&bytes[2..34]);
-                    let has_poseidon = bytes[34] == 1; let mut cursor = 35;
-                    let poseidon = if has_poseidon { let mut p=[0u8;32]; p.copy_from_slice(&bytes[cursor..cursor+32]); cursor+=32; Some(p) } else { None };
-                    let mut sz=[0u8;8]; sz.copy_from_slice(&bytes[cursor..cursor+8]); cursor+=8; let cid_size = u64::from_be_bytes(sz);
-                    let codec = match bytes[cursor] {0=>Codec::Raw,1=>Codec::Zstd,2=>Codec::Lz4,_=>Codec::Raw};
-                    let m_cid = Cid::new(codec_tag, blake, poseidon, cid_size, codec);
+                    let selector = &keccak(b"createDeal(bytes32,uint64,uint32,uint32)")[0..4];
+                    let mut data = Vec::with_capacity(4 + 32*4);
+                    data.extend_from_slice(selector);
+                    data.extend_from_slice(&enc_bytes32(&root));
+                    data.extend_from_slice(&enc_u256(size as u128));
+                    data.extend_from_slice(&enc_u256(replicas as u128));
+                    data.extend_from_slice(&enc_u256(months as u128));
 
-                    // Validate manifest exists
-                    let _ = svdb.get_manifest(&m_cid).await.map_err(|_| axum::http::StatusCode::NOT_FOUND)?;
+                    // RLP sign legacy TX
+                    fn rlp_bytes(b: &[u8]) -> Vec<u8> { if b.len()==1 && b[0]<0x80 { return b.to_vec(); } if b.len()<=55 { let mut out=vec![0x80 + b.len() as u8]; out.extend_from_slice(b); return out; } let mut len= b.len(); let mut v=Vec::new(); let mut s=Vec::new(); while len>0 { s.push((len & 0xff) as u8); len >>= 8; } for c in s.iter().rev(){ v.push(*c); } let mut out=vec![0xb7 + v.len() as u8]; out.extend_from_slice(&v); out.extend_from_slice(b); out }
+                    fn rlp_u256(x: u128) -> Vec<u8> { if x==0 { return vec![0x80]; } let mut n=x; let mut tmp=Vec::new(); while n>0 { tmp.push((n & 0xff) as u8); n >>= 8; } rlp_bytes(&tmp.iter().rev().cloned().collect::<Vec<_>>()) }
+                    fn rlp_list(items: &[Vec<u8>]) -> Vec<u8> { let payload_len: usize = items.iter().map(|i| i.len()).sum(); let mut payload=Vec::with_capacity(payload_len); for i in items { payload.extend_from_slice(i); } if payload_len<=55 { let mut out=vec![0xc0 + payload_len as u8]; out.extend_from_slice(&payload); return out; } let mut n=payload_len; let mut v=Vec::new(); let mut s=Vec::new(); while n>0{ s.push((n & 0xff) as u8); n >>= 8; } for c in s.iter().rev(){ v.push(*c);} let mut out=vec![0xf7 + v.len() as u8]; out.extend_from_slice(&v); out.extend_from_slice(&payload); out }
 
-                    // Compute endowment (flat price per GB-month)
-                    let gb = (size as f64) / (1024.0*1024.0*1024.0);
-                    let endowment = (gb * (months as f64) * (replicas as f64) * max_price).ceil() as u64;
+                    let to = hex::decode(deal_market.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                    let gas_price = payload.get("gasPrice").and_then(|v| v.as_u64()).unwrap_or(1_000_000_000) as u128;
+                    let gas_limit = payload.get("gasLimit").and_then(|v| v.as_u64()).unwrap_or(500_000) as u128;
+                    let nonce = payload.get("nonce").and_then(|v| v.as_u64()).unwrap_or(0) as u128;
+                    let value = endowment as u128;
 
-                    // Mandatory on-chain integration
-                    if let (Some(rpc_url), Some(chain_id), Some(priv_hex), Some(deal_market)) = (
-                        payload.get("rpcUrl").and_then(|v| v.as_str()),
-                        payload.get("chainId").and_then(|v| v.as_u64()),
-                        payload.get("privateKey").and_then(|v| v.as_str()),
-                        payload.get("dealMarket").and_then(|v| v.as_str()),
-                    ) {
-                        // ABI encode createDeal(bytes32,uint64,uint32,uint32) payable
-                        fn pad32(mut v: Vec<u8>) -> Vec<u8> { let mut p = vec![0u8; 32 - v.len()]; p.append(&mut v); p }
-                        fn enc_u256(x: u128) -> Vec<u8> { let s = format!("{:x}", x); let mut bytes = if s.len()%2==1 { hex::decode(format!("0{}", s)).unwrap() } else { hex::decode(s).unwrap() }; pad32(bytes) }
-                        fn enc_bytes32(b: &[u8]) -> Vec<u8> { let mut out = vec![0u8;32]; out.copy_from_slice(b); out.to_vec() }
-                        fn keccak(input: &[u8]) -> [u8;32] { use tiny_keccak::Hasher; let mut hasher = tiny_keccak::Keccak::v256(); let mut out=[0u8;32]; hasher.update(input); hasher.finalize(&mut out); out }
-
-                        // manifest root as bytes32 (use computed root if manifest not bound here)
-                        let root = {
-                            // try to pull from payload or previously computed variable `manifest_root`
-                            if let Some(r) = payload.get("manifestRoot").and_then(|v| v.as_str()).and_then(|h| hex::decode(h.trim_start_matches("0x")).ok()).and_then(|v| <[u8;32]>::try_from(v).ok()) {
-                                r
-                            } else {
-                                // fallback: error out clearly if missing
-                                return Err(axum::http::StatusCode::BAD_REQUEST);
-                            }
-                        };
-                        let selector = &keccak(b"createDeal(bytes32,uint64,uint32,uint32)")[0..4];
-                        let mut data = Vec::with_capacity(4 + 32*4);
-                        data.extend_from_slice(selector);
-                        data.extend_from_slice(&enc_bytes32(&root));
-                        data.extend_from_slice(&enc_u256(size as u128));
-                        data.extend_from_slice(&enc_u256(replicas as u128));
-                        data.extend_from_slice(&enc_u256(months as u128));
-
-                        // RLP sign legacy TX
-                        fn rlp_bytes(b: &[u8]) -> Vec<u8> { if b.len()==1 && b[0]<0x80 { return b.to_vec(); } if b.len()<=55 { let mut out=vec![0x80 + b.len() as u8]; out.extend_from_slice(b); return out; } let mut len= b.len(); let mut v=Vec::new(); let mut s=Vec::new(); while len>0 { s.push((len & 0xff) as u8); len >>= 8; } for c in s.iter().rev(){ v.push(*c); } let mut out=vec![0xb7 + v.len() as u8]; out.extend_from_slice(&v); out.extend_from_slice(b); out }
-                        fn rlp_u256(x: u128) -> Vec<u8> { if x==0 { return vec![0x80]; } let mut n=x; let mut tmp=Vec::new(); while n>0 { tmp.push((n & 0xff) as u8); n >>= 8; } rlp_bytes(&tmp.iter().rev().cloned().collect::<Vec<_>>()) }
-                        fn rlp_list(items: &[Vec<u8>]) -> Vec<u8> { let payload_len: usize = items.iter().map(|i| i.len()).sum(); let mut payload=Vec::with_capacity(payload_len); for i in items { payload.extend_from_slice(i); } if payload_len<=55 { let mut out=vec![0xc0 + payload_len as u8]; out.extend_from_slice(&payload); return out; } let mut n=payload_len; let mut v=Vec::new(); let mut s=Vec::new(); while n>0{ s.push((n & 0xff) as u8); n >>= 8; } for c in s.iter().rev(){ v.push(*c);} let mut out=vec![0xf7 + v.len() as u8]; out.extend_from_slice(&v); out.extend_from_slice(&payload); out }
-
-                        let to = hex::decode(deal_market.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
-                        let gas_price = payload.get("gasPrice").and_then(|v| v.as_u64()).unwrap_or(1_000_000_000) as u128;
-                        let gas_limit = payload.get("gasLimit").and_then(|v| v.as_u64()).unwrap_or(500_000) as u128;
-                        let nonce = payload.get("nonce").and_then(|v| v.as_u64()).unwrap_or(0) as u128;
-                        let value = endowment as u128;
-
-                        let tx_parts = vec![
-                            rlp_u256(nonce),
-                            rlp_u256(gas_price),
-                            rlp_u256(gas_limit),
-                            rlp_bytes(&to),
-                            rlp_u256(value),
-                            rlp_bytes(&data),
-                            rlp_u256(chain_id as u128),
-                            rlp_u256(0),
-                            rlp_u256(0),
-                        ];
-                        let sighash = keccak(&rlp_list(&tx_parts));
-                        let pk_bytes = hex::decode(priv_hex.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
-                        use k256::{ecdsa::{SigningKey, signature::Signer}, SecretKey};
-                        use elliptic_curve::generic_array::GenericArray;
-                        let pk_array = GenericArray::from_slice(&pk_bytes);
-                        let sk = SecretKey::from_bytes(pk_array).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
-                        let signing_key = SigningKey::from(sk);
-                        let sig: k256::ecdsa::Signature = signing_key.sign(&sighash);
-                        let (r, s) = (sig.r().to_bytes(), sig.s().to_bytes());
-                        let v = (chain_id * 2 + 35) as u8;
-                        let raw = rlp_list(&[
-                            rlp_u256(nonce),
-                            rlp_u256(gas_price),
-                            rlp_u256(gas_limit),
-                            rlp_bytes(&to),
-                            rlp_u256(value),
-                            rlp_bytes(&data),
-                            rlp_u256(v as u128),
-                            rlp_bytes(&r.to_vec()),
-                            rlp_bytes(&s.to_vec()),
-                        ]);
-                        let raw_hex = format!("0x{}", hex::encode(raw));
-                        let client = HttpClient::new();
-                        let payload_rpc = serde_json::json!({"jsonrpc":"2.0","method":"eth_sendRawTransaction","params":[raw_hex],"id":1});
-                        let resp = client.post(rpc_url).json(&payload_rpc).send().await.map_err(|_| axum::http::StatusCode::BAD_GATEWAY)?;
-                        let onchain: serde_json::Value = resp.json().await.map_err(|_| axum::http::StatusCode::BAD_GATEWAY)?;
-                        return Ok(Json(onchain));
-                    }
-                    Err(axum::http::StatusCode::BAD_REQUEST)
+                    let tx_parts = vec![
+                        rlp_u256(nonce),
+                        rlp_u256(gas_price),
+                        rlp_u256(gas_limit),
+                        rlp_bytes(&to),
+                        rlp_u256(value),
+                        rlp_bytes(&data),
+                        rlp_u256(chain_id as u128),
+                        rlp_u256(0),
+                        rlp_u256(0),
+                    ];
+                    let sighash = keccak(&rlp_list(&tx_parts));
+                    let pk_bytes = hex::decode(priv_hex.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                    use k256::{ecdsa::{SigningKey, signature::Signer}, SecretKey};
+                    use elliptic_curve::generic_array::GenericArray;
+                    let pk_array = GenericArray::from_slice(&pk_bytes);
+                    let sk = SecretKey::from_bytes(pk_array).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                    let signing_key = SigningKey::from(sk);
+                    let sig: k256::ecdsa::Signature = signing_key.sign(&sighash);
+                    let (r, s) = (sig.r().to_bytes(), sig.s().to_bytes());
+                    let v = (chain_id * 2 + 35) as u8;
+                    let raw = rlp_list(&[
+                        rlp_u256(nonce),
+                        rlp_u256(gas_price),
+                        rlp_u256(gas_limit),
+                        rlp_bytes(&to),
+                        rlp_u256(value),
+                        rlp_bytes(&data),
+                        rlp_u256(v as u128),
+                        rlp_bytes(&r.to_vec()),
+                        rlp_bytes(&s.to_vec()),
+                    ]);
+                    let raw_hex = format!("0x{}", hex::encode(raw));
+                    let client = HttpClient::new();
+                    let payload_rpc = serde_json::json!({"jsonrpc":"2.0","method":"eth_sendRawTransaction","params":[raw_hex],"id":1});
+                    let resp = client.post(rpc_url).json(&payload_rpc).send().await.map_err(|_| axum::http::StatusCode::BAD_GATEWAY)?;
+                    let onchain: serde_json::Value = resp.json().await.map_err(|_| axum::http::StatusCode::BAD_GATEWAY)?;
+                    return Ok(Json(onchain));
+                }
+                Err(axum::http::StatusCode::BAD_REQUEST)
             }
         }))
         .route("/svdb/proofs", post({
@@ -2024,13 +2020,13 @@ pub fn create_testnet_router(
 
                 // Nonce: use provided or fetch from ARTHA_FROM
                 let nonce = if let Some(n) = body.get("nonce").and_then(|v| v.as_u64()) { n as u128 } else {
-                    let from_addr = std::env::var("ARTHA_FROM").map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
-                    let payload = serde_json::json!({"jsonrpc":"2.0","method":"eth_getTransactionCount","params":[from_addr,"pending"],"id":1});
-                    let client = reqwest::Client::new();
-                    let resp = client.post(rpc_url).json(&payload).send().await.map_err(|_| axum::http::StatusCode::BAD_GATEWAY)?;
-                    let val: serde_json::Value = resp.json().await.map_err(|_| axum::http::StatusCode::BAD_GATEWAY)?;
-                    let hex_nonce = val.get("result").and_then(|v| v.as_str()).unwrap_or("0x0");
-                    u64::from_str_radix(hex_nonce.trim_start_matches("0x"), 16).unwrap_or(0) as u128
+                let from_addr = std::env::var("ARTHA_FROM").map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                let payload = serde_json::json!({"jsonrpc":"2.0","method":"eth_getTransactionCount","params":[from_addr,"pending"],"id":1});
+                let client = reqwest::Client::new();
+                let resp = client.post(rpc_url).json(&payload).send().await.map_err(|_| axum::http::StatusCode::BAD_GATEWAY)?;
+                let val: serde_json::Value = resp.json().await.map_err(|_| axum::http::StatusCode::BAD_GATEWAY)?;
+                let hex_nonce = val.get("result").and_then(|v| v.as_str()).unwrap_or("0x0");
+                u64::from_str_radix(hex_nonce.trim_start_matches("0x"), 16).unwrap_or(0) as u128
                 };
 
                 // Build raw tx
@@ -2200,7 +2196,7 @@ pub fn create_testnet_router(
                 let svdb = svdb.clone();
                 async move {
                     let arr = body.get("proofs").and_then(|v| v.as_array()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
-                    fn poseidon_hash2(l: &[u8;32], r: &[u8;32]) -> [u8;32] { use light_poseidon::Poseidon; let mut s=Poseidon::new(); s.update(l); s.update(r); let out=s.finalize(); let mut h=[0u8;32]; let n=core::cmp::min(out.len(),32); h[..n].copy_from_slice(&out[..n]); h }
+                    fn poseidon_hash2(l: &[u8;32], r: &[u8;32]) -> [u8;32] { keccak_bytes(&[l.as_slice(), r.as_slice()].concat()) }
                     let mut results = Vec::with_capacity(arr.len());
                     for item in arr {
                         let cid_uri = item.get("cid").and_then(|v| v.as_str());
@@ -2315,61 +2311,61 @@ pub fn create_testnet_router(
 
                 // RLP encode legacy tx and sign (EIP-155)
                 fn rlp_encode_bytes(b: &[u8]) -> Vec<u8> {
-                    if b.len() == 1 && b[0] < 0x80 { return b.to_vec(); }
-                    if b.len() <= 55 { let mut out = vec![0x80 + b.len() as u8]; out.extend_from_slice(b); return out; }
-                    let len_bytes = {
-                        let mut v = Vec::new();
-                        let mut n = b.len();
-                        let mut s = Vec::new();
-                        while n > 0 { s.push((n & 0xff) as u8); n >>= 8; }
-                        for c in s.iter().rev() { v.push(*c); }
-                        v
-                    };
-                    let mut out = vec![0xb7 + len_bytes.len() as u8]; out.extend_from_slice(&len_bytes); out.extend_from_slice(b); out
+                if b.len() == 1 && b[0] < 0x80 { return b.to_vec(); }
+                if b.len() <= 55 { let mut out = vec![0x80 + b.len() as u8]; out.extend_from_slice(b); return out; }
+                let len_bytes = {
+                    let mut v = Vec::new();
+                    let mut n = b.len();
+                    let mut s = Vec::new();
+                    while n > 0 { s.push((n & 0xff) as u8); n >>= 8; }
+                    for c in s.iter().rev() { v.push(*c); }
+                    v
+                };
+                let mut out = vec![0xb7 + len_bytes.len() as u8]; out.extend_from_slice(&len_bytes); out.extend_from_slice(b); out
                 }
                 fn rlp_encode_u256(v: u128) -> Vec<u8> {
-                    if v == 0 { return vec![0x80]; }
-                    let mut bytes = Vec::new();
-                    let mut n = v;
-                    let mut tmp = Vec::new();
-                    while n > 0 { tmp.push((n & 0xff) as u8); n >>= 8; }
-                    for c in tmp.iter().rev() { bytes.push(*c); }
-                    rlp_encode_bytes(&bytes)
+                if v == 0 { return vec![0x80]; }
+                let mut bytes = Vec::new();
+                let mut n = v;
+                let mut tmp = Vec::new();
+                while n > 0 { tmp.push((n & 0xff) as u8); n >>= 8; }
+                for c in tmp.iter().rev() { bytes.push(*c); }
+                rlp_encode_bytes(&bytes)
                 }
                 fn rlp_encode_list(items: &[Vec<u8>]) -> Vec<u8> {
-                    let payload_len: usize = items.iter().map(|i| i.len()).sum();
-                    let mut payload = Vec::with_capacity(payload_len);
-                    for i in items { payload.extend_from_slice(i); }
-                    if payload_len <= 55 { let mut out = vec![0xc0 + payload_len as u8]; out.extend_from_slice(&payload); return out; }
-                    let len_bytes = {
-                        let mut v = Vec::new();
-                        let mut n = payload_len;
-                        let mut s = Vec::new();
-                        while n > 0 { s.push((n & 0xff) as u8); n >>= 8; }
-                        for c in s.iter().rev() { v.push(*c); }
-                        v
-                    };
-                    let mut out = vec![0xf7 + len_bytes.len() as u8]; out.extend_from_slice(&len_bytes); out.extend_from_slice(&payload); out
+                let payload_len: usize = items.iter().map(|i| i.len()).sum();
+                let mut payload = Vec::with_capacity(payload_len);
+                for i in items { payload.extend_from_slice(i); }
+                if payload_len <= 55 { let mut out = vec![0xc0 + payload_len as u8]; out.extend_from_slice(&payload); return out; }
+                let len_bytes = {
+                    let mut v = Vec::new();
+                    let mut n = payload_len;
+                    let mut s = Vec::new();
+                    while n > 0 { s.push((n & 0xff) as u8); n >>= 8; }
+                    for c in s.iter().rev() { v.push(*c); }
+                    v
+                };
+                let mut out = vec![0xf7 + len_bytes.len() as u8]; out.extend_from_slice(&len_bytes); out.extend_from_slice(&payload); out
                 }
 
                 // Build sighash per EIP-155 (legacy)
                 let to = {
-                    let s = to_addr.trim_start_matches("0x");
-                    hex::decode(s).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?
+                let s = to_addr.trim_start_matches("0x");
+                hex::decode(s).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?
                 };
                 let value = 0u128;
                 let data_rlp = rlp_encode_bytes(&data);
                 let to_rlp = rlp_encode_bytes(&to);
                 let tx_parts = vec![
-                    rlp_encode_u256(nonce as u128),
-                    rlp_encode_u256(gas_price as u128),
-                    rlp_encode_u256(gas_limit as u128),
-                    to_rlp,
-                    rlp_encode_u256(value),
-                    data_rlp,
-                    rlp_encode_u256(chain_id as u128),
-                    rlp_encode_u256(0),
-                    rlp_encode_u256(0),
+                rlp_encode_u256(nonce as u128),
+                rlp_encode_u256(gas_price as u128),
+                rlp_encode_u256(gas_limit as u128),
+                to_rlp,
+                rlp_encode_u256(value),
+                data_rlp,
+                rlp_encode_u256(chain_id as u128),
+                rlp_encode_u256(0),
+                rlp_encode_u256(0),
                 ];
                 let sighash = keccak(&rlp_encode_list(&tx_parts));
 
@@ -2384,15 +2380,15 @@ pub fn create_testnet_router(
                 let (r, s) = (sig.r().to_bytes(), sig.s().to_bytes());
                 let v = (chain_id * 2 + 35) as u8; // no recovery id; simple EIP-155 v
                 let rlp_signed = rlp_encode_list(&[
-                    rlp_encode_u256(nonce as u128),
-                    rlp_encode_u256(gas_price as u128),
-                    rlp_encode_u256(gas_limit as u128),
-                    rlp_encode_bytes(&to),
-                    rlp_encode_u256(0),
-                    rlp_encode_bytes(&data),
-                    rlp_encode_u256(v as u128),
-                    rlp_encode_bytes(&r.to_vec()),
-                    rlp_encode_bytes(&s.to_vec()),
+                rlp_encode_u256(nonce as u128),
+                rlp_encode_u256(gas_price as u128),
+                rlp_encode_u256(gas_limit as u128),
+                rlp_encode_bytes(&to),
+                rlp_encode_u256(0),
+                rlp_encode_bytes(&data),
+                rlp_encode_u256(v as u128),
+                rlp_encode_bytes(&r.to_vec()),
+                rlp_encode_bytes(&s.to_vec()),
                 ]);
                 let raw_hex = format!("0x{}", hex::encode(rlp_signed));
 

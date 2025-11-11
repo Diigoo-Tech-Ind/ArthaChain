@@ -30,4 +30,18 @@ export function decryptFileFromEnvelope(key: Uint8Array, envelope: { nonce_b64: 
   wipe(key);
 }
 
+export function encryptBufferToEnvelope(key: Uint8Array, data: Uint8Array): { sealed: Uint8Array; envelope: { alg: string; nonce_b64: string; aad_b64: string } } {
+  const nonce = randomBytes(24);
+  const aad = randomBytes(16);
+  const aead = new XChaCha20Poly1305(key);
+  const sealed = aead.seal(nonce, data, aad);
+  const envelope = {
+    alg: 'XChaCha20-Poly1305',
+    nonce_b64: Buffer.from(nonce).toString('base64'),
+    aad_b64: Buffer.from(aad).toString('base64'),
+  };
+  wipe(key);
+  return { sealed: new Uint8Array(sealed), envelope };
+}
+
 

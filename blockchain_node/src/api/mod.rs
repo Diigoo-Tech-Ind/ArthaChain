@@ -18,6 +18,8 @@ pub mod websocket;
 pub mod websocket_service;
 pub mod arthachain;
 pub mod arthachain_router;
+pub mod ai_endpoints;
+pub mod dashboard_api;
 
 pub use errors::*;
 pub use metrics::MetricsService;

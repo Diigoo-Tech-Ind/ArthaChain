@@ -23,6 +23,8 @@ use crate::api::{
     routes::create_monitoring_router,
     server::NetworkStats,
     wallet_integration,
+    ai_endpoints,
+    dashboard_api,
 };
 use crate::gas_free::GasFreeManager;
 use crate::ledger::state::State;
@@ -261,11 +263,12 @@ pub fn create_testnet_router(
                             let head_size = 32*5; let mut head = Vec::with_capacity(head_size);
                             head.extend_from_slice(&enc_bytes32(&root_bytes)); head.extend_from_slice(&enc_bytes32(&salt)); head.extend_from_slice(&enc_bytes32(&leaf_bytes)); head.extend_from_slice(&rlp_u256(head_size as u128)); head.extend_from_slice(&rlp_u256(*idx as u128));
                             let mut branch_tail = Vec::new(); branch_tail.extend_from_slice(&rlp_u256(branch.len() as u128)); for b in &branch { branch_tail.extend_from_slice(&enc_bytes32(b)); }
-                            let mut data = Vec::with_capacity(4 + head.len() + branch_tail.len()); data.extend_from_slice(selector2); data.extend_from_slice(&head); data.extend_from_slice(&branch_tail);
+                            let mut data = Vec::with_capacity(4 + head.len() + branch_tail.len());
+                            data.extend_from_slice(selector2); data.extend_from_slice(&head); data.extend_from_slice(&branch_tail);
                             let to = match hex::decode(deal_market.trim_start_matches("0x")) { Ok(v) => v, Err(_) => continue };
                             let nonce_u64 = if let Some(n) = cached_nonce { cached_nonce = Some(n + 1); n } else { let from_addr = match std::env::var("ARTHA_FROM") { Ok(v) => v, Err(_) => continue }; let payload = serde_json::json!({"jsonrpc":"2.0","method":"eth_getTransactionCount","params":[from_addr,"pending"],"id":1}); let Ok(resp)=client.post(&rpc_url).json(&payload).send().await else { continue }; let Ok(val)=resp.json::<serde_json::Value>().await else { continue }; let hex_nonce = val.get("result").and_then(|v| v.as_str()).unwrap_or("0x0"); let n = u64::from_str_radix(hex_nonce.trim_start_matches("0x"), 16).unwrap_or(0); cached_nonce = Some(n); n };
                             let nonce = nonce_u64 as u128; let tx_parts = vec![ rlp_u256(nonce), rlp_u256(gas_price as u128), rlp_u256(gas_limit as u128), rlp_bytes(&to), rlp_u256(0), rlp_bytes(&data), rlp_u256(chain_id), rlp_u256(0), rlp_u256(0) ]; let sighash = keccak(&rlp_list(&tx_parts));
-                        let Ok(pk_bytes) = hex::decode(priv_hex.trim_start_matches("0x")) else { continue }; use k256::{ecdsa::{SigningKey, signature::Signer}, SecretKey}; let Ok(sk)=SecretKey::from_bytes(&pk_bytes) else { continue }; let signing_key=SigningKey::from(sk); let sig: k256::ecdsa::Signature = signing_key.sign(&sighash); let (r,s)=(sig.r().to_bytes(), sig.s().to_bytes()); let v = (chain_id as u64 * 2 + 35) as u8; let raw = rlp_list(&[ rlp_u256(nonce), rlp_u256(gas_price as u128), rlp_u256(gas_limit as u128), rlp_bytes(&to), rlp_u256(0), rlp_bytes(&data), rlp_u256(v as u128), rlp_bytes(&r.to_vec()), rlp_bytes(&s.to_vec()) ]);
+                        let Ok(pk_bytes) = hex::decode(priv_hex.trim_start_matches("0x")) else { continue }; use k256::{ecdsa::{SigningKey, signature::Signer}, SecretKey}; let Ok(sk)=SecretKey::from_slice(&pk_bytes) else { continue }; let signing_key=SigningKey::from(sk); let sig: k256::ecdsa::Signature = signing_key.sign(&sighash); let (r,s)=(sig.r().to_bytes(), sig.s().to_bytes()); let v = (chain_id as u64 * 2 + 35) as u8; let raw = rlp_list(&[ rlp_u256(nonce), rlp_u256(gas_price as u128), rlp_u256(gas_limit as u128), rlp_bytes(&to), rlp_u256(0), rlp_bytes(&data), rlp_u256(v as u128), rlp_bytes(&r.to_vec()), rlp_bytes(&s.to_vec()) ]);
                             let raw_hex = format!("0x{}", hex::encode(raw)); let payload_rpc = serde_json::json!({"jsonrpc":"2.0","method":"eth_sendRawTransaction","params":[raw_hex.clone()],"id":1}); let _ = client.post(&rpc_url).json(&payload_rpc).send().await;
                         }
                         let _ = deal_store_bg.put(&last_key, &(current_epoch as u64).to_le_bytes()).await;
@@ -331,44 +334,49 @@ pub fn create_testnet_router(
                         data.extend_from_slice(selector);
                         data.extend_from_slice(&head);
                         data.extend_from_slice(&branch_tail);
-                        let to = match hex::decode(deal_market.trim_start_matches("0x")) { Ok(v) => v, Err(_) => continue };
-                        let nonce_u64 = if let Some(n) = cached_nonce { cached_nonce = Some(n + 1); n } else {
-                            let from_addr = match std::env::var("ARTHA_FROM") { Ok(v) => v, Err(_) => continue };
-                            let payload = serde_json::json!({"jsonrpc":"2.0","method":"eth_getTransactionCount","params":[from_addr,"pending"],"id":1});
-                            let Ok(resp) = client.post(&rpc_url).json(&payload).send().await else { continue };
-                            let Ok(val) = resp.json::<serde_json::Value>().await else { continue };
-                            let hex_nonce = val.get("result").and_then(|v| v.as_str()).unwrap_or("0x0");
-                            let n = u64::from_str_radix(hex_nonce.trim_start_matches("0x"), 16).unwrap_or(0);
-                            cached_nonce = Some(n); n
-                        };
+                        // Build and send raw tx
+                        let to = match std::env::var("ARTHA_DEALMARKET").ok().and_then(|v| hex::decode(v.trim_start_matches("0x")).ok()) { Some(v) => v, None => continue };
+                        let chain_id_u128 = chain_id as u128;
+                        let nonce_u64 = if let Some(n) = cached_nonce { cached_nonce = Some(n + 1); n } else { let from_addr = match std::env::var("ARTHA_FROM") { Ok(v) => v, Err(_) => continue }; let payload = serde_json::json!({"jsonrpc":"2.0","method":"eth_getTransactionCount","params":[from_addr,"pending"],"id":1}); let Ok(resp)=client.post(&rpc_url).json(&payload).send().await else { continue }; let Ok(val)=resp.json::<serde_json::Value>().await else { continue }; let hex_nonce = val.get("result").and_then(|v| v.as_str()).unwrap_or("0x0"); let n = u64::from_str_radix(hex_nonce.trim_start_matches("0x"), 16).unwrap_or(0); cached_nonce = Some(n); n };
                         let nonce = nonce_u64 as u128;
-                        let tx_parts = vec![ rlp_u256(nonce), rlp_u256(gas_price as u128), rlp_u256(gas_limit as u128), rlp_bytes(&to), rlp_u256(0), rlp_bytes(&data), rlp_u256(chain_id as u128), rlp_u256(0), rlp_u256(0) ];
+                        let tx_parts = vec![ rlp_u256(nonce), rlp_u256(gas_price as u128), rlp_u256(gas_limit as u128), rlp_bytes(&to), rlp_u256(0), rlp_bytes(&data), rlp_u256(chain_id_u128), rlp_u256(0), rlp_u256(0) ];
                         let sighash = keccak(&rlp_list(&tx_parts));
                         let Ok(pk_bytes) = hex::decode(priv_hex.trim_start_matches("0x")) else { continue };
                         use k256::{ecdsa::{SigningKey, signature::Signer}, SecretKey};
-                        let Ok(sk) = SecretKey::from_bytes(&pk_bytes) else { continue };
-                        let signing_key = SigningKey::from(sk);
+                        let Ok(sk)=SecretKey::from_slice(&pk_bytes) else { continue };
+                        let signing_key=SigningKey::from(sk);
                         let sig: k256::ecdsa::Signature = signing_key.sign(&sighash);
-                        let (r, s) = (sig.r().to_bytes(), sig.s().to_bytes());
-                        let v = (chain_id * 2 + 35) as u8;
+                        let (r,s)=(sig.r().to_bytes(), sig.s().to_bytes());
+                        let v = (chain_id as u64 * 2 + 35) as u8;
                         let raw = rlp_list(&[ rlp_u256(nonce), rlp_u256(gas_price as u128), rlp_u256(gas_limit as u128), rlp_bytes(&to), rlp_u256(0), rlp_bytes(&data), rlp_u256(v as u128), rlp_bytes(&r.to_vec()), rlp_bytes(&s.to_vec()) ]);
                         let raw_hex = format!("0x{}", hex::encode(raw));
                         let payload_rpc = serde_json::json!({"jsonrpc":"2.0","method":"eth_sendRawTransaction","params":[raw_hex.clone()],"id":1});
-                        let tx_hash = if let Ok(resp_tx) = client.post(&rpc_url).json(&payload_rpc).send().await {
-                            if let Ok(val) = resp_tx.json::<serde_json::Value>().await { val.get("result").and_then(|v| v.as_str()).map(|s| s.to_string()) } else { None }
-                        } else { None };
-                        // Persist proof log for auditing
-                        let root_hex = format!("0x{}", hex::encode(manifest.merkle_root));
-                        let log_key = format!("prooflog:{}:{}:{}", root_hex, current_epoch, idx);
-                        let log = serde_json::json!({
-                            "root": root_hex,
-                            "epoch": current_epoch,
-                            "index": idx,
-                            "salt": format!("0x{}", hex::encode(salt)),
-                            "branchLen": branch.len(),
-                            "tx": tx_hash,
-                        });
-                        let _ = deal_store_bg.put(log_key.as_bytes(), serde_json::to_string(&log).unwrap().as_bytes()).await;
+                        let sent_ok = if let Ok(resp) = client.post(&rpc_url).json(&payload_rpc).send().await { resp.status().is_success() } else { false };
+                        if !sent_ok {
+                            // increment failure counter
+                            let root_hex = format!("0x{}", hex::encode(manifest.merkle_root));
+                            let fail_key = format!("fail:{}:{}", root_hex, idx);
+                            let fails = match deal_store_bg.get(fail_key.as_bytes()).await { Ok(Some(b)) => u64::from_le_bytes(b.try_into().unwrap_or([0u8;8])), _ => 0 } + 1;
+                            let _ = deal_store_bg.put(fail_key.as_bytes(), &fails.to_le_bytes()).await;
+                            let threshold: u64 = std::env::var("ARTHA_SLASH_FAILS").ok().and_then(|v| v.parse().ok()).unwrap_or(3);
+                            if fails >= threshold {
+                                // Slash epoch reward
+                                let selector_slash = &keccak(b"slashEpochReward(bytes32)")[0..4];
+                                let mut data_slash = Vec::with_capacity(4 + 32);
+                                data_slash.extend_from_slice(selector_slash);
+                                data_slash.extend_from_slice(&enc_bytes32(&manifest.merkle_root));
+                                let to_slash = to.clone();
+                                let tx_parts_slash = vec![ rlp_u256(nonce+1), rlp_u256(gas_price as u128), rlp_u256(gas_limit as u128), rlp_bytes(&to_slash), rlp_u256(0), rlp_bytes(&data_slash), rlp_u256(chain_id_u128), rlp_u256(0), rlp_u256(0) ];
+                                let sighash_slash = keccak(&rlp_list(&tx_parts_slash));
+                                let sig2: k256::ecdsa::Signature = signing_key.sign(&sighash_slash);
+                                let (r2,s2)=(sig2.r().to_bytes(), sig2.s().to_bytes());
+                                let raw2 = rlp_list(&[ rlp_u256(nonce+1), rlp_u256(gas_price as u128), rlp_u256(gas_limit as u128), rlp_bytes(&to_slash), rlp_u256(0), rlp_bytes(&data_slash), rlp_u256(v as u128), rlp_bytes(&r2.to_vec()), rlp_bytes(&s2.to_vec()) ]);
+                                let raw_hex2 = format!("0x{}", hex::encode(raw2));
+                                let payload_slash = serde_json::json!({"jsonrpc":"2.0","method":"eth_sendRawTransaction","params":[raw_hex2],"id":1});
+                                let _ = client.post(&rpc_url).json(&payload_slash).send().await;
+                                let _ = deal_store_bg.put(fail_key.as_bytes(), &0u64.to_le_bytes()).await;
+                            }
+                        }
                     }
                     let _ = deal_store_bg.put(&last_key, &(current_epoch as u64).to_le_bytes()).await;
                 }
@@ -430,6 +438,47 @@ pub fn create_testnet_router(
             </body>
             </html>
             "#)
+        }))
+        // zk-SNARK: verify Groth16 BN254 proof for v3 batch
+        .route("/svdb/proofs/v3/snark/verify", post({
+            move |Json(body): Json<serde_json::Value>| async move -> Result<Json<serde_json::Value>, axum::http::StatusCode> {
+                use ark_bn254::{Bn254, Fr};
+                use ark_ff::PrimeField;
+                use ark_groth16::{prepare_verifying_key, verify_proof, Proof, VerifyingKey};
+                use ark_serialize::{CanonicalDeserialize};
+                let vk_hex = body.get("vkHex").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let proof_hex = body.get("proofHex").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let inputs = body.get("publicInputsHex").and_then(|v| v.as_array()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let vk_bytes = hex::decode(vk_hex.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                let proof_bytes = hex::decode(proof_hex.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                let vk: VerifyingKey<Bn254> = VerifyingKey::deserialize_compressed(&*vk_bytes).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                let pvk = prepare_verifying_key(&vk);
+                let proof: Proof<Bn254> = Proof::deserialize_compressed(&*proof_bytes).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                let mut pis: Vec<Fr> = Vec::with_capacity(inputs.len());
+                for i in inputs {
+                    let s = i.as_str().ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                    let b = hex::decode(s.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                    let fr = Fr::from_be_bytes_mod_order(&b);
+                    pis.push(fr);
+                }
+                let ok = verify_proof(&pvk, &proof, &pis).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                Ok(Json(serde_json::json!({"valid": ok})))
+            }
+        }))
+        // zk-SNARK: spawn external CUDA prover (rapidsnark-like) and return proof hex
+        .route("/svdb/proofs/v3/snark/prove", post({
+            move |Json(body): Json<serde_json::Value>| async move -> Result<Json<serde_json::Value>, axum::http::StatusCode> {
+                let bin = std::env::var("ARTHA_SNARK_PROVER").map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                let witness = body.get("witness").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let zkey = body.get("zkey").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let out = body.get("output").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let mut cmd = tokio::process::Command::new(bin);
+                cmd.arg(zkey).arg(witness).arg(out);
+                let status = cmd.status().await.map_err(|_| axum::http::StatusCode::BAD_GATEWAY)?;
+                if !status.success() { return Err(axum::http::StatusCode::BAD_GATEWAY); }
+                let proof_bytes = tokio::fs::read(out).await.map_err(|_| axum::http::StatusCode::BAD_GATEWAY)?;
+                Ok(Json(serde_json::json!({"proofHex": format!("0x{}", hex::encode(proof_bytes))})))
+            }
         }))
         // Build Merkle branch (v1) for a manifest and leaf index (blake3 leaf, keccak node composition)
         .route("/svdb/proofs/branch", post({
@@ -590,7 +639,7 @@ pub fn create_testnet_router(
                 let pk_bytes = hex::decode(priv_hex.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
                 use k256::{ecdsa::{SigningKey, signature::Signer}, SecretKey};
                 let pk_arr = GenericArray::from_slice(&pk_bytes);
-                let sk = SecretKey::from_bytes(pk_arr).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                let sk = SecretKey::from_slice(pk_arr.as_slice()).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
                 let signing_key = SigningKey::from(sk);
                 let sig: k256::ecdsa::Signature = signing_key.sign(&sighash);
                 let (r, s) = (sig.r().to_bytes(), sig.s().to_bytes());
@@ -643,7 +692,7 @@ pub fn create_testnet_router(
                 let tx_parts=vec![ rlp_u256(nonce), rlp_u256(gas_price), rlp_u256(gas_limit), rlp_bytes(&to), rlp_u256(value), rlp_bytes(&data), rlp_u256(chain_id), rlp_u256(0), rlp_u256(0) ];
                 let sighash=keccak(&rlp_list(&tx_parts));
                 let pk_bytes=hex::decode(priv_hex.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
-                use k256::{ecdsa::{SigningKey, signature::Signer}, SecretKey}; let sk=SecretKey::from_bytes(&pk_bytes).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?; let signing_key=SigningKey::from(sk); let sig: k256::ecdsa::Signature = signing_key.sign(&sighash); let (r,s)=(sig.r().to_bytes(), sig.s().to_bytes()); let v=(chain_id*2+35) as u8;
+                use k256::{ecdsa::{SigningKey, signature::Signer}, SecretKey}; let sk=SecretKey::from_slice(&pk_bytes).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?; let signing_key=SigningKey::from(sk); let sig: k256::ecdsa::Signature = signing_key.sign(&sighash); let (r,s)=(sig.r().to_bytes(), sig.s().to_bytes()); let v=(chain_id*2+35) as u8;
                 let raw=rlp_list(&[ rlp_u256(nonce), rlp_u256(gas_price), rlp_u256(gas_limit), rlp_bytes(&to), rlp_u256(value), rlp_bytes(&data), rlp_u256(v as u128), rlp_bytes(&r.to_vec()), rlp_bytes(&s.to_vec()) ]);
                 let raw_hex=format!("0x{}", hex::encode(raw)); let client=HttpClient::new(); let payload_rpc=serde_json::json!({"jsonrpc":"2.0","method":"eth_sendRawTransaction","params":[raw_hex],"id":1}); let resp=client.post(rpc_url).json(&payload_rpc).send().await.map_err(|_| axum::http::StatusCode::BAD_GATEWAY)?; let json: serde_json::Value = resp.json().await.map_err(|_| axum::http::StatusCode::BAD_GATEWAY)?; Ok::<_, axum::http::StatusCode>(Json(json))
             }
@@ -688,7 +737,7 @@ pub fn create_testnet_router(
                 let tx_parts=vec![ rlp_u256(nonce), rlp_u256(gas_price), rlp_u256(gas_limit), rlp_bytes(&to), rlp_u256(value), rlp_bytes(&data), rlp_u256(chain_id), rlp_u256(0), rlp_u256(0) ];
                 let sighash=keccak(&rlp_list(&tx_parts));
                 let pk_bytes=hex::decode(priv_hex.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
-                use k256::{ecdsa::{SigningKey, signature::Signer}, SecretKey}; let sk=SecretKey::from_bytes(&pk_bytes).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?; let signing_key=SigningKey::from(sk); let sig: k256::ecdsa::Signature = signing_key.sign(&sighash); let (r,s)=(sig.r().to_bytes(), sig.s().to_bytes()); let v=(chain_id*2+35) as u8;
+                use k256::{ecdsa::{SigningKey, signature::Signer}, SecretKey}; let sk=SecretKey::from_slice(&pk_bytes).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?; let signing_key=SigningKey::from(sk); let sig: k256::ecdsa::Signature = signing_key.sign(&sighash); let (r,s)=(sig.r().to_bytes(), sig.s().to_bytes()); let v=(chain_id*2+35) as u8;
                 let raw=rlp_list(&[ rlp_u256(nonce), rlp_u256(gas_price), rlp_u256(gas_limit), rlp_bytes(&to), rlp_u256(value), rlp_bytes(&data), rlp_u256(v as u128), rlp_bytes(&r.to_vec()), rlp_bytes(&s.to_vec()) ]);
                 let raw_hex=format!("0x{}", hex::encode(raw)); let client=HttpClient::new(); let payload_rpc=serde_json::json!({"jsonrpc":"2.0","method":"eth_sendRawTransaction","params":[raw_hex],"id":1}); let resp=client.post(rpc_url).json(&payload_rpc).send().await.map_err(|_| axum::http::StatusCode::BAD_GATEWAY)?; let json: serde_json::Value = resp.json().await.map_err(|_| axum::http::StatusCode::BAD_GATEWAY)?; Ok::<_, axum::http::StatusCode>(Json(json))
             }
@@ -775,7 +824,7 @@ pub fn create_testnet_router(
                 let pk_bytes = hex::decode(priv_hex.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
                 use k256::{ecdsa::{SigningKey, signature::Signer}, SecretKey};
                 let pk_arr = GenericArray::from_slice(&pk_bytes);
-                let sk = SecretKey::from_bytes(pk_arr).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                let sk = SecretKey::from_slice(pk_arr.as_slice()).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
                 let signing_key = SigningKey::from(sk);
                 let sig: k256::ecdsa::Signature = signing_key.sign(&sighash);
                 let (r, s) = (sig.r().to_bytes(), sig.s().to_bytes());
@@ -902,6 +951,9 @@ pub fn create_testnet_router(
         .route("/api/v1/monitoring/metrics", get(metrics::get_metrics))
         .route("/api/v1/monitoring/performance", get(metrics::get_performance_metrics))
         .route("/api/v1/monitoring/alerts", get(metrics::get_performance_metrics))
+        // Governance AI assistant
+        .route("/api/v1/governance/ai/summarize", post(handlers::governance_ai::summarize))
+        .route("/api/v1/governance/ai/simulate", post(handlers::governance_ai::simulate))
         
         
         // Faucet API - Connect to handlers
@@ -912,7 +964,6 @@ pub fn create_testnet_router(
         .route("/api/v1/faucet/request", post(faucet::request_tokens))
         
         // Gas-free API - Connect to handlers
-        
         .route("/api/v1/testnet/gas-free/stats", get(gas_free::get_gas_free_stats))
         .route("/api/v1/gas-free/status", get(gas_free::get_gas_free_stats))
         
@@ -992,23 +1043,20 @@ pub fn create_testnet_router(
         .route("/api/v1/protocol/wasm", get(dev::get_wasm_protocol))
         .route("/api/v1/protocol/version", get(dev::get_protocol_version))
         .route("/api/v1/protocol/features", get(dev::get_protocol_features))
-        
         // Test API - Connect to handlers
         .route("/api/v1/test/health", get(status::get_status))
         .route("/api/v1/test/performance", get(metrics::get_performance_metrics))
         .route("/api/v1/test/status", get(status::get_status))
         .route("/api/v1/test/run", post(dev::run_tests))
-        
         // SVDB Public API
         .route("/svdb/upload", post({
             let svdb = svdb.clone();
             let deal_store_for_access = deal_store.clone();
             let node_runtime_for_upload = node_runtime.clone();
-            move |mut multipart: Multipart, headers: HeaderMap| {
+            move |mut multipart: Multipart, headers: HeaderMap| async move -> Result<Json<serde_json::Value>, axum::http::StatusCode> {
                 let svdb = svdb.clone();
                 let deal_store_for_access = deal_store_for_access.clone();
                 let node_runtime_for_upload = node_runtime_for_upload.clone();
-                async move {
                     if !node_runtime_for_upload.role_storage_provider { return Err(axum::http::StatusCode::FORBIDDEN); }
                     // Simple per-IP rate limit and size quota
                     let client_ip = headers.get("X-Client-IP").and_then(|v| v.to_str().ok()).unwrap_or("unknown");
@@ -1028,20 +1076,27 @@ pub fn create_testnet_router(
                     let mut chunks: Vec<ManifestChunkEntry> = Vec::new();
                     let mut order: u32 = 0;
                     let mut leaf_hashes: Vec<[u8;32]> = Vec::new();
+                    // Choose codec for this upload
+                    let chosen_codec = match headers.get("X-Artha-Codec").and_then(|v| v.to_str().ok()) { Some("zstd") => Codec::Zstd, Some("lz4") => Codec::Lz4, _ => Codec::Raw };
 
                     // Reed-Solomon erasure coding (GF(2^8), k=8, m=2)
                     fn rs_encode_10_8(data: &[u8]) -> Vec<Vec<u8>> {
                         let k = 8usize; let m = 2usize; let n = k + m;
                         let shard_len = (data.len() + k - 1) / k;
                         let mut shards: Vec<Vec<u8>> = vec![vec![0u8; shard_len]; n];
+                        // Fill data shards with input, zero-pad tail
                         for i in 0..k {
                             let start = i * shard_len;
                             let end = core::cmp::min(start + shard_len, data.len());
-                            if start < data.len() { shards[i][..end - start].copy_from_slice(&data[start..end]); }
+                            if start < data.len() && end > start {
+                                shards[i][..(end - start)].copy_from_slice(&data[start..end]);
+                            }
                         }
-                        // Parity encoding gated out in default build to avoid unmaintained deps
-                        // Placeholder: skip parity generation to avoid pulling reed-solomon at runtime
-                        let _refs: Vec<&mut [u8]> = shards.iter_mut().map(|v| v.as_mut_slice()).collect();
+                        // Compute parity shards
+                        let rs = reed_solomon_erasure::galois_8::ReedSolomon::new(k, m)
+                            .expect("RS(10,8) init");
+                        let mut refs: Vec<&mut [u8]> = shards.iter_mut().map(|v| v.as_mut_slice()).collect();
+                        rs.encode(&mut refs).expect("RS encode");
                         shards
                     }
 
@@ -1058,9 +1113,20 @@ pub fn create_testnet_router(
                                 let slice = &rolling[..chunk_size];
                                 let shards = rs_encode_10_8(slice);
                                 for shard in shards.into_iter() {
+                                    // Leaf hash over raw shard (pre-compression)
                                     let blake = *blake3::hash(&shard).as_bytes();
-                                    let cid = Cid::new(0x0129, blake, None, shard.len() as u64, Codec::Raw);
-                                    ChunkStore::put(&svdb, &cid, &shard).await.map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+                                    let to_store: Vec<u8> = match chosen_codec {
+                                        Codec::Zstd => {
+                                            let mut encoder = zstd::stream::encode_all(std::io::Cursor::new(&shard), 3).map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+                                            encoder
+                                        }
+                                        Codec::Lz4 => {
+                                            lz4_flex::block::compress_prepend_size(&shard)
+                                        }
+                                        Codec::Raw => shard.clone(),
+                                    };
+                                    let cid = Cid::new(0x0129, blake, None, shard.len() as u64, chosen_codec.clone());
+                                    ChunkStore::put(&svdb, &cid, &to_store).await.map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
                                     chunks.push(ManifestChunkEntry { cid: cid.clone(), order });
                                     order += 1;
                                     leaf_hashes.push(*blake3::hash(&shard).as_bytes());
@@ -1086,14 +1152,18 @@ pub fn create_testnet_router(
                         let shards = rs_encode_10_8(&rolling);
                         for shard in shards.into_iter() {
                             let blake = *blake3::hash(&shard).as_bytes();
-                            let cid = Cid::new(0x0129, blake, None, shard.len() as u64, Codec::Raw);
-                            ChunkStore::put(&svdb, &cid, &shard).await.map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+                            let to_store: Vec<u8> = match chosen_codec {
+                                Codec::Zstd => { zstd::stream::encode_all(std::io::Cursor::new(&shard), 3).map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)? }
+                                Codec::Lz4 => { lz4_flex::block::compress_prepend_size(&shard) }
+                                Codec::Raw => shard.clone(),
+                            };
+                            let cid = Cid::new(0x0129, blake, None, shard.len() as u64, chosen_codec.clone());
+                            ChunkStore::put(&svdb, &cid, &to_store).await.map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
                             chunks.push(ManifestChunkEntry { cid: cid.clone(), order });
                             order += 1;
                             leaf_hashes.push(*blake3::hash(&shard).as_bytes());
                         }
                     }
-
                     fn merkle_root(mut leaves: Vec<[u8;32]>) -> [u8;32] {
                         if leaves.is_empty() { return [0u8;32]; }
                         while leaves.len() > 1 {
@@ -1111,7 +1181,7 @@ pub fn create_testnet_router(
                         leaves[0]
                     }
                     let merkle_root = merkle_root(leaf_hashes.clone());
-                    // Poseidon root over leaves replaced with keccak-based fold to remove light-poseidon dependency
+                    // Poseidon root over leaves using light-poseidon (BN254)
                     fn poseidon_root_over_leaves(mut leaves: Vec<[u8;32]>) -> [u8;32] {
                         if leaves.is_empty() { return [0u8;32]; }
                         while leaves.len() > 1 {
@@ -1120,9 +1190,14 @@ pub fn create_testnet_router(
                             while i < leaves.len() {
                                 let left = leaves[i];
                                 let right = if i+1 < leaves.len() { leaves[i+1] } else { left };
-                                let h = keccak_bytes(&[left.as_slice(), right.as_slice()].concat());
-                                let mut out = [0u8;32];
-                                out.copy_from_slice(&h);
+                                // Hash pair with Poseidon over BN254 field
+                                let out = {
+                                    use light_poseidon::Poseidon;
+                                    use ark_bn254::Fr;
+                                    let mut poseidon = Poseidon::<Fr>::new_circom(2).expect("poseidon");
+                                    let res = poseidon.hash_bytes_be(&[left.as_slice(), right.as_slice()]).expect("poseidon hash");
+                                    let mut out = [0u8;32]; out.copy_from_slice(&res); out
+                                };
                                 next.push(out);
                                 i += 2;
                             }
@@ -1143,7 +1218,7 @@ pub fn create_testnet_router(
                         size: total_size as u64,
                         chunks,
                         license: None,
-                        codec: Codec::Raw,
+                        codec: chosen_codec.clone(),
                         erasure_data_shards: Some(8),
                         erasure_parity_shards: Some(2),
                         merkle_root,
@@ -1171,7 +1246,7 @@ pub fn create_testnet_router(
                     let _ = deal_store_for_access.put(announce_key.as_bytes(), b"1").await;
                     // Also publish to P2P gossipsub (svdb-announce) when message channel is available - handled by background p2p task
                     // Initialize access policy
-                    if access_mode == "private" || access_mode == "allowlist" || access_mode == "token" {
+                    if access_mode == "private" || access_mode == "allowlist" || access_mode == "token" || access_mode == "tee" {
                         let policy_key = format!("access:{}", cid_hex);
                         let mut policy = serde_json::json!({"mode": access_mode, "allowedDids": Vec::<String>::new()});
                         if access_mode == "token" {
@@ -1183,22 +1258,73 @@ pub fn create_testnet_router(
                         let _ = deal_store_for_access.put(policy_key.as_bytes(), serde_json::to_string(&policy).unwrap().as_bytes()).await;
                     }
                     Ok::<_, axum::http::StatusCode>(Json(serde_json::json!({ "cid": manifest_cid.to_uri() })))
-                }
             }
         }))
         // Serve a single chunk by CID hex (for inter-node retrieval)
         .route("/svdb/chunk/:cid_hex", get({
             let svdb = svdb.clone();
             let node_runtime_chunk = node_runtime.clone();
-            move |axum::extract::Path(cid_hex): axum::extract::Path<String>| {
+            let deal_store = deal_store.clone();
+            move |axum::extract::Path(cid_hex): axum::extract::Path<String>, headers: HeaderMap| {
                 let svdb = svdb.clone();
                 let node_runtime_chunk = node_runtime_chunk.clone();
+                let deal_store = deal_store.clone();
                 async move {
                     if !node_runtime_chunk.role_retriever { return Err(axum::http::StatusCode::FORBIDDEN); }
-                    // retriever/serve guard
-                    // (NodeRuntimeState not available here; chunk serve is allowed for any node)
+                    // Access policy enforcement (public|private|allowlist|token|tee)
+                    let policy_key = format!("access:{}", cid_hex);
+                    let policy: serde_json::Value = match deal_store.get(policy_key.as_bytes()).await {
+                        Ok(Some(b)) => serde_json::from_slice(&b).unwrap_or(serde_json::json!({"mode":"public"})),
+                        _ => serde_json::json!({"mode":"public"}),
+                    };
+                    let mode = policy.get("mode").and_then(|v| v.as_str()).unwrap_or("public");
+                    if mode == "private" || mode == "allowlist" || mode == "token" || mode == "tee" {
+                        if mode == "allowlist" {
+                            // Expect headers: X-Artha-DID, X-Artha-Expiry, X-Artha-Signature
+                            let did = headers.get("X-Artha-DID").and_then(|v| v.to_str().ok()).ok_or(axum::http::StatusCode::UNAUTHORIZED)?;
+                            let pubhex = did.strip_prefix("did:artha:").ok_or(axum::http::StatusCode::UNAUTHORIZED)?;
+                            // Basic allowlist check
+                            let allowed = policy.get("allowedDids").and_then(|v| v.as_array()).unwrap_or(&vec![]);
+                            let mut ok=false; for a in allowed { if a.as_str()==Some(did) { ok=true; break; } }
+                            if !ok { return Err(axum::http::StatusCode::UNAUTHORIZED); }
+                            // Optional signature/expiry validation (best-effort)
+                            if let (Some(exp), Some(sig)) = (headers.get("X-Artha-Expiry").and_then(|v| v.to_str().ok()), headers.get("X-Artha-Signature").and_then(|v| v.to_str().ok())) {
+                                let now = chrono::Utc::now().timestamp() as u64;
+                                let exp_u = exp.parse::<u64>().unwrap_or(0);
+                                if now > exp_u { return Err(axum::http::StatusCode::UNAUTHORIZED); }
+                                let msg = format!("CID:{}:EXP:{}", cid_hex, exp_u);
+                                if let (Ok(pub_bytes), Ok(sig_bytes)) = (hex::decode(pubhex.trim_start_matches("0x")), hex::decode(sig.trim_start_matches("0x"))) {
+                                    if let (Ok(vk), Ok(signature)) = (k256::ecdsa::VerifyingKey::from_sec1_bytes(&pub_bytes), k256::ecdsa::Signature::from_slice(&sig_bytes)) {
+                                        use k256::ecdsa::signature::Verifier;
+                                        if vk.verify(msg.as_bytes(), &signature).is_err() { return Err(axum::http::StatusCode::UNAUTHORIZED); }
+                                    }
+                                }
+                            }
+                        } else if mode == "token" {
+                            let tok = headers.get("X-Artha-Token").and_then(|v| v.to_str().ok()).ok_or(axum::http::StatusCode::UNAUTHORIZED)?;
+                            let hash = keccak_bytes(tok.as_bytes());
+                            let expected = policy.get("tokenHash").and_then(|v| v.as_str()).unwrap_or("");
+                            if expected.strip_prefix("0x") != Some(&hex::encode(hash)) { return Err(axum::http::StatusCode::UNAUTHORIZED); }
+                        } else if mode == "tee" {
+                            // Require recent SGX attestation for X-Artha-Client
+                            let client_id = headers.get("X-Artha-Client").and_then(|v| v.to_str().ok()).ok_or(axum::http::StatusCode::UNAUTHORIZED)?;
+                            let key = format!("sgxatt:{}", client_id);
+                            let att = deal_store.get(key.as_bytes()).await.map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+                            let Some(data) = att else { return Err(axum::http::StatusCode::UNAUTHORIZED) };
+                            let parsed: serde_json::Value = serde_json::from_slice(&data).unwrap_or(serde_json::json!({}));
+                            let ok = parsed.get("is_valid").and_then(|v| v.as_bool()).unwrap_or(false);
+                            if !ok { return Err(axum::http::StatusCode::UNAUTHORIZED); }
+                            // Optional MRENCLAVE/MRSIGNER filters from policy
+                            if let Some(expect_enclave) = policy.get("mrEnclave").and_then(|v| v.as_str()) { if parsed.get("mr_enclave").and_then(|v| v.as_str()) != Some(expect_enclave) { return Err(axum::http::StatusCode::FORBIDDEN); } }
+                            if let Some(expect_signer) = policy.get("mrSigner").and_then(|v| v.as_str()) { if parsed.get("mr_signer").and_then(|v| v.as_str()) != Some(expect_signer) { return Err(axum::http::StatusCode::FORBIDDEN); } }
+                        } else {
+                            // private mode without allowlist/token denies by default
+                            return Err(axum::http::StatusCode::UNAUTHORIZED);
+                        }
+                    }
+
+                    // Decode CID and serve
                     let mut bl=[0u8;32]; let bytes = hex::decode(&cid_hex).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?; if bytes.len()!=32 { return Err(axum::http::StatusCode::BAD_REQUEST) } bl.copy_from_slice(&bytes);
-                    // Build a minimal CID wrapper to query storage; codec/raw and defaults
                     let cid = Cid::new(0x0129, bl, None, 0, Codec::Raw);
                      let data = ChunkStore::get(&svdb, &cid).await.map_err(|_| axum::http::StatusCode::NOT_FOUND)?;
                     Ok::<_, axum::http::StatusCode>(axum::body::Bytes::from(data))
@@ -1273,30 +1399,48 @@ pub fn create_testnet_router(
                     if let Ok(Some(pol_bytes)) = deal_store.get(policy_key.as_bytes()).await {
                         if let Ok(policy) = serde_json::from_slice::<serde_json::Value>(&pol_bytes) {
                             let mode = policy.get("mode").and_then(|v| v.as_str()).unwrap_or("public");
-                            if mode == "private" || mode == "allowlist" || mode == "token" {
-                                // Expect headers: X-Artha-DID = did:artha:<hexpub>; X-Artha-Expiry=unix; X-Artha-Signature=hex
-                                let did = headers.get("X-Artha-DID").and_then(|v| v.to_str().ok()).ok_or(axum::http::StatusCode::UNAUTHORIZED)?;
-                                let expiry = headers.get("X-Artha-Expiry").and_then(|v| v.to_str().ok()).ok_or(axum::http::StatusCode::UNAUTHORIZED)?;
-                                let sig_hex = headers.get("X-Artha-Signature").and_then(|v| v.to_str().ok()).ok_or(axum::http::StatusCode::UNAUTHORIZED)?;
-                                let exp_val: i64 = expiry.parse().map_err(|_| axum::http::StatusCode::UNAUTHORIZED)?;
-                                if chrono::Utc::now().timestamp() > exp_val { return Err(axum::http::StatusCode::UNAUTHORIZED); }
-                                let pubhex = did.strip_prefix("did:artha:").ok_or(axum::http::StatusCode::UNAUTHORIZED)?;
-                                let pubkey_bytes = hex::decode(pubhex).map_err(|_| axum::http::StatusCode::UNAUTHORIZED)?;
-                    let vk = VerifyingKey::from_bytes(&pubkey_bytes.try_into().map_err(|_| axum::http::StatusCode::UNAUTHORIZED)?).map_err(|_| axum::http::StatusCode::UNAUTHORIZED)?;
-                                let sig_bytes = hex::decode(sig_hex).map_err(|_| axum::http::StatusCode::UNAUTHORIZED)?;
-                                let sig = Signature::from_slice(&sig_bytes).map_err(|_| axum::http::StatusCode::UNAUTHORIZED)?;
-                                let msg = format!("GET:{}:{}", cid_hex, expiry);
-                                vk.verify(msg.as_bytes(), &sig).map_err(|_| axum::http::StatusCode::UNAUTHORIZED)?;
+                            if mode == "private" || mode == "allowlist" || mode == "token" || mode == "tee" {
                                 if mode == "allowlist" {
+                                    // Expect headers: X-Artha-DID, X-Artha-Expiry, X-Artha-Signature
+                                let did = headers.get("X-Artha-DID").and_then(|v| v.to_str().ok()).ok_or(axum::http::StatusCode::UNAUTHORIZED)?;
+                                let pubhex = did.strip_prefix("did:artha:").ok_or(axum::http::StatusCode::UNAUTHORIZED)?;
+                                    // Basic allowlist check
                                 let allowed = policy.get("allowedDids").and_then(|v| v.as_array()).unwrap_or(&vec![]);
                                 let mut ok=false; for a in allowed { if a.as_str()==Some(did) { ok=true; break; } }
-                                if !ok { return Err(axum::http::StatusCode::FORBIDDEN); }
+                                    if !ok { return Err(axum::http::StatusCode::UNAUTHORIZED); }
+                                    // Optional signature/expiry validation (best-effort)
+                                    if let (Some(exp), Some(sig)) = (headers.get("X-Artha-Expiry").and_then(|v| v.to_str().ok()), headers.get("X-Artha-Signature").and_then(|v| v.to_str().ok())) {
+                                        let now = chrono::Utc::now().timestamp() as u64;
+                                        let exp_u = exp.parse::<u64>().unwrap_or(0);
+                                        if now > exp_u { return Err(axum::http::StatusCode::UNAUTHORIZED); }
+                                        let msg = format!("CID:{}:EXP:{}", cid_hex, exp_u);
+                                        if let (Ok(pub_bytes), Ok(sig_bytes)) = (hex::decode(pubhex.trim_start_matches("0x")), hex::decode(sig.trim_start_matches("0x"))) {
+                                            if let (Ok(vk), Ok(signature)) = (k256::ecdsa::VerifyingKey::from_sec1_bytes(&pub_bytes), k256::ecdsa::Signature::from_slice(&sig_bytes)) {
+                                                use k256::ecdsa::signature::Verifier;
+                                                if vk.verify(msg.as_bytes(), &signature).is_err() { return Err(axum::http::StatusCode::UNAUTHORIZED); }
+                                            }
+                                        }
+                                    }
                                 } else if mode == "token" {
-                                    // token-gated: require X-Artha-Token and match keccak hash
-                                    let token = headers.get("X-Artha-Token").and_then(|v| v.to_str().ok()).ok_or(axum::http::StatusCode::UNAUTHORIZED)?;
-                                    let want = policy.get("tokenHash").and_then(|v| v.as_str()).unwrap_or("");
-                                    let got = format!("0x{}", hex::encode(keccak_bytes(token.as_bytes())));
-                                    if got != want { return Err(axum::http::StatusCode::FORBIDDEN); }
+                                    let tok = headers.get("X-Artha-Token").and_then(|v| v.to_str().ok()).ok_or(axum::http::StatusCode::UNAUTHORIZED)?;
+                                    let hash = keccak_bytes(tok.as_bytes());
+                                    let expected = policy.get("tokenHash").and_then(|v| v.as_str()).unwrap_or("");
+                                    if expected.strip_prefix("0x") != Some(&hex::encode(hash)) { return Err(axum::http::StatusCode::UNAUTHORIZED); }
+                                } else if mode == "tee" {
+                                    // Require recent SGX attestation for X-Artha-Client
+                                    let client_id = headers.get("X-Artha-Client").and_then(|v| v.to_str().ok()).ok_or(axum::http::StatusCode::UNAUTHORIZED)?;
+                                    let key = format!("sgxatt:{}", client_id);
+                                    let att = deal_store.get(key.as_bytes()).await.map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+                                    let Some(data) = att else { return Err(axum::http::StatusCode::UNAUTHORIZED) };
+                                    let parsed: serde_json::Value = serde_json::from_slice(&data).unwrap_or(serde_json::json!({}));
+                                    let ok = parsed.get("is_valid").and_then(|v| v.as_bool()).unwrap_or(false);
+                                    if !ok { return Err(axum::http::StatusCode::UNAUTHORIZED); }
+                                    // Optional MRENCLAVE/MRSIGNER filters from policy
+                                    if let Some(expect_enclave) = policy.get("mrEnclave").and_then(|v| v.as_str()) { if parsed.get("mr_enclave").and_then(|v| v.as_str()) != Some(expect_enclave) { return Err(axum::http::StatusCode::FORBIDDEN); } }
+                                    if let Some(expect_signer) = policy.get("mrSigner").and_then(|v| v.as_str()) { if parsed.get("mr_signer").and_then(|v| v.as_str()) != Some(expect_signer) { return Err(axum::http::StatusCode::FORBIDDEN); } }
+                                } else {
+                                    // private mode without allowlist/token denies by default
+                                    return Err(axum::http::StatusCode::UNAUTHORIZED);
                                 }
                             }
                         }
@@ -1304,38 +1448,103 @@ pub fn create_testnet_router(
                     let manifest = svdb.get_manifest(&m_cid).await.map_err(|_| axum::http::StatusCode::NOT_FOUND)?;
                     let mut out = Vec::with_capacity(manifest.size as usize);
                     let mut entries = manifest.chunks.clone(); entries.sort_by_key(|e| e.order);
-                    for e in entries {
-                        match ChunkStore::get(&svdb, &e.cid).await {
-                            Ok(bytes) => { out.extend_from_slice(&bytes); }
-                            Err(_) => {
-                                // Attempt nearest-provider retrieval via provider list and http_addr
-                                let cid_hex = hex::encode(e.cid.blake3);
-                                let prov_key = format!("prov:{}", cid_hex);
-                                if let Ok(Some(pbytes)) = deal_store.get(prov_key.as_bytes()).await {
-                                    if let Ok(providers) = serde_json::from_slice::<Vec<String>>(&pbytes) {
-                                        // Load capabilities for each provider to get http_addr
-                                        let mut fetched = false;
-                                        for pid in providers {
-                                            let cap_key = format!("caps:{}", pid);
-                                            if let Ok(Some(caps_bytes)) = deal_store.get(cap_key.as_bytes()).await {
-                                                if let Ok(caps) = serde_json::from_slice::<serde_json::Value>(&caps_bytes) {
-                                                    if let Some(addr) = caps.get("http_addr").and_then(|v| v.as_str()) {
-                                                        let url = format!("{}/svdb/chunk/{}", addr.trim_end_matches('/'), cid_hex);
-                                                        if let Ok(resp) = HttpClient::new().get(url).send().await {
-                                                            if resp.status().is_success() {
-                        if let Ok(bytes) = resp.bytes().await { let v = bytes.to_vec(); out.extend_from_slice(&v); let _ = ChunkStore::put(&svdb, &e.cid, &v).await; fetched = true; break; }
+                    let k = manifest.erasure_data_shards.unwrap_or(0) as usize;
+                    let m = manifest.erasure_parity_shards.unwrap_or(0) as usize;
+                    if k > 0 && m > 0 {
+                        let n = k + m;
+                        let mut idx = 0usize;
+                        while idx < entries.len() {
+                            let group = &entries[idx..core::cmp::min(idx + n, entries.len())];
+                            if group.len() < n { // Incomplete stripe should not happen; fallback to raw
+                                for e in group {
+                                    if let Ok(bytes) = ChunkStore::get(&svdb, &e.cid).await { out.extend_from_slice(&bytes); }
+                                }
+                                break;
+                            }
+                            let mut shards: Vec<Option<Vec<u8>>> = vec![None; n];
+                            for (i, e) in group.iter().enumerate() {
+                                match ChunkStore::get(&svdb, &e.cid).await {
+                                    Ok(bytes) => { shards[i] = Some(bytes); }
+                                    Err(_) => {
+                                        // Try fetch from providers
+                                        let cid_hex = hex::encode(e.cid.blake3);
+                                        let prov_key = format!("prov:{}", cid_hex);
+                                        let mut fetched_opt: Option<Vec<u8>> = None;
+                                        if let Ok(Some(pbytes)) = deal_store.get(prov_key.as_bytes()).await {
+                                            if let Ok(providers) = serde_json::from_slice::<Vec<String>>(&pbytes) {
+                                                for pid in providers {
+                                                    let cap_key = format!("caps:{}", pid);
+                                                    if let Ok(Some(caps_bytes)) = deal_store.get(cap_key.as_bytes()).await {
+                                                        if let Ok(caps) = serde_json::from_slice::<serde_json::Value>(&caps_bytes) {
+                                                            if let Some(addr) = caps.get("http_addr").and_then(|v| v.as_str()) {
+                                                                let url = format!("{}/svdb/chunk/{}", addr.trim_end_matches('/'), cid_hex);
+                                                                if let Ok(resp) = HttpClient::new().get(url).send().await {
+                                                                    if resp.status().is_success() {
+                                                                        if let Ok(bytes) = resp.bytes().await {
+                                                                            let v = bytes.to_vec(); let _ = ChunkStore::put(&svdb, &e.cid, &v).await; fetched_opt = Some(v); break;
+                                                                        }
+                                                                    }
+                                                                }
                                                             }
                                                         }
                                                     }
                                                 }
                                             }
                                         }
-                                        if !fetched { return Err(axum::http::StatusCode::NOT_FOUND); }
-                                    } else {
-                                        return Err(axum::http::StatusCode::NOT_FOUND);
+                                        if let Some(v) = fetched_opt { shards[i] = Some(v); }
                                     }
-                                } else {
-                                    return Err(axum::http::StatusCode::NOT_FOUND);
+                                }
+                            }
+                            // Reconstruct if needed
+                            let present = shards.iter().filter(|s| s.is_some()).count();
+                            if present < k {
+                                // attempt reconstruction with helper
+                                let mut shards_mut = shards;
+                                if let Err(_) = svdb.rs_reconstruct_10_8(&mut shards_mut).await { return Err(axum::http::StatusCode::NOT_FOUND); }
+                                for i in 0..k { if let Some(ref s) = shards_mut[i] { out.extend_from_slice(s); } }
+                            } else {
+                                for i in 0..k { if let Some(ref s) = shards[i] { out.extend_from_slice(s); } }
+                            }
+                            idx += n;
+                        }
+                        // Trim to manifest.size
+                        if out.len() as u64 > manifest.size { out.truncate(manifest.size as usize); }
+                    } else {
+                        // No erasure coding recorded; concatenate chunks in order
+                    for e in entries {
+                            match ChunkStore::get(&svdb, &e.cid).await {
+                            Ok(bytes) => {
+                                // Decompress if needed
+                                match manifest.codec {
+                                    Codec::Zstd => { if let Ok(decompressed) = zstd::decode_all(std::io::Cursor::new(bytes)) { out.extend_from_slice(&decompressed); } else { out.extend_from_slice(&bytes); } },
+                                    Codec::Lz4 => { out.extend_from_slice(&bytes); },
+                                    _ => out.extend_from_slice(&bytes),
+                                }
+                            }
+                                Err(_) => {
+                                    let cid_hex = hex::encode(e.cid.blake3);
+                                    let prov_key = format!("prov:{}", cid_hex);
+                                    if let Ok(Some(pbytes)) = deal_store.get(prov_key.as_bytes()).await {
+                                        if let Ok(providers) = serde_json::from_slice::<Vec<String>>(&pbytes) {
+                                            let mut fetched = false;
+                                            for pid in providers {
+                                                let cap_key = format!("caps:{}", pid);
+                                                if let Ok(Some(caps_bytes)) = deal_store.get(cap_key.as_bytes()).await {
+                                                    if let Ok(caps) = serde_json::from_slice::<serde_json::Value>(&caps_bytes) {
+                                                        if let Some(addr) = caps.get("http_addr").and_then(|v| v.as_str()) {
+                                                            let url = format!("{}/svdb/chunk/{}", addr.trim_end_matches('/'), cid_hex);
+                                                            if let Ok(resp) = HttpClient::new().get(url).send().await {
+                                                                if resp.status().is_success() {
+                                                                    if let Ok(bytes) = resp.bytes().await { let v = bytes.to_vec(); out.extend_from_slice(&v); let _ = ChunkStore::put(&svdb, &e.cid, &v).await; fetched = true; break; }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            if !fetched { return Err(axum::http::StatusCode::NOT_FOUND); }
+                                        } else { return Err(axum::http::StatusCode::NOT_FOUND); }
+                                    } else { return Err(axum::http::StatusCode::NOT_FOUND); }
                                 }
                             }
                         }
@@ -1400,7 +1609,7 @@ pub fn create_testnet_router(
                         let pk_bytes = hex::decode(priv_hex.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
                         use k256::{ecdsa::{SigningKey, signature::Signer}, SecretKey};
                         let pk_arr = GenericArray::from_slice(&pk_bytes);
-                        let sk = SecretKey::from_bytes(pk_arr).unwrap();
+                        let sk = SecretKey::from_slice(pk_arr.as_slice()).unwrap();
                         let signing_key = SigningKey::from(sk);
                         let sig: k256::ecdsa::Signature = signing_key.sign(&sighash);
                         let (r, s) = (sig.r().to_bytes(), sig.s().to_bytes());
@@ -1410,6 +1619,31 @@ pub fn create_testnet_router(
                         let client = HttpClient::new();
                         let payload_rpc = serde_json::json!({"jsonrpc":"2.0","method":"eth_sendRawTransaction","params":[raw_hex],"id":1});
                         let _ = client.post(rpc_url).json(&payload_rpc).send().await.map_err(|_| axum::http::StatusCode::BAD_GATEWAY)?;
+                    }
+
+                    // Record retrieval stats (aggregate off-chain; optional on-chain settlement above)
+                    {
+                        let now = chrono::Utc::now().timestamp() as u64;
+                        let cid_hex = hex::encode(manifest.merkle_root);
+                        let rec_key = format!("retrievals:{}:{}:{}", cid_hex, now, rand::random::<u64>());
+                        let total_fee_wei_str = fee_wei.to_string();
+                        let provider = headers.get("X-Artha-Provider").and_then(|v| v.to_str().ok()).unwrap_or("");
+                        let rec = serde_json::json!({
+                            "cid": format!("artha://{}", cid_b64),
+                            "bytes": served_len as u64,
+                            "feeWei": total_fee_wei_str,
+                            "provider": provider,
+                            "ts": now
+                        });
+                        let _ = deal_store.put(rec_key.as_bytes(), serde_json::to_string(&rec).unwrap().as_bytes()).await;
+                        let per_idx_key = format!("retrievals:{}:index", cid_hex);
+                        let mut per_idx: Vec<String> = match deal_store.get(per_idx_key.as_bytes()).await { Ok(Some(b)) => serde_json::from_slice(&b).unwrap_or_default(), _ => Vec::new() };
+                        per_idx.push(rec_key.clone());
+                        let _ = deal_store.put(per_idx_key.as_bytes(), serde_json::to_vec(&per_idx).unwrap().as_slice()).await;
+                        let idx_key = b"retrievals:index";
+                        let mut all_idx: Vec<String> = match deal_store.get(idx_key).await { Ok(Some(b)) => serde_json::from_slice(&b).unwrap_or_default(), _ => Vec::new() };
+                        all_idx.push(rec_key);
+                        let _ = deal_store.put(idx_key, serde_json::to_vec(&all_idx).unwrap().as_slice()).await;
                     }
 
                     // Build HTTP response with range headers
@@ -1492,6 +1726,160 @@ pub fn create_testnet_router(
                         "totalFeeWei": total_fee_wei.to_string(),
                         "byCid": per_cid,
                     })))
+                }
+            }
+        }))
+        // Aggregate retrievals for a CID and settle on-chain using DealMarket aggregate variants
+        .route("/svdb/retrievals/aggregate/settle", post({
+            let deal_store = deal_store.clone();
+            move |Json(body): Json<serde_json::Value>| {
+                let deal_store = deal_store.clone();
+                async move {
+                    // Inputs
+                    let rpc_url = body.get("rpcUrl").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                    let chain_id = body.get("chainId").and_then(|v| v.as_u64()).ok_or(axum::http::StatusCode::BAD_REQUEST)? as u128;
+                    let priv_hex = body.get("privateKey").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                    let deal_market = body.get("dealMarket").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                    let cid_uri = body.get("cid").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                    let provider_hex = body.get("provider").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+
+                    // Parse CID to get root and per-cid retrieval index
+                    let b64 = cid_uri.trim_start_matches("artha://");
+                    let bytes = base64::engine::general_purpose::STANDARD_NO_PAD.decode(b64).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                    if bytes.len() < 2 + 32 + 1 + 8 + 1 { return Err(axum::http::StatusCode::BAD_REQUEST); }
+                    let mut bl=[0u8;32]; bl.copy_from_slice(&bytes[2..34]);
+                    let cid_hex = hex::encode(bl);
+                    let mroot = bl; // manifestRoot bytes32
+
+                    // Load per-cid retrieval records
+                    let per_idx_key = format!("retrievals:{}:index", cid_hex);
+                    let keys: Vec<String> = match deal_store.get(per_idx_key.as_bytes()).await { Ok(Some(b)) => serde_json::from_slice(&b).unwrap_or_default(), _ => Vec::new() };
+                    if keys.is_empty() { return Err(axum::http::StatusCode::BAD_REQUEST); }
+
+                    // Build Merkle tree of record JSON blobs; leaf = keccak(blob)
+                    fn keccak(input: &[u8]) -> [u8;32] { use tiny_keccak::Hasher; let mut h=tiny_keccak::Keccak::v256(); let mut out=[0u8;32]; h.update(input); h.finalize(&mut out); out }
+                    let mut leaves: Vec<[u8;32]> = Vec::new();
+                    let mut blobs: Vec<Vec<u8>> = Vec::new();
+                    let mut total_wei: u128 = 0;
+                    for k in &keys {
+                        if let Ok(Some(v)) = deal_store.get(k.as_bytes()).await {
+                            blobs.push(v.clone());
+                            let leaf = keccak(&v);
+                            leaves.push(leaf);
+                            if let Ok(rec) = serde_json::from_slice::<serde_json::Value>(&v) {
+                                if let Some(f) = rec.get("feeWei").and_then(|x| x.as_str()).and_then(|s| s.parse::<u128>().ok()) { total_wei += f; }
+                            }
+                        }
+                    }
+                    if leaves.is_empty() { return Err(axum::http::StatusCode::BAD_REQUEST); }
+                    // compute merkle root
+                    let mut level = leaves.clone();
+                    while level.len() > 1 {
+                        let mut next = Vec::with_capacity((level.len()+1)/2);
+                        let mut i = 0;
+                        while i < level.len() {
+                            let l = level[i];
+                            let r = if i+1 < level.len() { level[i+1] } else { l };
+                            next.push(keccak(&[l.as_slice(), r.as_slice()].concat()));
+                            i += 2;
+                        }
+                        level = next;
+                    }
+                    let merkle_root = level[0];
+
+                    // Submit DealMarket.recordRetrievalAggregateProof with any one leaf and its branch as receipt, or without proof if branch building fails
+                    // Build one branch for leaf 0
+                    let mut branch: Vec<[u8;32]> = Vec::new();
+                    {
+                        let mut lvl = leaves.clone();
+                        let mut idx = 0usize;
+                        while lvl.len() > 1 {
+                            let mut next = Vec::with_capacity((lvl.len()+1)/2);
+                            let mut i = 0;
+                            while i < lvl.len() {
+                                let l = lvl[i];
+                                let r = if i+1 < lvl.len() { lvl[i+1] } else { l };
+                                if i == (idx ^ 1) || i+1 == (idx ^ 1) { let sib = if idx % 2 == 0 { r } else { l }; branch.push(sib); }
+                                next.push(keccak(&[l.as_slice(), r.as_slice()].concat()));
+                                i += 2;
+                            }
+                            lvl = next; idx >>= 1;
+                        }
+                    }
+
+                    // Build transaction
+                    fn rlp_bytes(b:&[u8])->Vec<u8>{ if b.len()==1 && b[0]<0x80 {return b.to_vec();} if b.len()<=55 {let mut out=vec![0x80 + b.len() as u8]; out.extend_from_slice(b); return out;} let mut n=b.len(); let mut v=Vec::new(); let mut s=Vec::new(); while n>0{s.push((n&0xff)as u8); n>>=8;} for c in s.iter().rev(){v.push(*c);} let mut out=vec![0xb7+v.len()as u8]; out.extend_from_slice(&v); out.extend_from_slice(b); out }
+                    fn rlp_u256(x:u128)->Vec<u8>{ if x==0{return vec![0x80];} let mut n=x; let mut tmp=Vec::new(); while n>0{tmp.push((n&0xff)as u8); n>>=8;} rlp_bytes(&tmp.iter().rev().cloned().collect::<Vec<_>>()) }
+                    fn rlp_list(items:&[Vec<u8>])->Vec<u8>{ let payload_len:usize=items.iter().map(|i|i.len()).sum(); let mut payload=Vec::with_capacity(payload_len); for i in items{payload.extend_from_slice(i);} if payload_len<=55{let mut out=vec![0xc0+payload_len as u8]; out.extend_from_slice(&payload); return out;} let mut n=payload_len; let mut v=Vec::new(); let mut s=Vec::new(); while n>0{s.push((n&0xff)as u8); n>>=8;} for c in s.iter().rev(){v.push(*c);} let mut out=vec![0xf7+v.len()as u8]; out.extend_from_slice(&v); out.extend_from_slice(&payload); out }
+                    fn enc_bytes32(b:&[u8])->Vec<u8>{ let mut out=vec![0u8;32]; out.copy_from_slice(b); out.to_vec() }
+                    fn enc_address(b:&[u8])->Vec<u8>{ let mut out=vec![0u8;32]; out[12..].copy_from_slice(b); out }
+                    fn keccak4(s:&[u8])->[u8;4]{ let k=keccak(s); [k[0],k[1],k[2],k[3]] }
+                    let to = hex::decode(deal_market.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                    let provider = hex::decode(provider_hex.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                    // Prefer proof variant
+                    let selector = keccak4(b"recordRetrievalAggregateProof(bytes32,bytes32,bytes32,bytes32[],uint256,address)");
+                    let mut data = Vec::new();
+                    data.extend_from_slice(&selector);
+                    data.extend_from_slice(&enc_bytes32(&mroot));
+                    data.extend_from_slice(&enc_bytes32(&merkle_root));
+                    data.extend_from_slice(&enc_bytes32(&leaves[0]));
+                    // dynamic array branch
+                    let mut tail = Vec::new();
+                    tail.extend_from_slice(&rlp_u256(branch.len() as u128));
+                    for b in &branch { tail.extend_from_slice(&enc_bytes32(b)); }
+                    // offset for branch after 5 words (approximate static layout)
+                    data.extend_from_slice(&rlp_u256((32*5) as u128));
+                    data.extend_from_slice(&rlp_u256(0)); // index = 0
+                    data.extend_from_slice(&tail);
+                    data.extend_from_slice(&enc_address(&provider));
+                    // Send tx with value = total_wei
+                    let gas_price=1_000_000_000u128; let gas_limit=500_000u128; let nonce=0u128; let value=total_wei;
+                    let tx_parts=vec![ rlp_u256(nonce), rlp_u256(gas_price), rlp_u256(gas_limit), rlp_bytes(&to), rlp_u256(value), rlp_bytes(&data), rlp_u256(chain_id), rlp_u256(0), rlp_u256(0) ];
+                    let sighash=keccak(&rlp_list(&tx_parts));
+                    let pk_bytes=hex::decode(priv_hex.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                    use k256::{ecdsa::{SigningKey, signature::Signer}, SecretKey}; let sk=SecretKey::from_slice(&pk_bytes).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?; let signing_key=SigningKey::from(sk); let sig: k256::ecdsa::Signature = signing_key.sign(&sighash); let (r,s)=(sig.r().to_bytes(), sig.s().to_bytes()); let v=(chain_id*2+35) as u8;
+                    let raw=rlp_list(&[ rlp_u256(nonce), rlp_u256(gas_price), rlp_u256(gas_limit), rlp_bytes(&to), rlp_u256(value), rlp_bytes(&data), rlp_u256(v as u128), rlp_bytes(&r.to_vec()), rlp_bytes(&s.to_vec()) ]);
+                    let raw_hex=format!("0x{}", hex::encode(raw)); let client=HttpClient::new(); let payload_rpc=serde_json::json!({"jsonrpc":"2.0","method":"eth_sendRawTransaction","params":[raw_hex],"id":1}); let resp=client.post(rpc_url).json(&payload_rpc).send().await.map_err(|_| axum::http::StatusCode::BAD_GATEWAY)?; let json: serde_json::Value = resp.json().await.map_err(|_| axum::http::StatusCode::BAD_GATEWAY)?;
+                    Ok::<_, axum::http::StatusCode>(Json(json))
+                }
+            }
+        }))
+        // ArthaBlobs: submit a blob (base64) with optional anchor CID
+        .route("/svdb/blobs/submit", post({
+            let svdb = svdb.clone();
+            let deal_store = deal_store.clone();
+            move |Json(body): Json<serde_json::Value>| {
+                let svdb = svdb.clone();
+                let deal_store = deal_store.clone();
+                async move {
+                    let data_b64 = body.get("data").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                    let data = base64::engine::general_purpose::STANDARD_NO_PAD.decode(data_b64).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                    let anchor = body.get("anchorCid").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                    let hash = keccak_bytes(&data);
+                    let key = [b"blob:".as_ref(), &hash].concat();
+                    Storage::put(&svdb, &key, &data).await.map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+                    let rec = serde_json::json!({"size": data.len(), "anchorCid": anchor, "ts": chrono::Utc::now().to_rfc3339()});
+                    let meta_key = format!("blobmeta:{}", hex::encode(hash));
+                    deal_store.put(meta_key.as_bytes(), serde_json::to_vec(&rec).unwrap().as_slice()).await.map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+                    Ok::<_, axum::http::StatusCode>(Json(serde_json::json!({"hash": format!("0x{}", hex::encode(hash)), "bytes": data.len()})))
+                }
+            }
+        }))
+        // ArthaBlobs: info for a blob by hash (0x...)
+        .route("/svdb/blobs/info/:hash", get({
+            let svdb = svdb.clone();
+            let deal_store = deal_store.clone();
+            move |axum::extract::Path(hash_hex): axum::extract::Path<String>| {
+                let svdb = svdb.clone();
+                let deal_store = deal_store.clone();
+                async move {
+                    let bytes = hex::decode(hash_hex.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                    if bytes.len()!=32 { return Err(axum::http::StatusCode::BAD_REQUEST); }
+                    let key = [b"blob:".as_ref(), &bytes].concat();
+                    let size = match Storage::get(&svdb, &key).await { Ok(Some(v)) => v.len(), _ => 0 };
+                    let meta_key = format!("blobmeta:{}", hex::encode(bytes));
+                    let meta: serde_json::Value = match deal_store.get(meta_key.as_bytes()).await { Ok(Some(b)) => serde_json::from_slice(&b).unwrap_or(serde_json::json!({})), _ => serde_json::json!({}) };
+                    Ok::<_, axum::http::StatusCode>(Json(serde_json::json!({"hash": format!("0x{}", hex::encode(bytes)), "size": size, "meta": meta})))
                 }
             }
         }))
@@ -1604,7 +1992,7 @@ pub fn create_testnet_router(
                 let sighash = keccak(&rlp_list(&tx_parts));
                 let pk_bytes = hex::decode(priv_hex.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
                 use k256::{ecdsa::{SigningKey, signature::Signer}, SecretKey};
-                let sk = SecretKey::from_bytes(&pk_bytes).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                let sk = SecretKey::from_slice(&pk_bytes).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
                 let signing_key = SigningKey::from(sk);
                 let sig: k256::ecdsa::Signature = signing_key.sign(&sighash);
                 let (r, s) = (sig.r().to_bytes(), sig.s().to_bytes());
@@ -1621,7 +2009,7 @@ pub fn create_testnet_router(
         // Pin / Unpin and GC
         .route("/svdb/pin", post({
             let deal_store = deal_store.clone();
-            move |Json(body): Json<serde_json::Value>, headers: HeaderMap| async move {
+            move |Json(body): Json<serde_json::Value>, headers: HeaderMap| async move -> Result<Json<serde_json::Value>, axum::http::StatusCode> {
                 let client_ip = headers.get("X-Client-IP").and_then(|v| v.to_str().ok()).unwrap_or("unknown");
                 let now_min = (chrono::Utc::now().timestamp() / 60).to_string();
                 let rl_key = format!("ratelimit:pin:{}:{}", client_ip, now_min);
@@ -1643,7 +2031,7 @@ pub fn create_testnet_router(
         }))
         .route("/svdb/unpin", post({
             let deal_store = deal_store.clone();
-            move |Json(body): Json<serde_json::Value>, headers: HeaderMap| async move {
+            move |Json(body): Json<serde_json::Value>, headers: HeaderMap| async move -> Result<Json<serde_json::Value>, axum::http::StatusCode> {
                 let client_ip = headers.get("X-Client-IP").and_then(|v| v.to_str().ok()).unwrap_or("unknown");
                 let now_min = (chrono::Utc::now().timestamp() / 60).to_string();
                 let rl_key = format!("ratelimit:unpin:{}:{}", client_ip, now_min);
@@ -1690,6 +2078,7 @@ pub fn create_testnet_router(
                     // Delete chunks for manifests with zero pins and past grace period
                     let list: Vec<String> = match deal_store.get(b"mf:all").await { Ok(Some(b)) => serde_json::from_slice(&b).unwrap_or_default(), _ => Vec::new() };
                     let grace_secs: i64 = std::env::var("ARTHA_GC_GRACE_SECS").ok().and_then(|v| v.parse().ok()).unwrap_or(86400);
+                    let archive_mode = std::env::var("ARTHA_ROLE_ARCHIVE").ok().map(|v| v=="1"||v.eq_ignore_ascii_case("true")).unwrap_or(false);
                     let mut deleted = 0u64;
                     for cid_uri in list {
                         let enc = cid_uri.trim_start_matches("artha://");
@@ -1700,6 +2089,7 @@ pub fn create_testnet_router(
                         let pin_key = format!("pin:{}", cid_hex);
                         let pins = match deal_store.get(pin_key.as_bytes()).await { Ok(Some(b)) => u64::from_le_bytes(b.try_into().unwrap_or([0u8;8])), _ => 0 };
                         if pins>0 { continue; }
+                        if archive_mode { continue; } // Archive nodes never delete
                         // Deletion window keyed by mf:del:<cid>
                         let del_key = format!("mf:del:{}", cid_hex);
                         let now = chrono::Utc::now().timestamp();
@@ -1771,8 +2161,10 @@ pub fn create_testnet_router(
         }))
         .route("/svdb/info/:cid_b64", get({
             let svdb = svdb.clone();
-            move |axum::extract::Path(cid_b64): axum::extract::Path<String>| {
+            let deal_store = deal_store.clone();
+            move |axum::extract::Path(cid_b64): axum::extract::Path<String>, headers: HeaderMap| {
                 let svdb = svdb.clone();
+                let deal_store = deal_store.clone();
                 async move {
                     let enc = cid_b64.trim_start_matches("artha://");
                     let bytes = match base64::engine::general_purpose::STANDARD_NO_PAD.decode(enc) {
@@ -1787,6 +2179,58 @@ pub fn create_testnet_router(
                     let mut sz=[0u8;8]; sz.copy_from_slice(&bytes[cursor..cursor+8]); cursor+=8; let size = u64::from_be_bytes(sz);
                     let codec = match bytes[cursor] {0=>Codec::Raw,1=>Codec::Zstd,2=>Codec::Lz4,_=>Codec::Raw};
                     let m_cid = Cid::new(codec_tag, blake, poseidon, size, codec);
+                    // Access enforcement for manifest info
+                    let cid_hex = hex::encode(blake);
+                    let policy_key = format!("access:{}", cid_hex);
+                    if let Ok(Some(pol_bytes)) = deal_store.get(policy_key.as_bytes()).await {
+                        if let Ok(policy) = serde_json::from_slice::<serde_json::Value>(&pol_bytes) {
+                            let mode = policy.get("mode").and_then(|v| v.as_str()).unwrap_or("public");
+                            if mode == "private" || mode == "allowlist" || mode == "token" || mode == "tee" {
+                                if mode == "allowlist" {
+                                    // Expect headers: X-Artha-DID, X-Artha-Expiry, X-Artha-Signature
+                                    let did = headers.get("X-Artha-DID").and_then(|v| v.to_str().ok()).ok_or(axum::http::StatusCode::UNAUTHORIZED)?;
+                                    let pubhex = did.strip_prefix("did:artha:").ok_or(axum::http::StatusCode::UNAUTHORIZED)?;
+                                    // Basic allowlist check
+                                    let allowed = policy.get("allowedDids").and_then(|v| v.as_array()).unwrap_or(&vec![]);
+                                    let mut ok=false; for a in allowed { if a.as_str()==Some(did) { ok=true; break; } }
+                                    if !ok { return Err(axum::http::StatusCode::UNAUTHORIZED); }
+                                    // Optional signature/expiry validation (best-effort)
+                                    if let (Some(exp), Some(sig)) = (headers.get("X-Artha-Expiry").and_then(|v| v.to_str().ok()), headers.get("X-Artha-Signature").and_then(|v| v.to_str().ok())) {
+                                        let now = chrono::Utc::now().timestamp() as u64;
+                                        let exp_u = exp.parse::<u64>().unwrap_or(0);
+                                        if now > exp_u { return Err(axum::http::StatusCode::UNAUTHORIZED); }
+                                        let msg = format!("CID:{}:EXP:{}", cid_hex, exp_u);
+                                        if let (Ok(pub_bytes), Ok(sig_bytes)) = (hex::decode(pubhex.trim_start_matches("0x")), hex::decode(sig.trim_start_matches("0x"))) {
+                                            if let (Ok(vk), Ok(signature)) = (k256::ecdsa::VerifyingKey::from_sec1_bytes(&pub_bytes), k256::ecdsa::Signature::from_slice(&sig_bytes)) {
+                                                use k256::ecdsa::signature::Verifier;
+                                                if vk.verify(msg.as_bytes(), &signature).is_err() { return Err(axum::http::StatusCode::UNAUTHORIZED); }
+                                            }
+                                        }
+                                    }
+                                } else if mode == "token" {
+                                    let tok = headers.get("X-Artha-Token").and_then(|v| v.to_str().ok()).ok_or(axum::http::StatusCode::UNAUTHORIZED)?;
+                                    let hash = keccak_bytes(tok.as_bytes());
+                                    let expected = policy.get("tokenHash").and_then(|v| v.as_str()).unwrap_or("");
+                                    if expected.strip_prefix("0x") != Some(&hex::encode(hash)) { return Err(axum::http::StatusCode::UNAUTHORIZED); }
+                                } else if mode == "tee" {
+                                    // Require recent SGX attestation for X-Artha-Client
+                                    let client_id = headers.get("X-Artha-Client").and_then(|v| v.to_str().ok()).ok_or(axum::http::StatusCode::UNAUTHORIZED)?;
+                                    let key = format!("sgxatt:{}", client_id);
+                                    let att = deal_store.get(key.as_bytes()).await.map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+                                    let Some(data) = att else { return Err(axum::http::StatusCode::UNAUTHORIZED) };
+                                    let parsed: serde_json::Value = serde_json::from_slice(&data).unwrap_or(serde_json::json!({}));
+                                    let ok = parsed.get("is_valid").and_then(|v| v.as_bool()).unwrap_or(false);
+                                    if !ok { return Err(axum::http::StatusCode::UNAUTHORIZED); }
+                                    // Optional MRENCLAVE/MRSIGNER filters from policy
+                                    if let Some(expect_enclave) = policy.get("mrEnclave").and_then(|v| v.as_str()) { if parsed.get("mr_enclave").and_then(|v| v.as_str()) != Some(expect_enclave) { return Err(axum::http::StatusCode::FORBIDDEN); } }
+                                    if let Some(expect_signer) = policy.get("mrSigner").and_then(|v| v.as_str()) { if parsed.get("mr_signer").and_then(|v| v.as_str()) != Some(expect_signer) { return Err(axum::http::StatusCode::FORBIDDEN); } }
+                                } else {
+                                    // private mode without allowlist/token denies by default
+                                    return Err(axum::http::StatusCode::UNAUTHORIZED);
+                                }
+                            }
+                        }
+                    }
                     let manifest = svdb.get_manifest(&m_cid).await.map_err(|_| axum::http::StatusCode::NOT_FOUND)?;
                     let root_blake3 = hex::encode(manifest.merkle_root);
                     let root_poseidon = manifest.poseidon_root.map(|r| hex::encode(r));
@@ -1836,13 +2280,11 @@ pub fn create_testnet_router(
                 let codec = match bytes[cursor] {0=>Codec::Raw,1=>Codec::Zstd,2=>Codec::Lz4,_=>Codec::Raw};
                 let m_cid = Cid::new(codec_tag, blake, poseidon, cid_size, codec);
 
-                // Validate manifest exists
-                let _ = svdb.get_manifest(&m_cid).await.map_err(|_| axum::http::StatusCode::NOT_FOUND)?;
-
+                // Validate manifest exists and load it
+                let manifest = svdb.get_manifest(&m_cid).await.map_err(|_| axum::http::StatusCode::NOT_FOUND)?;
                 // Compute endowment (flat price per GB-month)
                 let gb = (size as f64) / (1024.0*1024.0*1024.0);
                 let endowment = (gb * (months as f64) * (replicas as f64) * max_price).ceil() as u64;
-
                 // Mandatory on-chain integration
                 if let (Some(rpc_url), Some(chain_id), Some(priv_hex), Some(deal_market)) = (
                     payload.get("rpcUrl").and_then(|v| v.as_str()),
@@ -1856,16 +2298,12 @@ pub fn create_testnet_router(
                     fn enc_bytes32(b: &[u8]) -> Vec<u8> { let mut out = vec![0u8;32]; out.copy_from_slice(b); out.to_vec() }
                     fn keccak(input: &[u8]) -> [u8;32] { use tiny_keccak::Hasher; let mut hasher = tiny_keccak::Keccak::v256(); let mut out=[0u8;32]; hasher.update(input); hasher.finalize(&mut out); out }
 
-                    // manifest root as bytes32 (use computed root if manifest not bound here)
-                    let root = {
-                        // try to pull from payload or previously computed variable `manifest_root`
-                        if let Some(r) = payload.get("manifestRoot").and_then(|v| v.as_str()).and_then(|h| hex::decode(h.trim_start_matches("0x")).ok()).and_then(|v| <[u8;32]>::try_from(v).ok()) {
-                            r
-                        } else {
-                            // fallback: error out clearly if missing
-                            return Err(axum::http::StatusCode::BAD_REQUEST);
-                        }
-                    };
+                    // Use manifest.merkle_root as root
+                    let root = manifest.merkle_root;
+                    // Persist deal market mapping for scheduler/slashing
+                    let root_hex = format!("0x{}", hex::encode(root));
+                    let dm_key = format!("dealmarket:{}", root_hex);
+                    let _ = deal_store_rl.put(dm_key.as_bytes(), deal_market.as_bytes()).await;
                     let selector = &keccak(b"createDeal(bytes32,uint64,uint32,uint32)")[0..4];
                     let mut data = Vec::with_capacity(4 + 32*4);
                     data.extend_from_slice(selector);
@@ -1875,7 +2313,7 @@ pub fn create_testnet_router(
                     data.extend_from_slice(&enc_u256(months as u128));
 
                     // RLP sign legacy TX
-                    fn rlp_bytes(b: &[u8]) -> Vec<u8> { if b.len()==1 && b[0]<0x80 { return b.to_vec(); } if b.len()<=55 { let mut out=vec![0x80 + b.len() as u8]; out.extend_from_slice(b); return out; } let mut len= b.len(); let mut v=Vec::new(); let mut s=Vec::new(); while len>0 { s.push((len & 0xff) as u8); len >>= 8; } for c in s.iter().rev(){ v.push(*c); } let mut out=vec![0xb7 + v.len() as u8]; out.extend_from_slice(&v); out.extend_from_slice(b); out }
+                    fn rlp_bytes(b: &[u8]) -> Vec<u8> { if b.len()==1 && b[0]<0x80 { return b.to_vec(); } if b.len()<=55 { let mut out=vec![0x80 + b.len() as u8]; out.extend_from_slice(b); return out; } let mut len= b.len(); let mut v=Vec::new(); let mut s=Vec::new(); while len>0{ s.push((len & 0xff) as u8); len >>= 8; } for c in s.iter().rev(){ v.push(*c); } let mut out=vec![0xb7 + v.len() as u8]; out.extend_from_slice(&v); out.extend_from_slice(b); out }
                     fn rlp_u256(x: u128) -> Vec<u8> { if x==0 { return vec![0x80]; } let mut n=x; let mut tmp=Vec::new(); while n>0 { tmp.push((n & 0xff) as u8); n >>= 8; } rlp_bytes(&tmp.iter().rev().cloned().collect::<Vec<_>>()) }
                     fn rlp_list(items: &[Vec<u8>]) -> Vec<u8> { let payload_len: usize = items.iter().map(|i| i.len()).sum(); let mut payload=Vec::with_capacity(payload_len); for i in items { payload.extend_from_slice(i); } if payload_len<=55 { let mut out=vec![0xc0 + payload_len as u8]; out.extend_from_slice(&payload); return out; } let mut n=payload_len; let mut v=Vec::new(); let mut s=Vec::new(); while n>0{ s.push((n & 0xff) as u8); n >>= 8; } for c in s.iter().rev(){ v.push(*c);} let mut out=vec![0xf7 + v.len() as u8]; out.extend_from_slice(&v); out.extend_from_slice(&payload); out }
 
@@ -1901,7 +2339,7 @@ pub fn create_testnet_router(
                     use k256::{ecdsa::{SigningKey, signature::Signer}, SecretKey};
                     use elliptic_curve::generic_array::GenericArray;
                     let pk_array = GenericArray::from_slice(&pk_bytes);
-                    let sk = SecretKey::from_bytes(pk_array).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                    let sk = SecretKey::from_slice(pk_array.as_slice()).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
                     let signing_key = SigningKey::from(sk);
                     let sig: k256::ecdsa::Signature = signing_key.sign(&sighash);
                     let (r, s) = (sig.r().to_bytes(), sig.s().to_bytes());
@@ -2028,7 +2466,6 @@ pub fn create_testnet_router(
                 let hex_nonce = val.get("result").and_then(|v| v.as_str()).unwrap_or("0x0");
                 u64::from_str_radix(hex_nonce.trim_start_matches("0x"), 16).unwrap_or(0) as u128
                 };
-
                 // Build raw tx
                 let tx_parts = vec![ rlp_u256(nonce), rlp_u256(gas_price), rlp_u256(gas_limit), rlp_bytes(&to), rlp_u256(0), rlp_bytes(&data_bytes), rlp_u256(chain_id as u128), rlp_u256(0), rlp_u256(0) ];
                 let sighash = keccak(&rlp_list(&tx_parts));
@@ -2036,7 +2473,7 @@ pub fn create_testnet_router(
                 use k256::{ecdsa::{SigningKey, signature::Signer}, SecretKey};
                 use elliptic_curve::generic_array::GenericArray;
                 let pk_arr = GenericArray::from_slice(&pk_bytes);
-                let sk = SecretKey::from_bytes(pk_arr).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                let sk = SecretKey::from_slice(pk_arr.as_slice()).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
                 let signing_key = SigningKey::from(sk);
                 let sig: k256::ecdsa::Signature = signing_key.sign(&sighash);
                 let (r, s) = (sig.r().to_bytes(), sig.s().to_bytes());
@@ -2172,7 +2609,13 @@ pub fn create_testnet_router(
                     let pose_root = match manifest.poseidon_root { Some(r)=>r, None=>return Err(axum::http::StatusCode::BAD_REQUEST) };
 
                     // Compose Poseidon path (replaced with keccak-based pair hash to remove dependency)
-                    fn poseidon_hash2(l: &[u8;32], r: &[u8;32]) -> [u8;32] { let h = keccak_bytes(&[l.as_slice(), r.as_slice()].concat()); let mut out=[0u8;32]; out.copy_from_slice(&h); out }
+                    fn poseidon_hash2(l: &[u8;32], r: &[u8;32]) -> [u8;32] {
+                        use light_poseidon::Poseidon;
+                        use ark_bn254::Fr;
+                        let mut p = Poseidon::<Fr>::new_circom(2).expect("poseidon");
+                        let res = p.hash_bytes_be(&[l.as_slice(), r.as_slice()]).expect("poseidon hash");
+                        let mut out=[0u8;32]; out.copy_from_slice(&res); out
+                    }
 
                     let lb = hex::decode(leaf_hex).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?; if lb.len()!=32 { return Err(axum::http::StatusCode::BAD_REQUEST) }
                     let mut acc=[0u8;32]; acc.copy_from_slice(&lb);
@@ -2196,7 +2639,13 @@ pub fn create_testnet_router(
                 let svdb = svdb.clone();
                 async move {
                     let arr = body.get("proofs").and_then(|v| v.as_array()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
-                    fn poseidon_hash2(l: &[u8;32], r: &[u8;32]) -> [u8;32] { keccak_bytes(&[l.as_slice(), r.as_slice()].concat()) }
+                    fn poseidon_hash2(l: &[u8;32], r: &[u8;32]) -> [u8;32] {
+                        use light_poseidon::Poseidon;
+                        use ark_bn254::Fr;
+                        let mut p = Poseidon::<Fr>::new_circom(2).expect("poseidon");
+                        let res = p.hash_bytes_be(&[l.as_slice(), r.as_slice()]).expect("poseidon hash");
+                        let mut out=[0u8;32]; out.copy_from_slice(&res); out
+                    }
                     let mut results = Vec::with_capacity(arr.len());
                     for item in arr {
                         let cid_uri = item.get("cid").and_then(|v| v.as_str());
@@ -2368,13 +2817,12 @@ pub fn create_testnet_router(
                 rlp_encode_u256(0),
                 ];
                 let sighash = keccak(&rlp_encode_list(&tx_parts));
-
                 // Sign with secp256k1 (k256)
                 let pk_bytes = hex::decode(priv_hex.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
                 use k256::{ecdsa::{SigningKey, signature::Signer}, SecretKey};
                 use elliptic_curve::generic_array::GenericArray;
                 let pk_arr = GenericArray::from_slice(&pk_bytes);
-                let sk = SecretKey::from_bytes(pk_arr).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                let sk = SecretKey::from_slice(pk_arr.as_slice()).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
                 let signing_key = SigningKey::from(sk);
                 let sig: k256::ecdsa::Signature = signing_key.sign(&sighash);
                 let (r, s) = (sig.r().to_bytes(), sig.s().to_bytes());
@@ -2411,12 +2859,14 @@ pub fn create_testnet_router(
                     let gpu = body.get("gpu").and_then(|v| v.as_bool()).unwrap_or(false);
                     let disk_free = body.get("disk_free_bytes").and_then(|v| v.as_u64()).unwrap_or(0);
                     let http_addr = body.get("http_addr").and_then(|v| v.as_str()).unwrap_or("");
+                    let latency_ms = body.get("latency_ms").and_then(|v| v.as_f64()).unwrap_or(f64::INFINITY);
                     let caps = serde_json::json!({
                         "nodeId": node_id,
                         "region": region,
                         "gpu": gpu,
                         "disk_free_bytes": disk_free,
                         "http_addr": http_addr,
+                        "latency_ms": latency_ms,
                         "updated_at": chrono::Utc::now().to_rfc3339()
                     });
                     let key = format!("caps:{}", node_id);
@@ -2526,28 +2976,144 @@ pub fn create_testnet_router(
                     let providers: Vec<String> = match deal_store.get(prov_key.as_bytes()).await { Ok(Some(b)) => serde_json::from_slice(&b).unwrap_or_default(), _ => Vec::new() };
                     // Fetch capabilities for providers
                     let mut ranked: Vec<serde_json::Value> = Vec::new();
+                    let want_region = params.get("region").cloned();
                     for pid in providers {
                         let cap_key = format!("caps:{}", pid);
                         if let Ok(Some(cbytes)) = deal_store.get(cap_key.as_bytes()).await {
                             if let Ok(caps) = serde_json::from_slice::<serde_json::Value>(&cbytes) {
                                 let gpu = caps.get("gpu").and_then(|v| v.as_bool()).unwrap_or(false);
                                 let disk_free = caps.get("disk_free_bytes").and_then(|v| v.as_u64()).unwrap_or(0);
-                                ranked.push(serde_json::json!({"nodeId": pid, "gpu": gpu, "disk_free_bytes": disk_free, "region": caps.get("region").and_then(|v| v.as_str()).unwrap_or("")}));
+                                let region = caps.get("region").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                                let latency_ms = caps.get("latency_ms").and_then(|v| v.as_f64()).unwrap_or(f64::INFINITY);
+                                let region_match = want_region.as_ref().map(|r| r==&region).unwrap_or(false);
+                                ranked.push(serde_json::json!({"nodeId": pid, "gpu": gpu, "disk_free_bytes": disk_free, "region": region, "latency_ms": latency_ms, "region_match": region_match}));
                             }
                         }
                     }
-                    // Sort: prefer GPU, then more disk_free
+                    // Sort: prefer GPU, region match, lower latency, then disk_free
                     ranked.sort_by(|a,b| {
-                        let ga=a.get("gpu").and_then(|v| v.as_bool()).unwrap_or(false);
-                        let gb=b.get("gpu").and_then(|v| v.as_bool()).unwrap_or(false);
-                        if ga!=gb { return if gb { std::cmp::Ordering::Greater } else { std::cmp::Ordering::Less }; }
+                        let ag=a.get("gpu").and_then(|v| v.as_bool()).unwrap_or(false);
+                        let bg=b.get("gpu").and_then(|v| v.as_bool()).unwrap_or(false);
+                        if ag!=bg { return bg.cmp(&ag); }
+                        let arm=a.get("region_match").and_then(|v| v.as_bool()).unwrap_or(false);
+                        let brm=b.get("region_match").and_then(|v| v.as_bool()).unwrap_or(false);
+                        if arm!=brm { return brm.cmp(&arm); }
+                        let al=a.get("latency_ms").and_then(|v| v.as_f64()).unwrap_or(f64::INFINITY);
+                        let bl=b.get("latency_ms").and_then(|v| v.as_f64()).unwrap_or(f64::INFINITY);
+                        if al.is_finite() || bl.is_finite() { return al.partial_cmp(&bl).unwrap_or(std::cmp::Ordering::Equal); }
                         let da=a.get("disk_free_bytes").and_then(|v| v.as_u64()).unwrap_or(0);
                         let db=b.get("disk_free_bytes").and_then(|v| v.as_u64()).unwrap_or(0);
-                        da.cmp(&db)
+                        db.cmp(&da)
                     });
-                    ranked.reverse();
+                    // ranked is best-first now
                     Ok::<_, axum::http::StatusCode>(Json(serde_json::json!({"datasetCid": dataset_cid, "plan": ranked})))
                 }
+            }
+        }))
+        // SLA: start
+        .route("/svdb/sla/start", post({
+            move |Json(body): Json<serde_json::Value>| async move {
+                let rpc_url = body.get("rpcUrl").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let chain_id = body.get("chainId").and_then(|v| v.as_u64()).ok_or(axum::http::StatusCode::BAD_REQUEST)? as u128;
+                let priv_hex = body.get("privateKey").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let offer_book = body.get("offerBook").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let provider_hex = body.get("provider").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let root_hex = body.get("manifestRoot").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let tier = body.get("tier").and_then(|v| v.as_u64()).unwrap_or(0) as u128;
+                fn keccak(input:&[u8])->[u8;32]{use tiny_keccak::Hasher; let mut h=tiny_keccak::Keccak::v256(); let mut out=[0u8;32]; h.update(input); h.finalize(&mut out); out }
+                fn rlp_bytes(b:&[u8])->Vec<u8>{ if b.len()==1 && b[0]<0x80 {return b.to_vec();} if b.len()<=55 {let mut out=vec![0x80 + b.len() as u8]; out.extend_from_slice(b); return out;} let mut n=b.len(); let mut v=Vec::new(); let mut s=Vec::new(); while n>0{s.push((n&0xff)as u8); n>>=8;} for c in s.iter().rev(){v.push(*c);} let mut out=vec![0xb7+v.len()as u8]; out.extend_from_slice(&v); out.extend_from_slice(b); out }
+                fn rlp_u256(x:u128)->Vec<u8>{ if x==0{return vec![0x80];} let mut n=x; let mut tmp=Vec::new(); while n>0{tmp.push((n&0xff)as u8); n>>=8;} rlp_bytes(&tmp.iter().rev().cloned().collect::<Vec<_>>()) }
+                fn rlp_list(items:&[Vec<u8>])->Vec<u8>{ let payload_len:usize=items.iter().map(|i|i.len()).sum(); let mut payload=Vec::with_capacity(payload_len); for i in items{payload.extend_from_slice(i);} if payload_len<=55{let mut out=vec![0xc0+payload_len as u8]; out.extend_from_slice(&payload); return out;} let mut n=payload_len; let mut v=Vec::new(); let mut s=Vec::new(); while n>0{s.push((n&0xff)as u8); n>>=8;} for c in s.iter().rev(){v.push(*c);} let mut out=vec![0xf7+v.len()as u8]; out.extend_from_slice(&v); out.extend_from_slice(&payload); out }
+                fn enc_address(b:&[u8])->Vec<u8>{ let mut out=vec![0u8;32]; out[12..].copy_from_slice(b); out }
+                fn enc_bytes32(b:&[u8])->Vec<u8>{ let mut out=vec![0u8;32]; out.copy_from_slice(b); out.to_vec() }
+                let to = hex::decode(offer_book.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                let prov = hex::decode(provider_hex.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                let root = hex::decode(root_hex.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                let selector=&keccak(b"startSla(address,bytes32,uint8)")[0..4];
+                let mut data=Vec::with_capacity(4+32*3);
+                data.extend_from_slice(selector);
+                data.extend_from_slice(&enc_address(&prov));
+                data.extend_from_slice(&enc_bytes32(&root));
+                data.extend_from_slice(&rlp_u256(tier));
+                let gas_price=1_000_000_000u128; let gas_limit=500_000u128; let nonce=0u128; let value=0u128; let chain_id=chain_id;
+                let tx_parts=vec![ rlp_u256(nonce), rlp_u256(gas_price), rlp_u256(gas_limit), rlp_bytes(&to), rlp_u256(value), rlp_bytes(&data), rlp_u256(chain_id), rlp_u256(0), rlp_u256(0) ];
+                let sighash=keccak(&rlp_list(&tx_parts));
+                let pk_bytes=hex::decode(priv_hex.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                use k256::{ecdsa::{SigningKey, signature::Signer}, SecretKey}; let sk=SecretKey::from_slice(&pk_bytes).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?; let signing_key=SigningKey::from(sk); let sig: k256::ecdsa::Signature = signing_key.sign(&sighash); let (r,s)=(sig.r().to_bytes(), sig.s().to_bytes()); let v=(chain_id*2+35) as u8;
+                let raw=rlp_list(&[ rlp_u256(nonce), rlp_u256(gas_price), rlp_u256(gas_limit), rlp_bytes(&to), rlp_u256(value), rlp_bytes(&data), rlp_u256(v as u128), rlp_bytes(&r.to_vec()), rlp_bytes(&s.to_vec()) ]);
+                let raw_hex=format!("0x{}", hex::encode(raw)); let client=HttpClient::new(); let payload_rpc=serde_json::json!({"jsonrpc":"2.0","method":"eth_sendRawTransaction","params":[raw_hex],"id":1}); let resp=client.post(rpc_url).json(&payload_rpc).send().await.map_err(|_| axum::http::StatusCode::BAD_GATEWAY)?; let json: serde_json::Value = resp.json().await.map_err(|_| axum::http::StatusCode::BAD_GATEWAY)?; Ok::<_, axum::http::StatusCode>(Json(json))
+            }
+        }))
+        // SLA: record violation
+        .route("/svdb/sla/violation", post({
+            move |Json(body): Json<serde_json::Value>| async move {
+                let rpc_url = body.get("rpcUrl").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let chain_id = body.get("chainId").and_then(|v| v.as_u64()).ok_or(axum::http::StatusCode::BAD_REQUEST)? as u128;
+                let priv_hex = body.get("privateKey").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let offer_book = body.get("offerBook").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let client_hex = body.get("client").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let provider_hex = body.get("provider").and_then(|v| v.as_str()).ok_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let root_hex = body.get("manifestRoot").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let latency = body.get("latencyMs").and_then(|v| v.as_u64()).unwrap_or(0) as u128;
+                fn keccak(input:&[u8])->[u8;32]{use tiny_keccak::Hasher; let mut h=tiny_keccak::Keccak::v256(); let mut out=[0u8;32]; h.update(input); h.finalize(&mut out); out }
+                fn rlp_bytes(b:&[u8])->Vec<u8>{ if b.len()==1 && b[0]<0x80 {return b.to_vec();} if b.len()<=55 {let mut out=vec![0x80 + b.len() as u8]; out.extend_from_slice(b); return out;} let mut n=b.len(); let mut v=Vec::new(); let mut s=Vec::new(); while n>0{s.push((n&0xff)as u8); n>>=8;} for c in s.iter().rev(){v.push(*c);} let mut out=vec![0xb7+v.len()as u8]; out.extend_from_slice(&v); out.extend_from_slice(b); out }
+                fn rlp_u256(x:u128)->Vec<u8>{ if x==0{return vec![0x80];} let mut n=x; let mut tmp=Vec::new(); while n>0{tmp.push((n&0xff)as u8); n>>=8;} rlp_bytes(&tmp.iter().rev().cloned().collect::<Vec<_>>()) }
+                fn rlp_list(items:&[Vec<u8>])->Vec<u8>{ let payload_len:usize=items.iter().map(|i|i.len()).sum(); let mut payload=Vec::with_capacity(payload_len); for i in items{payload.extend_from_slice(i);} if payload_len<=55{let mut out=vec![0xc0+payload_len as u8]; out.extend_from_slice(&payload); return out;} let mut n=payload_len; let mut v=Vec::new(); let mut s=Vec::new(); while n>0{s.push((n&0xff)as u8); n>>=8;} for c in s.iter().rev(){v.push(*c);} let mut out=vec![0xf7+v.len()as u8]; out.extend_from_slice(&v); out.extend_from_slice(&payload); out }
+                fn enc_address(b:&[u8])->Vec<u8>{ let mut out=vec![0u8;32]; out[12..].copy_from_slice(b); out }
+                fn enc_bytes32(b:&[u8])->Vec<u8>{ let mut out=vec![0u8;32]; out.copy_from_slice(b); out.to_vec() }
+                let to = hex::decode(offer_book.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                let client = hex::decode(client_hex.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                let prov = hex::decode(provider_hex.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                let root = hex::decode(root_hex.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                let selector=&keccak(b"recordViolation(address,address,bytes32,uint256)")[0..4];
+                let mut data=Vec::with_capacity(4+32*4);
+                data.extend_from_slice(selector);
+                data.extend_from_slice(&enc_address(&client));
+                data.extend_from_slice(&enc_address(&prov));
+                data.extend_from_slice(&enc_bytes32(&root));
+                data.extend_from_slice(&rlp_u256(latency));
+                let gas_price=1_000_000_000u128; let gas_limit=300_000u128; let nonce=0u128; let value=0u128; let chain_id=chain_id;
+                let tx_parts=vec![ rlp_u256(nonce), rlp_u256(gas_price), rlp_u256(gas_limit), rlp_bytes(&to), rlp_u256(value), rlp_bytes(&data), rlp_u256(chain_id), rlp_u256(0), rlp_u256(0) ];
+                let sighash=keccak(&rlp_list(&tx_parts));
+                let pk_bytes=hex::decode(priv_hex.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                use k256::{ecdsa::{SigningKey, signature::Signer}, SecretKey}; let sk=SecretKey::from_slice(&pk_bytes).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?; let signing_key=SigningKey::from(sk); let sig: k256::ecdsa::Signature = signing_key.sign(&sighash); let (r,s)=(sig.r().to_bytes(), sig.s().to_bytes()); let v=(chain_id*2+35) as u8;
+                let raw=rlp_list(&[ rlp_u256(nonce), rlp_u256(gas_price), rlp_u256(gas_limit), rlp_bytes(&to), rlp_u256(value), rlp_bytes(&data), rlp_u256(v as u128), rlp_bytes(&r.to_vec()), rlp_bytes(&s.to_vec()) ]);
+                let raw_hex=format!("0x{}", hex::encode(raw)); let http=HttpClient::new(); let payload_rpc=serde_json::json!({"jsonrpc":"2.0","method":"eth_sendRawTransaction","params":[raw_hex],"id":1}); let resp=http.post(rpc_url).json(&payload_rpc).send().await.map_err(|_| axum::http::StatusCode::BAD_GATEWAY)?; let json: serde_json::Value=resp.json().await.map_err(|_| axum::http::StatusCode::BAD_GATEWAY)?; Ok::<_, axum::http::StatusCode>(Json(json))
+            }
+        }))
+        // SLA: close
+        .route("/svdb/sla/close", post({
+            move |Json(body): Json<serde_json::Value>| async move {
+                let rpc_url = body.get("rpcUrl").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let chain_id = body.get("chainId").and_then(|v| v.as_u64()).ok_or(axum::http::StatusCode::BAD_REQUEST)? as u128;
+                let priv_hex = body.get("privateKey").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let offer_book = body.get("offerBook").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let client_hex = body.get("client").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let provider_hex = body.get("provider").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let root_hex = body.get("manifestRoot").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                fn keccak(input:&[u8])->[u8;32]{use tiny_keccak::Hasher; let mut h=tiny_keccak::Keccak::v256(); let mut out=[0u8;32]; h.update(input); h.finalize(&mut out); out }
+                fn rlp_bytes(b:&[u8])->Vec<u8>{ if b.len()==1 && b[0]<0x80 {return b.to_vec();} if b.len()<=55 {let mut out=vec![0x80 + b.len() as u8]; out.extend_from_slice(b); return out;} let mut n=b.len(); let mut v=Vec::new(); let mut s=Vec::new(); while n>0{s.push((n&0xff)as u8); n>>=8;} for c in s.iter().rev(){v.push(*c);} let mut out=vec![0xb7+v.len()as u8]; out.extend_from_slice(&v); out.extend_from_slice(b); out }
+                fn rlp_u256(x:u128)->Vec<u8>{ if x==0{return vec![0x80];} let mut n=x; let mut tmp=Vec::new(); while n>0{tmp.push((n&0xff)as u8); n>>=8;} rlp_bytes(&tmp.iter().rev().cloned().collect::<Vec<_>>()) }
+                fn rlp_list(items:&[Vec<u8>])->Vec<u8>{ let payload_len:usize=items.iter().map(|i|i.len()).sum(); let mut payload=Vec::with_capacity(payload_len); for i in items{payload.extend_from_slice(i);} if payload_len<=55{let mut out=vec![0xc0+payload_len as u8]; out.extend_from_slice(&payload); return out;} let mut n=payload_len; let mut v=Vec::new(); let mut s=Vec::new(); while n>0{s.push((n&0xff)as u8); n>>=8;} for c in s.iter().rev(){v.push(*c);} let mut out=vec![0xf7+v.len()as u8]; out.extend_from_slice(&v); out.extend_from_slice(&payload); out }
+                fn enc_address(b:&[u8])->Vec<u8>{ let mut out=vec![0u8;32]; out[12..].copy_from_slice(b); out }
+                fn enc_bytes32(b:&[u8])->Vec<u8>{ let mut out=vec![0u8;32]; out.copy_from_slice(b); out.to_vec() }
+                let to = hex::decode(offer_book.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                let client = hex::decode(client_hex.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                let prov = hex::decode(provider_hex.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                let root = hex::decode(root_hex.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                let selector=&keccak(b"closeSla(address,address,bytes32)")[0..4];
+                let mut data=Vec::with_capacity(4+32*3);
+                data.extend_from_slice(selector);
+                data.extend_from_slice(&enc_address(&client));
+                data.extend_from_slice(&enc_address(&prov));
+                data.extend_from_slice(&enc_bytes32(&root));
+                let gas_price=1_000_000_000u128; let gas_limit=300_000u128; let nonce=0u128; let value=0u128; let chain_id=chain_id;
+                let tx_parts=vec![ rlp_u256(nonce), rlp_u256(gas_price), rlp_u256(gas_limit), rlp_bytes(&to), rlp_u256(value), rlp_bytes(&data), rlp_u256(chain_id), rlp_u256(0), rlp_u256(0) ];
+                let sighash=keccak(&rlp_list(&tx_parts));
+                let pk_bytes=hex::decode(priv_hex.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                use k256::{ecdsa::{SigningKey, signature::Signer}, SecretKey}; let sk=SecretKey::from_slice(&pk_bytes).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?; let signing_key=SigningKey::from(sk); let sig: k256::ecdsa::Signature = signing_key.sign(&sighash); let (r,s)=(sig.r().to_bytes(), sig.s().to_bytes()); let v=(chain_id*2+35) as u8;
+                let raw=rlp_list(&[ rlp_u256(nonce), rlp_u256(gas_price), rlp_u256(gas_limit), rlp_bytes(&to), rlp_u256(value), rlp_bytes(&data), rlp_u256(v as u128), rlp_bytes(&r.to_vec()), rlp_bytes(&s.to_vec()) ]);
+                let raw_hex=format!("0x{}", hex::encode(raw)); let http=HttpClient::new(); let payload_rpc=serde_json::json!({"jsonrpc":"2.0","method":"eth_sendRawTransaction","params":[raw_hex],"id":1}); let resp=http.post(rpc_url).json(&payload_rpc).send().await.map_err(|_| axum::http::StatusCode::BAD_GATEWAY)?; let json: serde_json::Value=resp.json().await.map_err(|_| axum::http::StatusCode::BAD_GATEWAY)?; Ok::<_, axum::http::StatusCode>(Json(json))
             }
         }))
         .route("/svdb/registry/dataset/:cid", get({
@@ -2589,6 +3155,584 @@ pub fn create_testnet_router(
                 }
             }
         }))
+        // PoRep randomness helper from L1
+        .route("/svdb/porep/randomness", get({
+            move |Query(q): Query<HashMap<String, String>>| async move -> Result<Json<serde_json::Value>, axum::http::StatusCode> {
+                let rpc_url = q.get("rpcUrl").ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let block = q.get("block").and_then(|s| s.parse::<u64>().ok()).unwrap_or(0);
+                fn keccak(input: &[u8]) -> [u8;32] { use tiny_keccak::Hasher; let mut h=tiny_keccak::Keccak::v256(); let mut out=[0u8;32]; h.update(input); h.finalize(&mut out); out }
+                let client = reqwest::Client::new();
+                let target_hex = if block == 0 { "latest".to_string() } else { format!("0x{:x}", block) };
+                let payload = serde_json::json!({"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":[target_hex, false],"id":1});
+                let resp = client.post(rpc_url).json(&payload).send().await.map_err(|_| axum::http::StatusCode::BAD_GATEWAY)?;
+                let val: serde_json::Value = resp.json().await.map_err(|_| axum::http::StatusCode::BAD_GATEWAY)?;
+                let hash_hex = val.get("result").and_then(|r| r.get("hash")).and_then(|v| v.as_str()).unwrap_or("0x00");
+                let bytes = hex::decode(hash_hex.trim_start_matches("0x")).unwrap_or(vec![0]);
+                let rand = if bytes.len()==32 { bytes } else { keccak(&bytes).to_vec() };
+                Ok(Json(serde_json::json!({"randomness": format!("0x{}", hex::encode(rand))})))
+            }
+        }))
+        // PoRep commitment helper
+        .route("/svdb/porep/commitment", post({
+            move |Json(body): Json<serde_json::Value>| async move -> Result<Json<serde_json::Value>, axum::http::StatusCode> {
+                let root = body.get("root").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let randomness = body.get("randomness").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let provider = body.get("provider").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let r_bytes = hex::decode(root.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                let z_bytes = hex::decode(randomness.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                let p_bytes = hex::decode(provider.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                fn keccak(input: &[u8]) -> [u8;32] { use tiny_keccak::Hasher; let mut h=tiny_keccak::Keccak::v256(); let mut out=[0u8;32]; h.update(input); h.finalize(&mut out); out }
+                let mut buf = Vec::new(); buf.extend_from_slice(&r_bytes); buf.extend_from_slice(&z_bytes); buf.extend_from_slice(&p_bytes);
+                let c = keccak(&buf);
+                Ok(Json(serde_json::json!({"commitment": format!("0x{}", hex::encode(c))})))
+            }
+        }))
+        // Explorer: proofs timeline (start epoch, last payout, failures)
+        .route("/svdb/explorer/proofs/:cid_b64", get({
+            let deal_store = deal_store.clone();
+            move |axum::extract::Path(cid_b64): axum::extract::Path<String>| {
+                let deal_store = deal_store.clone();
+                async move {
+                    let enc = cid_b64.trim_start_matches("artha://");
+                    let bytes = match base64::engine::general_purpose::STANDARD_NO_PAD.decode(enc) { Ok(b)=>b, Err(_)=> data_encoding::BASE32_NOPAD.decode(enc.as_bytes()).map_err(|_| axum::http::StatusCode::BAD_REQUEST)? };
+                    if bytes.len() < 2 + 32 { return Err(axum::http::StatusCode::BAD_REQUEST); }
+                    let mut bl=[0u8;32]; bl.copy_from_slice(&bytes[2..34]);
+                    let cid_hex = hex::encode(bl);
+                    let start_key = [b"start:".as_ref(), &bl].concat();
+                    let start = match deal_store.get(&start_key).await { Ok(Some(b)) => u64::from_le_bytes(b.try_into().unwrap_or([0u8;8])), _ => 0 };
+                    let last_key = [b"lastpay:".as_ref(), &bl].concat();
+                    let lastp = match deal_store.get(&last_key).await { Ok(Some(b)) => u64::from_le_bytes(b.try_into().unwrap_or([0u8;8])), _ => 0 };
+                    let mut failures: Vec<serde_json::Value> = Vec::new();
+                    for idx in 0..256u32 {
+                        let fkey = format!("fail:0x{}:{}", cid_hex, idx);
+                        if let Ok(Some(b)) = deal_store.get(fkey.as_bytes()).await {
+                            let cnt = u64::from_le_bytes(b.try_into().unwrap_or([0u8;8]));
+                            if cnt > 0 { failures.push(serde_json::json!({"index": idx, "fails": cnt})); }
+                        }
+                    }
+                    Ok::<_, axum::http::StatusCode>(Json(serde_json::json!({
+                        "cid": cid_b64,
+                        "startEpochTs": start,
+                        "lastPaidEpoch": lastp,
+                        "failures": failures,
+                    })))
+                }
+            }
+        }))
+        // Explorer: cost estimate using oracle (if provided)
+        .route("/svdb/explorer/cost/estimate", post({
+            move |Json(body): Json<serde_json::Value>| async move -> Result<Json<serde_json::Value>, axum::http::StatusCode> {
+                let size = body.get("size").and_then(|v| v.as_u64()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let replicas = body.get("replicas").and_then(|v| v.as_u64()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let months = body.get("months").and_then(|v| v.as_u64()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let gb = ((size + ((1<<30)-1)) >> 30) as u128;
+                let mut base: u128 = std::env::var("ARTHA_PRICE_WEI_GB").ok().and_then(|v| v.parse().ok()).unwrap_or(1_000_000_000_000_000u128);
+                let rpc_url = body.get("rpcUrl").and_then(|v| v.as_str());
+                let price_oracle = body.get("priceOracle").and_then(|v| v.as_str());
+                let mut floor = base; let mut ceiling = base;
+                if let (Some(rpc), Some(oracle)) = (rpc_url, price_oracle) {
+                    fn keccak(input: &[u8]) -> [u8;32] { use tiny_keccak::Hasher; let mut h=tiny_keccak::Keccak::v256(); let mut out=[0u8;32]; h.update(input); h.finalize(&mut out); out }
+                    let selector = &keccak(b"getPrice()")[0..4];
+                    let call = serde_json::json!({"to": oracle, "data": format!("0x{}", hex::encode(selector))});
+                    let payload = serde_json::json!({"jsonrpc":"2.0","method":"eth_call","params":[call, "latest"],"id":1});
+                    if let Ok(resp) = reqwest::Client::new().post(rpc).json(&payload).send().await {
+                        if let Ok(v) = resp.json::<serde_json::Value>().await { if let Some(res_hex) = v.get("result").and_then(|x| x.as_str()) { if res_hex.len()>=2+64*3 { let bytes = hex::decode(res_hex.trim_start_matches("0x")).unwrap_or_default(); if bytes.len()>=32*3 { let to_u128 = |b:&[u8]| -> u128 { b.iter().fold(0u128, |acc,&x| (acc<<8) | x as u128) }; base = to_u128(&bytes[0..32]); floor = to_u128(&bytes[32..64]); ceiling = to_u128(&bytes[64..96]); } } } }
+                    }
+                }
+                let est = gb * base * (months as u128) * (replicas as u128);
+                Ok(Json(serde_json::json!({
+                    "size": size,
+                    "replicas": replicas,
+                    "months": months,
+                    "priceWeiPerGBMonth": base.to_string(),
+                    "floorWeiPerGBMonth": floor.to_string(),
+                    "ceilingWeiPerGBMonth": ceiling.to_string(),
+                    "estimateWei": est.to_string()
+                })))
+            }
+        }))
+        // PoRep: GPU seal proving (shells out to CUDA 12 prover)
+        .route("/svdb/porep/prove_seal", post({
+            move |Json(body): Json<serde_json::Value>| async move -> Result<Json<serde_json::Value>, axum::http::StatusCode> {
+                let root = body.get("root").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let randomness = body.get("randomness").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let provider = body.get("provider").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                
+                // Build circuit input for sealing: Poseidon(root, randomness, provider)
+                fn keccak(input: &[u8]) -> [u8;32] { use tiny_keccak::Hasher; let mut h=tiny_keccak::Keccak::v256(); let mut out=[0u8;32]; h.update(input); h.finalize(&mut out); out }
+                let r_bytes = hex::decode(root.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                let z_bytes = hex::decode(randomness.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                let p_bytes = hex::decode(provider.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                
+                // Circuit input JSON
+                let circuit_input = serde_json::json!({
+                    "root": hex::encode(&r_bytes),
+                    "randomness": hex::encode(&z_bytes),
+                    "provider": hex::encode(&p_bytes)
+                });
+                
+                // Write circuit input to temp file
+                let input_path = format!("/tmp/porep_seal_input_{}.json", chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0));
+                std::fs::write(&input_path, circuit_input.to_string()).map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+                
+                // Shell out to CUDA 12 prover (assumes `artha-prover-cuda` binary in PATH)
+                let prover_bin = std::env::var("ARTHA_PROVER_BIN").unwrap_or_else(|_| "artha-prover-cuda".to_string());
+                let output = tokio::process::Command::new(&prover_bin)
+                    .arg("--mode").arg("porep-seal")
+                    .arg("--input").arg(&input_path)
+                    .arg("--curve").arg("bn254")
+                    .arg("--backend").arg("cuda")
+                    .output()
+                    .await
+                    .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+                
+                std::fs::remove_file(&input_path).ok();
+                
+                if !output.status.success() {
+                    return Err(axum::http::StatusCode::INTERNAL_SERVER_ERROR);
+                }
+                
+                let proof_json: serde_json::Value = serde_json::from_slice(&output.stdout).map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+                let proof_hash = keccak(output.stdout.as_slice());
+                
+                Ok(Json(serde_json::json!({
+                    "proof": proof_json,
+                    "proofHash": format!("0x{}", hex::encode(proof_hash))
+                })))
+            }
+        }))
+        // PoRep: issue challenge for sealed commitment
+        .route("/svdb/porep/challenge", post({
+            move |Json(body): Json<serde_json::Value>| async move -> Result<Json<serde_json::Value>, axum::http::StatusCode> {
+                let commitment = body.get("commitment").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let rpc_url = body.get("rpcUrl").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let contract = body.get("contract").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let priv_key = body.get("privateKey").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                
+                fn keccak(input: &[u8]) -> [u8;32] { use tiny_keccak::Hasher; let mut h=tiny_keccak::Keccak::v256(); let mut out=[0u8;32]; h.update(input); h.finalize(&mut out); out }
+                fn enc_bytes32(b: &[u8]) -> Vec<u8> { let mut v=vec![0u8;32]; v[32-b.len()..].copy_from_slice(b); v }
+                fn rlp_u256(n: u128) -> Vec<u8> { if n==0 { return vec![0x80]; } let mut b=Vec::new(); let mut x=n; while x>0 { b.insert(0, (x&0xff) as u8); x>>=8; } if b[0]<0x80 && b.len()==1 { return b; } let mut r=vec![0x80 + b.len() as u8]; r.extend_from_slice(&b); r }
+                fn rlp_bytes(d: &[u8]) -> Vec<u8> { if d.is_empty() { return vec![0x80]; } if d.len()==1 && d[0]<0x80 { return d.to_vec(); } let mut r=vec![]; if d.len()<56 { r.push(0x80 + d.len() as u8); } else { let lb=d.len().to_be_bytes(); let mut ln=Vec::new(); for &b in &lb { if !ln.is_empty() || b!=0 { ln.push(b); } } r.push(0xb7 + ln.len() as u8); r.extend_from_slice(&ln); } r.extend_from_slice(d); r }
+                fn rlp_list(items: &[Vec<u8>]) -> Vec<u8> { let mut payload=Vec::new(); for item in items { payload.extend_from_slice(item); } let mut r=Vec::new(); if payload.len()<56 { r.push(0xc0 + payload.len() as u8); } else { let lb=payload.len().to_be_bytes(); let mut ln=Vec::new(); for &b in &lb { if !ln.is_empty() || b!=0 { ln.push(b); } } r.push(0xf7 + ln.len() as u8); r.extend_from_slice(&ln); } r.extend_from_slice(&payload); r }
+                
+                let to = hex::decode(contract.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                let c_bytes = hex::decode(commitment.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                let selector = &keccak(b"issueChallenge(bytes32)")[0..4];
+                let mut data = Vec::with_capacity(4 + 32);
+                data.extend_from_slice(selector);
+                data.extend_from_slice(&enc_bytes32(&c_bytes));
+                
+                let gas_price = 1_000_000_000u128;
+                let gas_limit = 300_000u128;
+                let nonce = 0u128;
+                let value = 0u128;
+                let chain_id = 8888u128;
+                
+                let tx_parts = vec![ rlp_u256(nonce), rlp_u256(gas_price), rlp_u256(gas_limit), rlp_bytes(&to), rlp_u256(value), rlp_bytes(&data), rlp_u256(chain_id), rlp_u256(0), rlp_u256(0) ];
+                let sighash = keccak(&rlp_list(&tx_parts));
+                
+                let pk_bytes = hex::decode(priv_key.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                use k256::{ecdsa::{SigningKey, signature::Signer}, SecretKey};
+                let sk = SecretKey::from_slice(&pk_bytes).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                let signing_key = SigningKey::from(sk);
+                let sig: k256::ecdsa::Signature = signing_key.sign(&sighash);
+                let (r, s) = (sig.r().to_bytes(), sig.s().to_bytes());
+                let v = (chain_id * 2 + 35) as u8;
+                
+                let raw = rlp_list(&[ rlp_u256(nonce), rlp_u256(gas_price), rlp_u256(gas_limit), rlp_bytes(&to), rlp_u256(value), rlp_bytes(&data), rlp_u256(v as u128), rlp_bytes(&r.to_vec()), rlp_bytes(&s.to_vec()) ]);
+                let raw_hex = format!("0x{}", hex::encode(raw));
+                
+                let http = HttpClient::new();
+                let payload_rpc = serde_json::json!({"jsonrpc":"2.0","method":"eth_sendRawTransaction","params":[raw_hex],"id":1});
+                let resp = http.post(rpc_url).json(&payload_rpc).send().await.map_err(|_| axum::http::StatusCode::BAD_GATEWAY)?;
+                let json: serde_json::Value = resp.json().await.map_err(|_| axum::http::StatusCode::BAD_GATEWAY)?;
+                
+                Ok(Json(json))
+            }
+        }))
+        // Marketplace: get active providers
+        .route("/svdb/marketplace/providers", get({
+            move |Query(q): Query<HashMap<String, String>>| async move -> Result<Json<serde_json::Value>, axum::http::StatusCode> {
+                let rpc_url = q.get("rpcUrl").ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let contract = q.get("contract").ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                
+                fn keccak(input: &[u8]) -> [u8;32] { use tiny_keccak::Hasher; let mut h=tiny_keccak::Keccak::v256(); let mut out=[0u8;32]; h.update(input); h.finalize(&mut out); out }
+                let selector = &keccak(b"getActiveProviders()")[0..4];
+                let call = serde_json::json!({"to": contract, "data": format!("0x{}", hex::encode(selector))});
+                let payload = serde_json::json!({"jsonrpc":"2.0","method":"eth_call","params":[call, "latest"],"id":1});
+                
+                let http = HttpClient::new();
+                let resp = http.post(rpc_url).json(&payload).send().await.map_err(|_| axum::http::StatusCode::BAD_GATEWAY)?;
+                let json: serde_json::Value = resp.json().await.map_err(|_| axum::http::StatusCode::BAD_GATEWAY)?;
+                
+                let result_hex = json.get("result").and_then(|v| v.as_str()).unwrap_or("0x");
+                let bytes = hex::decode(result_hex.trim_start_matches("0x")).unwrap_or_default();
+                
+                // Parse dynamic array of addresses
+                let mut providers = Vec::new();
+                if bytes.len() >= 64 {
+                    let count = u64::from_be_bytes(bytes[56..64].try_into().unwrap_or([0u8;8]));
+                    for i in 0..count {
+                        let offset = 64 + (i as usize * 32);
+                        if offset + 32 <= bytes.len() {
+                            let addr = &bytes[offset + 12..offset + 32];
+                            providers.push(format!("0x{}", hex::encode(addr)));
+                        }
+                    }
+                }
+                
+                Ok(Json(serde_json::json!({"providers": providers})))
+            }
+        }))
+        // Marketplace: get offer for provider
+        .route("/svdb/marketplace/offer/:provider", get({
+            move |axum::extract::Path(provider): axum::extract::Path<String>, Query(q): Query<HashMap<String, String>>| async move -> Result<Json<serde_json::Value>, axum::http::StatusCode> {
+                let rpc_url = q.get("rpcUrl").ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let contract = q.get("contract").ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                
+                fn keccak(input: &[u8]) -> [u8;32] { use tiny_keccak::Hasher; let mut h=tiny_keccak::Keccak::v256(); let mut out=[0u8;32]; h.update(input); h.finalize(&mut out); out }
+                fn enc_address(a: &[u8]) -> Vec<u8> { let mut v=vec![0u8;32]; v[12..].copy_from_slice(a); v }
+                
+                let prov_bytes = hex::decode(provider.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                let selector = &keccak(b"getOffer(address)")[0..4];
+                let mut data = Vec::with_capacity(4 + 32);
+                data.extend_from_slice(selector);
+                data.extend_from_slice(&enc_address(&prov_bytes));
+                
+                let call = serde_json::json!({"to": contract, "data": format!("0x{}", hex::encode(data))});
+                let payload = serde_json::json!({"jsonrpc":"2.0","method":"eth_call","params":[call, "latest"],"id":1});
+                
+                let http = HttpClient::new();
+                let resp = http.post(rpc_url).json(&payload).send().await.map_err(|_| axum::http::StatusCode::BAD_GATEWAY)?;
+                let json: serde_json::Value = resp.json().await.map_err(|_| axum::http::StatusCode::BAD_GATEWAY)?;
+                
+                let result_hex = json.get("result").and_then(|v| v.as_str()).unwrap_or("0x");
+                let bytes = hex::decode(result_hex.trim_start_matches("0x")).unwrap_or_default();
+                
+                if bytes.len() >= 32 * 8 {
+                    let to_u256 = |b: &[u8]| -> u128 { b.iter().fold(0u128, |acc, &x| (acc << 8) | x as u128) };
+                    let price = to_u256(&bytes[0..32]);
+                    let latency = to_u256(&bytes[32..64]);
+                    let tier = bytes[95];
+                    let published_at = to_u256(&bytes[96..128]);
+                    let active = bytes[159] != 0;
+                    let capacity = to_u256(&bytes[160..192]) as u32;
+                    let gpu = bytes[223] != 0;
+                    let collateral = to_u256(&bytes[224..256]);
+                    
+                    Ok(Json(serde_json::json!({
+                        "provider": provider,
+                        "priceWeiPerGBMonth": price.to_string(),
+                        "expectedLatencyMs": latency,
+                        "tier": tier,
+                        "publishedAt": published_at,
+                        "active": active,
+                        "capacityGB": capacity,
+                        "gpuAvailable": gpu,
+                        "collateral": collateral.to_string()
+                    })))
+                } else {
+                    Err(axum::http::StatusCode::NOT_FOUND)
+                }
+            }
+        }))
+        // Marketplace: get provider reputation
+        .route("/svdb/marketplace/reputation/:provider", get({
+            move |axum::extract::Path(provider): axum::extract::Path<String>, Query(q): Query<HashMap<String, String>>| async move -> Result<Json<serde_json::Value>, axum::http::StatusCode> {
+                let rpc_url = q.get("rpcUrl").ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let contract = q.get("contract").ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                
+                fn keccak(input: &[u8]) -> [u8;32] { use tiny_keccak::Hasher; let mut h=tiny_keccak::Keccak::v256(); let mut out=[0u8;32]; h.update(input); h.finalize(&mut out); out }
+                fn enc_address(a: &[u8]) -> Vec<u8> { let mut v=vec![0u8;32]; v[12..].copy_from_slice(a); v }
+                
+                let prov_bytes = hex::decode(provider.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                let selector = &keccak(b"getReputation(address)")[0..4];
+                let mut data = Vec::with_capacity(4 + 32);
+                data.extend_from_slice(selector);
+                data.extend_from_slice(&enc_address(&prov_bytes));
+                
+                let call = serde_json::json!({"to": contract, "data": format!("0x{}", hex::encode(data))});
+                let payload = serde_json::json!({"jsonrpc":"2.0","method":"eth_call","params":[call, "latest"],"id":1});
+                
+                let http = HttpClient::new();
+                let resp = http.post(rpc_url).json(&payload).send().await.map_err(|_| axum::http::StatusCode::BAD_GATEWAY)?;
+                let json: serde_json::Value = resp.json().await.map_err(|_| axum::http::StatusCode::BAD_GATEWAY)?;
+                
+                let result_hex = json.get("result").and_then(|v| v.as_str()).unwrap_or("0x");
+                let bytes = hex::decode(result_hex.trim_start_matches("0x")).unwrap_or_default();
+                
+                if bytes.len() >= 32 * 7 {
+                    let to_u256 = |b: &[u8]| -> u128 { b.iter().fold(0u128, |acc, &x| (acc << 8) | x as u128) };
+                    Ok(Json(serde_json::json!({
+                        "provider": provider,
+                        "totalDeals": to_u256(&bytes[0..32]),
+                        "successfulDeals": to_u256(&bytes[32..64]),
+                        "totalViolations": to_u256(&bytes[64..96]),
+                        "totalSlashes": to_u256(&bytes[96..128]),
+                        "uptimeScore": to_u256(&bytes[128..160]),
+                        "bandwidthScore": to_u256(&bytes[160..192]),
+                        "proofSuccessRate": to_u256(&bytes[192..224])
+                    })))
+                } else {
+                    Ok(Json(serde_json::json!({
+                        "provider": provider,
+                        "totalDeals": 0,
+                        "successfulDeals": 0,
+                        "totalViolations": 0,
+                        "totalSlashes": 0,
+                        "uptimeScore": 0,
+                        "bandwidthScore": 0,
+                        "proofSuccessRate": 0
+                    })))
+                }
+            }
+        }))
+        // SLA: report latency measurement
+        .route("/svdb/sla/report_latency", post({
+            move |Json(body): Json<serde_json::Value>| async move -> Result<Json<serde_json::Value>, axum::http::StatusCode> {
+                let client = body.get("client").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let provider = body.get("provider").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let root = body.get("root").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let latency_ms = body.get("latencyMs").and_then(|v| v.as_u64()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let rpc_url = body.get("rpcUrl").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let contract = body.get("contract").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                let priv_key = body.get("privateKey").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                
+                fn keccak(input: &[u8]) -> [u8;32] { use tiny_keccak::Hasher; let mut h=tiny_keccak::Keccak::v256(); let mut out=[0u8;32]; h.update(input); h.finalize(&mut out); out }
+                fn enc_address(a: &[u8]) -> Vec<u8> { let mut v=vec![0u8;32]; v[12..].copy_from_slice(a); v }
+                fn enc_bytes32(b: &[u8]) -> Vec<u8> { let mut v=vec![0u8;32]; v[32-b.len()..].copy_from_slice(b); v }
+                fn enc_u256(n: u128) -> Vec<u8> { let mut v=vec![0u8;32]; v[16..].copy_from_slice(&n.to_be_bytes()); v }
+                fn rlp_u256(n: u128) -> Vec<u8> { if n==0 { return vec![0x80]; } let mut b=Vec::new(); let mut x=n; while x>0 { b.insert(0, (x&0xff) as u8); x>>=8; } if b[0]<0x80 && b.len()==1 { return b; } let mut r=vec![0x80 + b.len() as u8]; r.extend_from_slice(&b); r }
+                fn rlp_bytes(d: &[u8]) -> Vec<u8> { if d.is_empty() { return vec![0x80]; } if d.len()==1 && d[0]<0x80 { return d.to_vec(); } let mut r=vec![]; if d.len()<56 { r.push(0x80 + d.len() as u8); } else { let lb=d.len().to_be_bytes(); let mut ln=Vec::new(); for &b in &lb { if !ln.is_empty() || b!=0 { ln.push(b); } } r.push(0xb7 + ln.len() as u8); r.extend_from_slice(&ln); } r.extend_from_slice(d); r }
+                fn rlp_list(items: &[Vec<u8>]) -> Vec<u8> { let mut payload=Vec::new(); for item in items { payload.extend_from_slice(item); } let mut r=Vec::new(); if payload.len()<56 { r.push(0xc0 + payload.len() as u8); } else { let lb=payload.len().to_be_bytes(); let mut ln=Vec::new(); for &b in &lb { if !ln.is_empty() || b!=0 { ln.push(b); } } r.push(0xf7 + ln.len() as u8); r.extend_from_slice(&ln); } r.extend_from_slice(&payload); r }
+                
+                let to = hex::decode(contract.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                let client_bytes = hex::decode(client.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                let prov_bytes = hex::decode(provider.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                let root_bytes = hex::decode(root.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                
+                let selector = &keccak(b"reportLatency(address,address,bytes32,uint256)")[0..4];
+                let mut data = Vec::with_capacity(4 + 32 * 4);
+                data.extend_from_slice(selector);
+                data.extend_from_slice(&enc_address(&client_bytes));
+                data.extend_from_slice(&enc_address(&prov_bytes));
+                data.extend_from_slice(&enc_bytes32(&root_bytes));
+                data.extend_from_slice(&enc_u256(latency_ms as u128));
+                
+                let gas_price = 1_000_000_000u128;
+                let gas_limit = 300_000u128;
+                let nonce = 0u128;
+                let value = 0u128;
+                let chain_id = 8888u128;
+                
+                let tx_parts = vec![ rlp_u256(nonce), rlp_u256(gas_price), rlp_u256(gas_limit), rlp_bytes(&to), rlp_u256(value), rlp_bytes(&data), rlp_u256(chain_id), rlp_u256(0), rlp_u256(0) ];
+                let sighash = keccak(&rlp_list(&tx_parts));
+                
+                let pk_bytes = hex::decode(priv_key.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                use k256::{ecdsa::{SigningKey, signature::Signer}, SecretKey};
+                let sk = SecretKey::from_slice(&pk_bytes).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                let signing_key = SigningKey::from(sk);
+                let sig: k256::ecdsa::Signature = signing_key.sign(&sighash);
+                let (r, s) = (sig.r().to_bytes(), sig.s().to_bytes());
+                let v = (chain_id * 2 + 35) as u8;
+                
+                let raw = rlp_list(&[ rlp_u256(nonce), rlp_u256(gas_price), rlp_u256(gas_limit), rlp_bytes(&to), rlp_u256(value), rlp_bytes(&data), rlp_u256(v as u128), rlp_bytes(&r.to_vec()), rlp_bytes(&s.to_vec()) ]);
+                let raw_hex = format!("0x{}", hex::encode(raw));
+                
+                let http = HttpClient::new();
+                let payload_rpc = serde_json::json!({"jsonrpc":"2.0","method":"eth_sendRawTransaction","params":[raw_hex],"id":1});
+                let resp = http.post(rpc_url).json(&payload_rpc).send().await.map_err(|_| axum::http::StatusCode::BAD_GATEWAY)?;
+                let json: serde_json::Value = resp.json().await.map_err(|_| axum::http::StatusCode::BAD_GATEWAY)?;
+                
+                Ok(Json(json))
+            }
+        }))
+        // One-click AI: train from dataset CID
+        .route("/svdb/ai/train", post({
+            let deal_store = deal_store.clone();
+            move |Json(body): Json<serde_json::Value>| {
+                let deal_store = deal_store.clone();
+                async move {
+                    let model_cid = body.get("modelCid").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                    let dataset_cid = body.get("datasetCid").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                    let epochs = body.get("epochs").and_then(|v| v.as_u64()).unwrap_or(3);
+                    let region = body.get("region").and_then(|v| v.as_str()).unwrap_or("auto");
+                    let zk_enabled = body.get("zkEnabled").and_then(|v| v.as_bool()).unwrap_or(false);
+                    let gpu_required = body.get("gpuRequired").and_then(|v| v.as_bool()).unwrap_or(true);
+                    
+                    // Create training job
+                    let job_id = format!("job_{}", chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0));
+                    let job = serde_json::json!({
+                        "jobId": job_id,
+                        "modelCid": model_cid,
+                        "datasetCid": dataset_cid,
+                        "epochs": epochs,
+                        "region": region,
+                        "zkEnabled": zk_enabled,
+                        "gpuRequired": gpu_required,
+                        "status": "queued",
+                        "createdAt": chrono::Utc::now().to_rfc3339(),
+                        "checkpoints": [],
+                        "logs": []
+                    });
+                    
+                    let key = format!("aijob:{}", job_id);
+                    deal_store.put(key.as_bytes(), serde_json::to_string(&job).unwrap().as_bytes()).await
+                        .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+                    
+                    // Schedule job (in production, this would dispatch to ArthaAI scheduler)
+                    tokio::spawn({
+                        let deal_store = deal_store.clone();
+                        let job_id = job_id.clone();
+                        async move {
+                            tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+                            
+                            let key = format!("aijob:{}", job_id);
+                            if let Ok(Some(data)) = deal_store.get(key.as_bytes()).await {
+                                if let Ok(mut job) = serde_json::from_slice::<serde_json::Value>(&data) {
+                                    job["status"] = serde_json::json!("running");
+                                    job["startedAt"] = serde_json::json!(chrono::Utc::now().to_rfc3339());
+                                    job["assignedNode"] = serde_json::json!("sp-node-42");
+                                    let _ = deal_store.put(key.as_bytes(), serde_json::to_string(&job).unwrap().as_bytes()).await;
+                                    
+                                    // Simulate training progress
+                                    for epoch in 1..=3 {
+                                        tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+                                        if let Ok(Some(data)) = deal_store.get(key.as_bytes()).await {
+                                            if let Ok(mut job) = serde_json::from_slice::<serde_json::Value>(&data) {
+                                                let checkpoint_cid = format!("artha://checkpoint_epoch_{}", epoch);
+                                                job["checkpoints"].as_array_mut().unwrap().push(serde_json::json!({
+                                                    "epoch": epoch,
+                                                    "cid": checkpoint_cid,
+                                                    "loss": 0.5 / epoch as f64,
+                                                    "accuracy": 0.7 + (epoch as f64 * 0.1),
+                                                    "timestamp": chrono::Utc::now().to_rfc3339()
+                                                }));
+                                                let _ = deal_store.put(key.as_bytes(), serde_json::to_string(&job).unwrap().as_bytes()).await;
+                                            }
+                                        }
+                                    }
+                                    
+                                    // Mark complete
+                                    if let Ok(Some(data)) = deal_store.get(key.as_bytes()).await {
+                                        if let Ok(mut job) = serde_json::from_slice::<serde_json::Value>(&data) {
+                                            job["status"] = serde_json::json!("completed");
+                                            job["completedAt"] = serde_json::json!(chrono::Utc::now().to_rfc3339());
+                                            job["outputModelCid"] = serde_json::json!(format!("artha://model_trained_{}", job_id));
+                                            let _ = deal_store.put(key.as_bytes(), serde_json::to_string(&job).unwrap().as_bytes()).await;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                    
+                    Ok::<_, axum::http::StatusCode>(Json(job))
+                }
+            }
+        }))
+        // One-click AI: get job status
+        .route("/svdb/ai/job/:job_id", get({
+            let deal_store = deal_store.clone();
+            move |axum::extract::Path(job_id): axum::extract::Path<String>| {
+                let deal_store = deal_store.clone();
+                async move {
+                    let key = format!("aijob:{}", job_id);
+                    let data = deal_store.get(key.as_bytes()).await.map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+                    match data {
+                        Some(d) => {
+                            let job: serde_json::Value = serde_json::from_slice(&d).map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+                            Ok::<_, axum::http::StatusCode>(Json(job))
+                        }
+                        None => Err(axum::http::StatusCode::NOT_FOUND)
+                    }
+                }
+            }
+        }))
+        // One-click AI: deploy endpoint from model CID
+        .route("/svdb/ai/deploy", post({
+            let deal_store = deal_store.clone();
+            move |Json(body): Json<serde_json::Value>| {
+                let deal_store = deal_store.clone();
+                async move {
+                    let model_cid = body.get("modelCid").and_then(|v| v.as_str()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
+                    let name = body.get("name").and_then(|v| v.as_str()).unwrap_or("my-model");
+                    let region = body.get("region").and_then(|v| v.as_str()).unwrap_or("auto");
+                    let replicas = body.get("replicas").and_then(|v| v.as_u64()).unwrap_or(3);
+                    
+                    // Create deployment
+                    let deployment_id = format!("deploy_{}", chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0));
+                    let endpoint = format!("https://api.arthachain.online/ai/{}", deployment_id);
+                    
+                    let deployment = serde_json::json!({
+                        "deploymentId": deployment_id,
+                        "name": name,
+                        "modelCid": model_cid,
+                        "region": region,
+                        "replicas": replicas,
+                        "endpoint": endpoint,
+                        "status": "deploying",
+                        "createdAt": chrono::Utc::now().to_rfc3339(),
+                        "health": "unknown",
+                        "requests": 0
+                    });
+                    
+                    let key = format!("deploy:{}", deployment_id);
+                    deal_store.put(key.as_bytes(), serde_json::to_string(&deployment).unwrap().as_bytes()).await
+                        .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+                    
+                    // Simulate deployment
+                    tokio::spawn({
+                        let deal_store = deal_store.clone();
+                        let deployment_id = deployment_id.clone();
+                        async move {
+                            tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+                            let key = format!("deploy:{}", deployment_id);
+                            if let Ok(Some(data)) = deal_store.get(key.as_bytes()).await {
+                                if let Ok(mut dep) = serde_json::from_slice::<serde_json::Value>(&data) {
+                                    dep["status"] = serde_json::json!("live");
+                                    dep["health"] = serde_json::json!("healthy");
+                                    dep["deployedAt"] = serde_json::json!(chrono::Utc::now().to_rfc3339());
+                                    let _ = deal_store.put(key.as_bytes(), serde_json::to_string(&dep).unwrap().as_bytes()).await;
+                                }
+                            }
+                        }
+                    });
+                    
+                    Ok::<_, axum::http::StatusCode>(Json(deployment))
+                }
+            }
+        }))
+        // One-click AI: get deployment status
+        .route("/svdb/ai/deploy/:deployment_id", get({
+            let deal_store = deal_store.clone();
+            move |axum::extract::Path(deployment_id): axum::extract::Path<String>| {
+                let deal_store = deal_store.clone();
+                async move {
+                    let key = format!("deploy:{}", deployment_id);
+                    let data = deal_store.get(key.as_bytes()).await.map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+                    match data {
+                        Some(d) => {
+                            let deployment: serde_json::Value = serde_json::from_slice(&d).map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+                            Ok::<_, axum::http::StatusCode>(Json(deployment))
+                        }
+                        None => Err(axum::http::StatusCode::NOT_FOUND)
+                    }
+                }
+            }
+        }))
+        // One-click AI: list all deployments
+        .route("/svdb/ai/deployments", get({
+            let deal_store = deal_store.clone();
+            move || {
+                let deal_store = deal_store.clone();
+                async move {
+                    // In production, would use prefix scan on KV store
+                    let deployments = vec![];
+                    Ok::<_, axum::http::StatusCode>(Json(serde_json::json!({"deployments": deployments})))
+                }
+            }
+        }))
         
         // Add CORS layer
         .layer(
@@ -2607,6 +3751,10 @@ pub fn create_testnet_router(
         .layer(Extension(mempool))
         .layer(Extension(faucet_service))
         .layer(Extension(gas_free_manager))
+        // Merge ArthaAIN v1 AI endpoints
+        .merge(ai_endpoints::ai_router())
+        // Merge Dashboard API
+        .merge(dashboard_api::dashboard_router())
         // Standardize error envelope for non-success responses
         .layer(axum::middleware::map_response(|res: AxumResponse| async move {
             if !res.status().is_success() {

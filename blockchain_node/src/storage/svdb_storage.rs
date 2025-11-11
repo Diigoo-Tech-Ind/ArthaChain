@@ -6,8 +6,7 @@ use hex;
 use log::debug;
 use reqwest::Client;
 use rocksdb::{Options, DB, WriteBatch};
-#[cfg(feature = "erasure")]
-use reed_solomon_erasure::ReedSolomon as Rs8;
+use reed_solomon_erasure::galois_8::ReedSolomon;
 
 use std::any::Any;
 use std::collections::HashMap;
@@ -87,7 +86,7 @@ impl SvdbStorage {
     }
     /// Attempt to reconstruct a missing shard set (k=8,m=2) from available shards.
     pub async fn rs_reconstruct_10_8(&self, shards: &mut [Option<Vec<u8>>]) -> anyhow::Result<()> {
-        let k=8; let m=2; let rs = Rs8::new(k, m)?;
+        let k=8; let m=2; let rs = ReedSolomon::new(k, m)?;
         // Determine shard len from first present
         let mut shard_len=0usize; for s in shards.iter() { if let Some(v)=s { shard_len=v.len(); break; } }
         if shard_len==0 { return Ok(()); }
@@ -380,6 +379,13 @@ fn manifest_key(cid: &Cid) -> Vec<u8> {
     k
 }
 
+fn manifest_meta_key(cid: &Cid) -> Vec<u8> {
+    let mut k = Vec::with_capacity(6 + 32);
+    k.extend_from_slice(b"mmeta:");
+    k.extend_from_slice(&cid.blake3);
+    k
+}
+
 #[async_trait]
 impl ChunkStore for SvdbStorage {
     async fn has(&self, cid: &Cid) -> Result<bool> {
@@ -445,8 +451,18 @@ impl Manifests for SvdbStorage {
         let db = self.db.read().map_err(|_| StorageError::Other("Lock".to_string()))?;
         if let Some(db) = &*db {
             let mut wb = WriteBatch::default();
+            // Primary manifest record
             wb.put(manifest_key(&cid), &json);
+            // Merkle root index
             wb.put([b'm', b'r', b'o', b'o', b't', b':'].into_iter().chain(cid.blake3).collect::<Vec<u8>>(), &manifest.merkle_root);
+            // Erasure/stripe metadata (default values align with API encoder)
+            let meta = serde_json::json!({
+                "rs_k": manifest.erasure_data_shards.unwrap_or(8),
+                "rs_m": manifest.erasure_parity_shards.unwrap_or(2),
+                "chunk_size": 8 * 1024 * 1024
+            });
+            let meta_bytes = serde_json::to_vec(&meta).map_err(|e| StorageError::WriteError(e.to_string()))?;
+            wb.put(manifest_meta_key(&cid), &meta_bytes);
             db.write(wb).map_err(|e| StorageError::WriteError(e.to_string()))?;
             Ok(cid)
         } else {

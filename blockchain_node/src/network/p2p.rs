@@ -4,7 +4,7 @@ use libp2p::{
     futures::StreamExt,
     gossipsub::{self, Behaviour as Gossipsub, Event as GossipsubEvent, IdentTopic, Topic},
     identity,
-    kad::{self, store::MemoryStore, QueryResult},
+    kad::{self, store::MemoryStore, QueryId, QueryResult},
     noise,
     ping::{self, Behaviour as PingBehaviour, Event as PingEvent},
     swarm::{NetworkBehaviour, Swarm, SwarmEvent},
@@ -342,8 +342,8 @@ impl Default for BlockPropagationConfig {
 }
 
 /// Combine all network behaviors
-#[derive(NetworkBehaviour)]
-#[behaviour(to_swarm = "ComposedEvent")]
+#[derive(libp2p::swarm::NetworkBehaviour)]
+#[behaviour(out_event = "ComposedEvent")]
 pub struct ComposedBehaviour {
     pub gossipsub: Gossipsub,
     pub kademlia: kad::Behaviour<MemoryStore>,
@@ -443,6 +443,8 @@ pub struct P2PNetwork {
     cid_providers: Arc<RwLock<HashMap<String, HashSet<String>>>>,
     /// Observed peer latencies in milliseconds
     peer_latency_ms: Arc<RwLock<HashMap<String, f64>>>,
+    /// Pending Kademlia provider queries: QueryId -> cid_hex
+    pending_provider_queries: Arc<RwLock<HashMap<QueryId, String>>>,
 }
 
 impl P2PNetwork {
@@ -490,6 +492,7 @@ impl P2PNetwork {
             dos_protection: Arc::new(DosProtection::new(DosConfig::default())),
             cid_providers: Arc::new(RwLock::new(HashMap::new())),
             peer_latency_ms: Arc::new(RwLock::new(HashMap::new())),
+            pending_provider_queries: Arc::new(RwLock::new(HashMap::new())),
         })
     }
 
@@ -511,6 +514,7 @@ impl P2PNetwork {
         let svdb_chunks_topic = self.svdb_chunks_topic.clone();
         let cid_providers = self.cid_providers.clone();
         let peer_latency_ms = self.peer_latency_ms.clone();
+        let pending_provider_queries = self.pending_provider_queries.clone();
 
         // Create swarm
         let keypair = identity::Keypair::generate_ed25519();
@@ -676,21 +680,33 @@ impl P2PNetwork {
                                         if let Ok(j) = serde_json::from_slice::<serde_json::Value>(&message.data) {
                                             if j.get("type").and_then(|v| v.as_str()) == Some("query_providers") {
                                                 if let Some(cid_hex) = j.get("cid").and_then(|v| v.as_str()) {
-                                                    let provs: Vec<String> = {
-                                                        let map = cid_providers.read().await;
-                                                        map.get(cid_hex).cloned().unwrap_or_default().into_iter().collect()
-                                                    };
-                                                    let mut prov_list: Vec<(String, f64)> = provs.into_iter().map(|pid| {
-                                                        let lat = peer_latency_ms.read().await.get(&pid).cloned().unwrap_or(f64::INFINITY);
-                                                        (pid, lat)
-                                                    }).collect();
-                                                    prov_list.sort_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
-                                                    let resp = serde_json::json!({
-                                                        "type": "providers",
-                                                        "cid": cid_hex,
-                                                        "providers": prov_list.iter().map(|(p,l)| serde_json::json!({"peer": p, "latencyMs": l})).collect::<Vec<_>>()
-                                                    });
-                                                    let _ = swarm_for_task.behaviour_mut().gossipsub.publish(Topic::from(svdb_chunks_topic.clone()), serde_json::to_vec(&resp).unwrap());
+                                                    // Trigger DHT provider lookup
+                                                    if let Ok(bytes) = hex::decode(cid_hex) {
+                                                        if bytes.len()==32 {
+                                                            let mut arr=[0u8;32]; arr.copy_from_slice(&bytes);
+                                                            let key = kad::RecordKey::new(&arr);
+                                                            let qid = swarm_for_task.behaviour_mut().kademlia.get_providers(key);
+                                                            if let Ok(mut pend) = pending_provider_queries.write().await { pend.insert(qid, cid_hex.to_string()); }
+                                                        }
+                                                    }
+                                                    // Also publish current known providers immediately
+                                                    {
+                                                        let provs: Vec<String> = {
+                                                            let map = cid_providers.read().await;
+                                                            map.get(cid_hex).cloned().unwrap_or_default().into_iter().collect()
+                                                        };
+                                                        let mut prov_list: Vec<(String, f64)> = provs.into_iter().map(|pid| {
+                                                            let lat = peer_latency_ms.read().await.get(&pid).cloned().unwrap_or(f64::INFINITY);
+                                                            (pid, lat)
+                                                        }).collect();
+                                                        prov_list.sort_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+                                                        let resp = serde_json::json!({
+                                                            "type": "providers",
+                                                            "cid": cid_hex,
+                                                            "providers": prov_list.iter().map(|(p,l)| serde_json::json!({"peer": p, "latencyMs": l})).collect::<Vec<_>>()
+                                                        });
+                                                        let _ = swarm_for_task.behaviour_mut().gossipsub.publish(Topic::from(svdb_chunks_topic.clone()), serde_json::to_vec(&resp).unwrap());
+                                                    }
                                                 }
                                             }
                                         }
@@ -706,10 +722,33 @@ impl P2PNetwork {
                                     }
                                 }
                             },
-                            SwarmEvent::Behaviour(ComposedEvent::Kademlia(kad::Event::OutboundQueryProgressed { result, .. })) => {
+                            SwarmEvent::Behaviour(ComposedEvent::Kademlia(kad::Event::OutboundQueryProgressed { id, result, .. })) => {
                                 match result {
-                                    QueryResult::GetProviders(Ok(_)) => {
-                                        debug!("GetProviders query completed successfully");
+                                    QueryResult::GetProviders(Ok(ok)) => {
+                                        // Update local provider map and publish
+                                        if let Ok(mut pend) = pending_provider_queries.write().await {
+                                            if let Some(cid_hex) = pend.remove(&id) {
+                                                if let Ok(mut map) = cid_providers.write().await {
+                                                    let entry = map.entry(cid_hex.clone()).or_insert_with(HashSet::new);
+                                                    for p in ok.providers { entry.insert(p.to_string()); }
+                                                }
+                                                let provs: Vec<String> = {
+                                                    let map = cid_providers.read().await;
+                                                    map.get(&cid_hex).cloned().unwrap_or_default().into_iter().collect()
+                                                };
+                                                let mut prov_list: Vec<(String, f64)> = provs.into_iter().map(|pid| {
+                                                    let lat = peer_latency_ms.read().await.get(&pid).cloned().unwrap_or(f64::INFINITY);
+                                                    (pid, lat)
+                                                }).collect();
+                                                prov_list.sort_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+                                                let resp = serde_json::json!({
+                                                    "type": "providers",
+                                                    "cid": cid_hex,
+                                                    "providers": prov_list.iter().map(|(p,l)| serde_json::json!({"peer": p, "latencyMs": l})).collect::<Vec<_>>()
+                                                });
+                                                let _ = swarm_for_task.behaviour_mut().gossipsub.publish(Topic::from(svdb_chunks_topic.clone()), serde_json::to_vec(&resp).unwrap());
+                                            }
+                                        }
                                     },
                                     QueryResult::GetProviders(Err(err)) => {
                                         warn!("Failed to get providers: {err}");
@@ -742,7 +781,7 @@ impl P2PNetwork {
                             SwarmEvent::IncomingConnection { local_addr, send_back_addr, connection_id: _ } => {
                                 debug!("Incoming connection from {send_back_addr} to {local_addr}");
                             },
-                            SwarmEvent::IncomingConnectionError { local_addr, send_back_addr, error, connection_id: _, peer_id: _ } => {
+                            SwarmEvent::IncomingConnectionError { local_addr, send_back_addr, error, .. } => {
                                 warn!("Incoming connection error from {send_back_addr} to {local_addr}: {error}");
                             },
                             SwarmEvent::OutgoingConnectionError { peer_id, error, connection_id: _ } => {

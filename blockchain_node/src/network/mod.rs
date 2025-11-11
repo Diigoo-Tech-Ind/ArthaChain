@@ -3,6 +3,7 @@ pub mod adaptive_gossip;
 pub mod cross_shard;
 pub mod custom_udp;
 // pub mod custom_udp_test;  // Removed - test file doesn't exist
+pub mod dht_routing;
 pub mod dos_protection;
 pub mod enterprise_connectivity;
 pub mod enterprise_load_balancer;

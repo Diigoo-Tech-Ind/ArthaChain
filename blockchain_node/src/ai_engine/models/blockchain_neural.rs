@@ -250,13 +250,9 @@ impl BlockchainNeuralModel {
 
     /// Optimize mining parameters
     pub fn optimize_mining(&self, state: &[f32]) -> Result<MiningMetrics> {
-        let input_tensor = Tensor::from_vec(
-            state.to_vec(),
-            (1, state.len()),
-            &self.mining_optimizer.device,
-        )?;
+        let input_tensor = state.to_vec();
         let output = self.mining_optimizer.forward(&input_tensor)?;
-        let predictions = output.to_vec2::<f32>()?[0].clone();
+        let predictions = output;
 
         Ok(MiningMetrics {
             predicted_hash_rate: predictions[0] as f64,
@@ -278,13 +274,9 @@ impl BlockchainNeuralModel {
         let mut results = Vec::new();
 
         for features in tx_features {
-            let input_tensor = Tensor::from_vec(
-                features.clone(),
-                (1, features.len()),
-                &self.tx_validator.device,
-            )?;
+            let input_tensor = features.clone();
             let output = self.tx_validator.forward(&input_tensor)?;
-            let validity_score = output.to_vec2::<f32>()?[0][0];
+            let validity_score = output.get(0).cloned().unwrap_or(0.5);
 
             let resource_usage = ResourceUsage {
                 cpu_usage: 10.0 + validity_score * 20.0,
@@ -309,13 +301,9 @@ impl BlockchainNeuralModel {
         network_state: &[f32],
         _node_states: &[Vec<f32>],
     ) -> Result<ConsensusMetrics> {
-        let input_tensor = Tensor::from_vec(
-            network_state.to_vec(),
-            (1, network_state.len()),
-            &self.consensus_predictor.device,
-        )?;
+        let input_tensor = network_state.to_vec();
         let output = self.consensus_predictor.forward(&input_tensor)?;
-        let predictions = output.to_vec2::<f32>()?[0].clone();
+        let predictions = output;
 
         Ok(ConsensusMetrics {
             agreement_probability: predictions[0],

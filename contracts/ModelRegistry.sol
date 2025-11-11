@@ -2,97 +2,137 @@
 pragma solidity ^0.8.20;
 
 /// @title ModelRegistry
-/// @notice On-chain registry for models linked to datasets and code hash
+/// @notice On-chain registry for AI models with lineage, checkpoints, and versioning
 contract ModelRegistry {
     struct Model {
+        bytes32 modelId;
         address owner;
-        bytes32 modelCidRoot;
-        bytes32 datasetCidRoot;
-        bytes32 codeHash; // arbitrary code hash (keccak256 or blake3 bridged)
-        string version;
-        bytes32[] lineage; // list of previous model roots
-        uint256 registeredAt;
-        uint256 updatedAt;
-        bool exists;
+        bytes32 modelCid;        // Initial model weights CID
+        string architecture;      // "llama", "gpt", "vit", etc.
+        bytes32 baseModelId;     // Parent model (0 if trained from scratch)
+        bytes32 datasetId;       // Training dataset
+        bytes32 codeHash;        // Hash of training/inference code
+        string version;          // Semantic version
+        uint64 registeredAt;
+        bool active;
+        bytes32[] checkpoints;   // Checkpoint CIDs
+        bytes32 licenseCid;      // License document CID
     }
 
-    mapping(bytes32 => Model) private models; // key: modelCidRoot
+    struct Checkpoint {
+        bytes32 checkpointCid;
+        bytes32 metricsJsonCid;
+        uint256 step;
+        uint64 createdAt;
+    }
 
-    event ModelRegistered(bytes32 indexed modelCidRoot, address indexed owner, bytes32 datasetCidRoot, string version);
-    event ModelUpdated(bytes32 indexed modelCidRoot, string version);
-    event LineageUpdated(bytes32 indexed modelCidRoot, bytes32[] lineage);
-    event ModelOwnershipTransferred(bytes32 indexed modelCidRoot, address indexed previousOwner, address indexed newOwner);
+    mapping(bytes32 => Model) public models;
+    mapping(bytes32 => Checkpoint[]) public modelCheckpoints;
+    mapping(bytes32 => bytes32[]) public modelLineage; // modelId -> parent chain
+    mapping(address => bytes32[]) public ownerModels;
 
-    function registerModel(
-        bytes32 modelCidRoot,
-        bytes32 datasetCidRoot,
+    event ModelRegistered(
+        bytes32 indexed modelId,
+        address indexed owner,
+        bytes32 modelCid,
+        string architecture,
+        bytes32 datasetId
+    );
+    event CheckpointAdded(bytes32 indexed modelId, bytes32 checkpointCid, uint256 step);
+    event ModelPublished(bytes32 indexed modelId, bytes32 checkpointCid);
+    event ModelDeactivated(bytes32 indexed modelId);
+
+    function register(
+        bytes32 modelCid,
+        string calldata architecture,
+        bytes32 baseModelId,
+        bytes32 datasetId,
         bytes32 codeHash,
         string calldata version,
-        bytes32[] calldata lineage
+        bytes32 licenseCid
+    ) external returns (bytes32) {
+        bytes32 modelId = keccak256(abi.encodePacked(
+            msg.sender,
+            modelCid,
+            architecture,
+            datasetId,
+            block.timestamp
+        ));
+
+        require(models[modelId].owner == address(0), "Model already exists");
+
+        models[modelId] = Model({
+            modelId: modelId,
+            owner: msg.sender,
+            modelCid: modelCid,
+            architecture: architecture,
+            baseModelId: baseModelId,
+            datasetId: datasetId,
+            codeHash: codeHash,
+            version: version,
+            registeredAt: uint64(block.timestamp),
+            active: true,
+            checkpoints: new bytes32[](0),
+            licenseCid: licenseCid
+        });
+
+        ownerModels[msg.sender].push(modelId);
+
+        // Build lineage chain
+        if (baseModelId != bytes32(0)) {
+            modelLineage[modelId].push(baseModelId);
+            // Copy parent's lineage
+            for (uint i = 0; i < modelLineage[baseModelId].length; i++) {
+                modelLineage[modelId].push(modelLineage[baseModelId][i]);
+            }
+        }
+
+        emit ModelRegistered(modelId, msg.sender, modelCid, architecture, datasetId);
+        return modelId;
+    }
+
+    function addCheckpoint(
+        bytes32 modelId,
+        bytes32 checkpointCid,
+        bytes32 metricsJsonCid,
+        uint256 step
     ) external {
-        require(modelCidRoot != bytes32(0), "model");
-        Model storage m = models[modelCidRoot];
-        require(!m.exists, "exists");
-        m.owner = msg.sender;
-        m.modelCidRoot = modelCidRoot;
-        m.datasetCidRoot = datasetCidRoot;
-        m.codeHash = codeHash;
-        m.version = version;
-        for (uint256 i = 0; i < lineage.length; i++) {
-            m.lineage.push(lineage[i]);
-        }
-        m.registeredAt = block.timestamp;
-        m.updatedAt = block.timestamp;
-        m.exists = true;
-        emit ModelRegistered(modelCidRoot, msg.sender, datasetCidRoot, version);
-        if (lineage.length > 0) emit LineageUpdated(modelCidRoot, lineage);
+        Model storage model = models[modelId];
+        require(model.owner == msg.sender, "Not model owner");
+        require(model.active, "Model not active");
+
+        model.checkpoints.push(checkpointCid);
+
+        modelCheckpoints[modelId].push(Checkpoint({
+            checkpointCid: checkpointCid,
+            metricsJsonCid: metricsJsonCid,
+            step: step,
+            createdAt: uint64(block.timestamp)
+        }));
+
+        emit CheckpointAdded(modelId, checkpointCid, step);
     }
 
-    function updateVersion(bytes32 modelCidRoot, string calldata newVersion) external {
-        Model storage m = models[modelCidRoot];
-        require(m.exists, "notfound");
-        require(m.owner == msg.sender, "forbidden");
-        m.version = newVersion;
-        m.updatedAt = block.timestamp;
-        emit ModelUpdated(modelCidRoot, newVersion);
+    function getModel(bytes32 modelId) external view returns (Model memory) {
+        return models[modelId];
     }
 
-    function setLineage(bytes32 modelCidRoot, bytes32[] calldata lineage) external {
-        Model storage m = models[modelCidRoot];
-        require(m.exists, "notfound");
-        require(m.owner == msg.sender, "forbidden");
-        delete m.lineage;
-        for (uint256 i = 0; i < lineage.length; i++) {
-            m.lineage.push(lineage[i]);
-        }
-        m.updatedAt = block.timestamp;
-        emit LineageUpdated(modelCidRoot, lineage);
+    function getCheckpoints(bytes32 modelId) external view returns (Checkpoint[] memory) {
+        return modelCheckpoints[modelId];
     }
 
-    function transferModelOwnership(bytes32 modelCidRoot, address newOwner) external {
-        Model storage m = models[modelCidRoot];
-        require(m.exists, "notfound");
-        require(m.owner == msg.sender, "forbidden");
-        require(newOwner != address(0), "zero");
-        address prev = m.owner;
-        m.owner = newOwner;
-        m.updatedAt = block.timestamp;
-        emit ModelOwnershipTransferred(modelCidRoot, prev, newOwner);
+    function getLineage(bytes32 modelId) external view returns (bytes32[] memory) {
+        return modelLineage[modelId];
     }
 
-    function getModel(bytes32 modelCidRoot) external view returns (
-        address owner,
-        bytes32 datasetCidRoot,
-        bytes32 codeHash,
-        string memory version,
-        bytes32[] memory lineage,
-        uint256 registeredAt,
-        uint256 updatedAt,
-        bool exists
-    ) {
-        Model storage m = models[modelCidRoot];
-        return (m.owner, m.datasetCidRoot, m.codeHash, m.version, m.lineage, m.registeredAt, m.updatedAt, m.exists);
+    function getOwnerModels(address owner) external view returns (bytes32[] memory) {
+        return ownerModels[owner];
+    }
+
+    function deactivate(bytes32 modelId) external {
+        Model storage model = models[modelId];
+        require(model.owner == msg.sender, "Not model owner");
+        model.active = false;
+        emit ModelDeactivated(modelId);
     }
 }
-
-

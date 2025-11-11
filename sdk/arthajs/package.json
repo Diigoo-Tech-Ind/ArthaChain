@@ -1,15 +1,36 @@
 {
   "name": "arthajs",
-  "version": "0.1.0",
-  "main": "index.ts",
-  "type": "module",
-  "license": "MIT",
-  "devDependencies": {
-    "@types/node": "^20.11.30"
+  "version": "1.0.0",
+  "description": "TypeScript SDK for ArthaChain - Identity, Storage, and AI Cloud Platform",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "prepublishOnly": "npm run build"
   },
-  "dependencies": {
-    "@stablelib/random": "^1.0.1",
-    "@stablelib/wipe": "^1.0.1",
-    "@stablelib/xchacha20poly1305": "^1.0.1"
+  "keywords": [
+    "blockchain",
+    "identity",
+    "storage",
+    "ai",
+    "arthachain"
+  ],
+  "author": "ArthaChain",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "jest": "^29.0.0",
+    "@types/jest": "^29.0.0"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/arthachain/arthajs.git"
   }
 }

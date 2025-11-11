@@ -10,6 +10,7 @@ pub mod identity;
 pub mod metrics;
 pub mod monitoring;
 pub mod network_monitoring;
+pub mod governance_ai;
 pub mod security;
 pub mod status;
 pub mod testnet_api;

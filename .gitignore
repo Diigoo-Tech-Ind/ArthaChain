@@ -14,6 +14,8 @@ blockchain_node/coverage_report/
 # Logs
 logs/
 *.log
+blockchain_node/logs/
+**/*.log
 
 # Environment files
 .env
@@ -78,3 +80,8 @@ blockchain_node/data/blockchain/*.json
 
 # TestSprite temporary files
 testsprite_tests/tmp/*.json
+
+# Build outputs and runtime test data
+XYZ/EXP/dist/
+download_times.txt
+upload_times.txt

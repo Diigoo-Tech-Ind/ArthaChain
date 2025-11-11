@@ -7,8 +7,8 @@ services:
   # Main Blockchain Node (Port 1900)
   arthachain-node:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: blockchain_node/Dockerfile
     container_name: arthachain-node
     ports:
       - "1900:1900"

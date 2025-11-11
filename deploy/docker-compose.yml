@@ -5,7 +5,7 @@ services:
   arthachain-node:
     build:
       context: ..
-      dockerfile: Dockerfile
+      dockerfile: blockchain_node/Dockerfile
     ports:
       - "8080:8080"
       - "8545:8545"

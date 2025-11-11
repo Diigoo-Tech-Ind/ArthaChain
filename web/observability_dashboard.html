@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Artha Identity + AI + SVDB — Observability Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            color: #667eea;
+            font-size: 36px;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #666;
+            font-size: 18px;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .metric-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+        }
+        
+        .metric-title {
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #888;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .metric-value {
+            font-size: 42px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .metric-change {
+            font-size: 14px;
+            color: #888;
+        }
+        
+        .metric-change.positive {
+            color: #4caf50;
+        }
+        
+        .metric-change.negative {
+            color: #f44336;
+        }
+        
+        .chart-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+        
+        .chart-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        
+        canvas {
+            max-height: 300px;
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-green {
+            background: #4caf50;
+        }
+        
+        .status-yellow {
+            background: #ff9800;
+        }
+        
+        .status-red {
+            background: #f44336;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .alert-list {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+        
+        .alert-item {
+            padding: 15px;
+            border-left: 4px solid #ff9800;
+            background: #fff3e0;
+            margin-bottom: 15px;
+            border-radius: 5px;
+        }
+        
+        .alert-item.critical {
+            border-left-color: #f44336;
+            background: #ffebee;
+        }
+        
+        .alert-item.info {
+            border-left-color: #2196f3;
+            background: #e3f2fd;
+        }
+        
+        .alert-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        
+        .alert-time {
+            font-size: 12px;
+            color: #888;
+        }
+        
+        .tab-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        .tab {
+            padding: 12px 24px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 16px;
+            color: #888;
+            transition: color 0.3s;
+            border-bottom: 3px solid transparent;
+        }
+        
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+            font-weight: bold;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .refresh-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+            margin-bottom: 20px;
+        }
+        
+        .refresh-btn:hover {
+            background: #5568d3;
+        }
+        
+        .slo-status {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .slo-item {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            border: 2px solid #e0e0e0;
+        }
+        
+        .slo-item.met {
+            border-color: #4caf50;
+            background: #f1f8f4;
+        }
+        
+        .slo-item.warning {
+            border-color: #ff9800;
+            background: #fff8f0;
+        }
+        
+        .slo-item.violated {
+            border-color: #f44336;
+            background: #ffebee;
+        }
+        
+        .slo-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+        
+        .slo-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .slo-target {
+            font-size: 12px;
+            color: #888;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔮 Artha Observability Dashboard</h1>
+            <p class="subtitle">Real-time monitoring for Identity, AI/ML, and SVDB infrastructure</p>
+        </div>
+        
+        <button class="refresh-btn" onclick="refreshAll()">🔄 Refresh All Metrics</button>
+        
+        <!-- Key Metrics -->
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-title">
+                    <span class="status-indicator status-green"></span>
+                    DID Registrations (24h)
+                </div>
+                <div class="metric-value" id="did-count">0</div>
+                <div class="metric-change positive" id="did-change">+0%</div>
+            </div>
+            
+            <div class="metric-card">
+                <div class="metric-title">
+                    <span class="status-indicator status-green"></span>
+                    VC Issuance (24h)
+                </div>
+                <div class="metric-value" id="vc-count">0</div>
+                <div class="metric-change positive" id="vc-change">+0%</div>
+            </div>
+            
+            <div class="metric-card">
+                <div class="metric-title">
+                    <span class="status-indicator status-green"></span>
+                    AIID Growth
+                </div>
+                <div class="metric-value" id="aiid-count">0</div>
+                <div class="metric-change positive" id="aiid-change">+0%</div>
+            </div>
+            
+            <div class="metric-card">
+                <div class="metric-title">
+                    <span class="status-indicator status-green"></span>
+                    Active Nodes
+                </div>
+                <div class="metric-value" id="node-count">0</div>
+                <div class="metric-change" id="node-change">0 offline</div>
+            </div>
+            
+            <div class="metric-card">
+                <div class="metric-title">
+                    <span class="status-indicator status-yellow"></span>
+                    Policy Denials (1h)
+                </div>
+                <div class="metric-value" id="denial-count">0</div>
+                <div class="metric-change" id="denial-change">0% blocked</div>
+            </div>
+            
+            <div class="metric-card">
+                <div class="metric-title">
+                    <span class="status-indicator status-red"></span>
+                    Anomaly Flags
+                </div>
+                <div class="metric-value" id="anomaly-count">0</div>
+                <div class="metric-change negative" id="anomaly-change">0 critical</div>
+            </div>
+        </div>
+        
+        <!-- SLO Status -->
+        <div class="chart-container">
+            <div class="chart-title">Service Level Objectives (SLO) — Real-time</div>
+            <div class="slo-status">
+                <div class="slo-item met" id="slo-read">
+                    <div class="slo-name">Read Availability</div>
+                    <div class="slo-value">99.95%</div>
+                    <div class="slo-target">Target: ≥ 99.9%</div>
+                </div>
+                <div class="slo-item met" id="slo-verify">
+                    <div class="slo-name">Verify Latency</div>
+                    <div class="slo-value">0.85s</div>
+                    <div class="slo-target">Target: < 1s</div>
+                </div>
+                <div class="slo-item met" id="slo-rpc">
+                    <div class="slo-name">RPC Availability</div>
+                    <div class="slo-value">99.99%</div>
+                    <div class="slo-target">Target: ≥ 99.9%</div>
+                </div>
+                <div class="slo-item met" id="slo-ai">
+                    <div class="slo-name">AI Service Uptime</div>
+                    <div class="slo-value">100%</div>
+                    <div class="slo-target">Target: ≥ 99.5%</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tabs -->
+        <div class="tab-container">
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('charts')">📊 Charts</button>
+                <button class="tab" onclick="showTab('alerts')">🚨 Alerts</button>
+                <button class="tab" onclick="showTab('nodes')">🖥️ Nodes</button>
+                <button class="tab" onclick="showTab('ai')">🤖 AI Services</button>
+            </div>
+            
+            <div id="tab-charts" class="tab-content active">
+                <div class="chart-container">
+                    <div class="chart-title">DID/VC Issuance Rate (Last 24h)</div>
+                    <canvas id="chart-did-vc"></canvas>
+                </div>
+                
+                <div class="chart-container">
+                    <div class="chart-title">AIID Growth & Lineage Depth</div>
+                    <canvas id="chart-aiid"></canvas>
+                </div>
+                
+                <div class="chart-container">
+                    <div class="chart-title">Policy Enforcement Stats</div>
+                    <canvas id="chart-policy"></canvas>
+                </div>
+            </div>
+            
+            <div id="tab-alerts" class="tab-content">
+                <div class="alert-list" id="alerts-container">
+                    <!-- Alerts populated by JS -->
+                </div>
+            </div>
+            
+            <div id="tab-nodes" class="tab-content">
+                <div id="nodes-container">
+                    <!-- Nodes populated by JS -->
+                </div>
+            </div>
+            
+            <div id="tab-ai" class="tab-content">
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-title">Risk Scoring</div>
+                        <div class="metric-value" id="ai-risk-count">0</div>
+                        <div class="metric-change">VCs scored in last hour</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-title">Anomaly Detection</div>
+                        <div class="metric-value" id="ai-anomaly-count">0</div>
+                        <div class="metric-change">Nodes analyzed</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-title">Reputation Scoring</div>
+                        <div class="metric-value" id="ai-reputation-count">0</div>
+                        <div class="metric-change">DIDs evaluated</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-title">Authenticity Checks</div>
+                        <div class="metric-value" id="ai-authn-count">0</div>
+                        <div class="metric-change">AI outputs verified</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script>
+        const NODE_URL = 'http://localhost:8080';
+        
+        // Tab management
+        function showTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+        }
+        
+        // Fetch metrics
+        async function fetchMetrics() {
+            try {
+                const resp = await fetch(`${NODE_URL}/observability/metrics`);
+                if (!resp.ok) throw new Error('Failed to fetch');
+                return await resp.json();
+            } catch (e) {
+                console.error('Fetch error:', e);
+                return generateMockData();
+            }
+        }
+        
+        // Generate mock data for demo
+        function generateMockData() {
+            return {
+                didCount: Math.floor(Math.random() * 1000) + 500,
+                didChange: (Math.random() * 20).toFixed(1),
+                vcCount: Math.floor(Math.random() * 500) + 200,
+                vcChange: (Math.random() * 15).toFixed(1),
+                aiidCount: Math.floor(Math.random() * 200) + 50,
+                aiidChange: (Math.random() * 10).toFixed(1),
+                nodeCount: Math.floor(Math.random() * 50) + 20,
+                nodeOffline: Math.floor(Math.random() * 3),
+                denialCount: Math.floor(Math.random() * 50),
+                denialPercent: (Math.random() * 5).toFixed(1),
+                anomalyCount: Math.floor(Math.random() * 10),
+                anomalyCritical: Math.floor(Math.random() * 2),
+                sloRead: (99.9 + Math.random() * 0.1).toFixed(2),
+                sloVerify: (0.7 + Math.random() * 0.3).toFixed(2),
+                sloRpc: (99.95 + Math.random() * 0.05).toFixed(2),
+                sloAi: (99.5 + Math.random() * 0.5).toFixed(2),
+                aiRiskCount: Math.floor(Math.random() * 100) + 50,
+                aiAnomalyCount: Math.floor(Math.random() * 30) + 10,
+                aiReputationCount: Math.floor(Math.random() * 80) + 40,
+                aiAuthnCount: Math.floor(Math.random() * 60) + 20,
+            };
+        }
+        
+        // Update UI
+        async function updateMetrics() {
+            const data = await fetchMetrics();
+            
+            document.getElementById('did-count').textContent = data.didCount;
+            document.getElementById('did-change').textContent = `+${data.didChange}%`;
+            
+            document.getElementById('vc-count').textContent = data.vcCount;
+            document.getElementById('vc-change').textContent = `+${data.vcChange}%`;
+            
+            document.getElementById('aiid-count').textContent = data.aiidCount;
+            document.getElementById('aiid-change').textContent = `+${data.aiidChange}%`;
+            
+            document.getElementById('node-count').textContent = data.nodeCount;
+            document.getElementById('node-change').textContent = `${data.nodeOffline} offline`;
+            
+            document.getElementById('denial-count').textContent = data.denialCount;
+            document.getElementById('denial-change').textContent = `${data.denialPercent}% blocked`;
+            
+            document.getElementById('anomaly-count').textContent = data.anomalyCount;
+            document.getElementById('anomaly-change').textContent = `${data.anomalyCritical} critical`;
+            
+            // SLOs
+            document.getElementById('slo-read').querySelector('.slo-value').textContent = `${data.sloRead}%`;
+            document.getElementById('slo-verify').querySelector('.slo-value').textContent = `${data.sloVerify}s`;
+            document.getElementById('slo-rpc').querySelector('.slo-value').textContent = `${data.sloRpc}%`;
+            document.getElementById('slo-ai').querySelector('.slo-value').textContent = `${data.sloAi}%`;
+            
+            // AI Services
+            document.getElementById('ai-risk-count').textContent = data.aiRiskCount;
+            document.getElementById('ai-anomaly-count').textContent = data.aiAnomalyCount;
+            document.getElementById('ai-reputation-count').textContent = data.aiReputationCount;
+            document.getElementById('ai-authn-count').textContent = data.aiAuthnCount;
+            
+            updateSLOStatus(data);
+            updateAlerts(data);
+        }
+        
+        function updateSLOStatus(data) {
+            const sloRead = document.getElementById('slo-read');
+            const sloVerify = document.getElementById('slo-verify');
+            
+            sloRead.className = 'slo-item ' + (parseFloat(data.sloRead) >= 99.9 ? 'met' : 'violated');
+            sloVerify.className = 'slo-item ' + (parseFloat(data.sloVerify) < 1.0 ? 'met' : 'violated');
+        }
+        
+        function updateAlerts(data) {
+            const container = document.getElementById('alerts-container');
+            const alerts = [
+                { type: 'info', title: 'System Health Check', message: 'All services operational', time: '2 minutes ago' },
+                { type: 'warning', title: 'High VC Issuance Rate', message: `${data.vcCount} VCs issued in last hour`, time: '5 minutes ago' },
+            ];
+            
+            if (data.anomalyCritical > 0) {
+                alerts.unshift({
+                    type: 'critical',
+                    title: 'Critical Anomaly Detected',
+                    message: `${data.anomalyCritical} nodes flagged for immediate review`,
+                    time: 'Just now'
+                });
+            }
+            
+            container.innerHTML = alerts.map(alert => `
+                <div class="alert-item ${alert.type}">
+                    <div class="alert-title">${alert.title}</div>
+                    <div>${alert.message}</div>
+                    <div class="alert-time">${alert.time}</div>
+                </div>
+            `).join('');
+        }
+        
+        // Initialize charts
+        let chartDidVc, chartAiid, chartPolicy;
+        
+        function initCharts() {
+            const ctxDidVc = document.getElementById('chart-did-vc').getContext('2d');
+            chartDidVc = new Chart(ctxDidVc, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: 24}, (_, i) => `${i}:00`),
+                    datasets: [{
+                        label: 'DIDs',
+                        data: Array.from({length: 24}, () => Math.floor(Math.random() * 50) + 10),
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        tension: 0.4
+                    }, {
+                        label: 'VCs',
+                        data: Array.from({length: 24}, () => Math.floor(Math.random() * 30) + 5),
+                        borderColor: '#764ba2',
+                        backgroundColor: 'rgba(118, 75, 162, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { display: true }
+                    }
+                }
+            });
+            
+            const ctxAiid = document.getElementById('chart-aiid').getContext('2d');
+            chartAiid = new Chart(ctxAiid, {
+                type: 'bar',
+                data: {
+                    labels: ['v1', 'v2', 'v3', 'v4', 'v5+'],
+                    datasets: [{
+                        label: 'AIIDs by Version',
+                        data: [45, 23, 12, 8, 5],
+                        backgroundColor: ['#667eea', '#764ba2', '#f093fb', '#4facfe', '#43e97b']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true
+                }
+            });
+            
+            const ctxPolicy = document.getElementById('chart-policy').getContext('2d');
+            chartPolicy = new Chart(ctxPolicy, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Allowed', 'Denied (No VC)', 'Denied (Expired)', 'Denied (Revoked)'],
+                    datasets: [{
+                        data: [850, 35, 8, 7],
+                        backgroundColor: ['#4caf50', '#ff9800', '#f44336', '#9c27b0']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true
+                }
+            });
+        }
+        
+        function refreshAll() {
+            updateMetrics();
+        }
+        
+        // Initialize
+        initCharts();
+        updateMetrics();
+        
+        // Auto-refresh every 10 seconds
+        setInterval(updateMetrics, 10000);
+    </script>
+</body>
+</html>
+

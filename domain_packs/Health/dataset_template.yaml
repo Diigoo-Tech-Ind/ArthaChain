@@ -1,0 +1,35 @@
+# Health Domain Dataset Template
+dataset_id: health-{name}
+domain: health
+compliance:
+  - hipaa
+  - gdpr
+
+schema: health-dicom-v1  # or health-fhir-v1, health-clinical-v1
+
+structure:
+  format: {dicom|png|json|csv}
+  metadata:
+    modality: {xray|ct|mri|ultrasound|other}
+    body_part: {chest|head|abdomen|other}
+    age_range: {pediatric|adult|geriatric}
+    anonymization: {de_identified|synthetic|real}
+
+data_source:
+  type: {real|synthetic|augmented}
+  license: {cc0|cc-by|custom}
+  
+preprocessing:
+  normalization: true
+  resizing: {224x224|512x512|original}
+  augmentations:
+    - rotation
+    - flip
+    - contrast
+
+access:
+  policy: private
+  vc_required:
+    - vc:medical-license
+    - vc:research-approval
+

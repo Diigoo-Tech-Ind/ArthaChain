@@ -1,0 +1,24 @@
+# Gaming Domain Model Template
+model_id: game-{name}
+domain: gaming
+compliance:
+  - esrb
+  - coppa  # if children's content
+
+architecture:
+  type: {rllib|torch|evo}
+  task: {npc-behavior|procedural-generation|matchmaking|cheat-detection}
+
+training:
+  epochs: 100
+  batch_size: 64
+  
+data_requirements:
+  min_samples: 5000
+  schema: game-player-v1
+  
+deployment:
+  access_control: public|token
+  real_time: required  # for gameplay
+  latency_critical: true
+

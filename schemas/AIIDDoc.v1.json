@@ -1,0 +1,210 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "artha://schema/AIIDDoc@v1",
+  "title": "Artha AI Identity Document v1",
+  "description": "AI Identity document for models, datasets, and agents on ArthaChain",
+  "type": "object",
+  "required": ["@schema", "id", "ownerDid", "model", "signature"],
+  "properties": {
+    "@schema": {
+      "type": "string",
+      "const": "artha://schema/AIIDDoc@v1",
+      "description": "Schema version identifier"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^aiid:artha:[a-f0-9]{64}$",
+      "description": "AI Identity identifier in format aiid:artha:<hash>",
+      "examples": ["aiid:artha:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"]
+    },
+    "ownerDid": {
+      "type": "string",
+      "pattern": "^did:artha:[a-f0-9]{64}$",
+      "description": "Artha-DID of the AI model/agent owner",
+      "examples": ["did:artha:1234567890abcdef..."]
+    },
+    "model": {
+      "type": "object",
+      "required": ["name", "type", "version", "modelCid"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Model name",
+          "examples": ["GPT-Artha-7B", "ArthaVision-512"]
+        },
+        "type": {
+          "type": "string",
+          "enum": ["llm", "vision", "audio", "multimodal", "rl-agent", "classifier", "generative"],
+          "description": "Model type category"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^v?\\d+\\.\\d+(\\.\\d+)?$",
+          "description": "Semantic version",
+          "examples": ["v1.0.0", "2.3.1"]
+        },
+        "modelCid": {
+          "type": "string",
+          "pattern": "^artha://[a-zA-Z0-9]+$",
+          "description": "SVDB CID of the model weights"
+        },
+        "architecture": {
+          "type": "string",
+          "description": "Model architecture",
+          "examples": ["transformer", "diffusion", "gan", "cnn"]
+        },
+        "parameterCount": {
+          "type": "integer",
+          "description": "Number of parameters in millions",
+          "minimum": 0
+        }
+      }
+    },
+    "datasetId": {
+      "type": "string",
+      "pattern": "^(artha://[a-zA-Z0-9]+|0x[a-f0-9]{64})$",
+      "description": "Training dataset CID or DatasetRegistry ID"
+    },
+    "codeHash": {
+      "type": "string",
+      "pattern": "^0x[a-f0-9]{64}$",
+      "description": "Keccak256 hash of inference code"
+    },
+    "lineage": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^aiid:artha:[a-f0-9]{64}$"
+      },
+      "description": "Parent model AIIDs (for fine-tuned/derived models)"
+    },
+    "eval": {
+      "type": "object",
+      "properties": {
+        "benchmark": {
+          "type": "string",
+          "description": "Benchmark name",
+          "examples": ["MMLU", "HumanEval", "ImageNet"]
+        },
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Normalized benchmark score"
+        },
+        "proofCid": {
+          "type": "string",
+          "pattern": "^artha://[a-zA-Z0-9]+$",
+          "description": "SVDB CID of evaluation proof"
+        }
+      },
+      "description": "Model evaluation metrics"
+    },
+    "license": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["MIT", "Apache-2.0", "GPL-3.0", "Commercial", "Custom"],
+          "description": "License type"
+        },
+        "licenseCid": {
+          "type": "string",
+          "pattern": "^artha://[a-zA-Z0-9]+$",
+          "description": "SVDB CID of full license document"
+        },
+        "commercial": {
+          "type": "boolean",
+          "description": "Commercial use allowed"
+        },
+        "derivatives": {
+          "type": "boolean",
+          "description": "Derivatives/fine-tuning allowed"
+        }
+      }
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Model capabilities",
+      "examples": [["text-generation", "code-completion"], ["image-classification"]]
+    },
+    "inferenceEndpoint": {
+      "type": "string",
+      "format": "uri",
+      "description": "Optional public inference endpoint"
+    },
+    "signature": {
+      "type": "object",
+      "required": ["type", "created", "value"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["Ed25519Signature2020", "Dilithium3Signature2023"],
+          "description": "Signature algorithm"
+        },
+        "created": {
+          "type": "integer",
+          "description": "Unix timestamp",
+          "minimum": 1609459200
+        },
+        "value": {
+          "type": "string",
+          "pattern": "^0x[a-f0-9]+$",
+          "description": "Signature value in hex"
+        }
+      },
+      "description": "Owner's signature over AIID document"
+    },
+    "createdAt": {
+      "type": "integer",
+      "description": "Unix timestamp of AIID creation",
+      "minimum": 1609459200
+    },
+    "active": {
+      "type": "boolean",
+      "description": "Active status",
+      "default": true
+    }
+  },
+  "additionalProperties": false,
+  "examples": [
+    {
+      "@schema": "artha://schema/AIIDDoc@v1",
+      "id": "aiid:artha:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+      "ownerDid": "did:artha:1234567890abcdef...",
+      "model": {
+        "name": "GPT-Artha-7B",
+        "type": "llm",
+        "version": "v1.0.0",
+        "modelCid": "artha://QmModel123...",
+        "architecture": "transformer",
+        "parameterCount": 7000
+      },
+      "datasetId": "artha://QmDataset456...",
+      "codeHash": "0xabc123...",
+      "lineage": [],
+      "eval": {
+        "benchmark": "MMLU",
+        "score": 0.82,
+        "proofCid": "artha://QmProof789..."
+      },
+      "license": {
+        "type": "Apache-2.0",
+        "commercial": true,
+        "derivatives": true
+      },
+      "capabilities": ["text-generation", "code-completion"],
+      "signature": {
+        "type": "Ed25519Signature2020",
+        "created": 1730592000,
+        "value": "0x9876543210..."
+      },
+      "createdAt": 1730592000,
+      "active": true
+    }
+  ]
+}
+

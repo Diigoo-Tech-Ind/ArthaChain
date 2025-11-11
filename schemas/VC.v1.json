@@ -1,0 +1,189 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "artha://schema/VC@v1",
+  "title": "Artha Verifiable Credential v1",
+  "description": "Verifiable Credential for identity attestations on ArthaChain",
+  "type": "object",
+  "required": ["@context", "@schema", "issuerDid", "subjectDid", "type", "claim", "proof"],
+  "properties": {
+    "@context": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "format": "uri"
+      },
+      "contains": {
+        "const": "https://www.w3.org/2018/credentials/v1"
+      },
+      "description": "W3C Verifiable Credentials context"
+    },
+    "@schema": {
+      "type": "string",
+      "const": "artha://schema/VC@v1",
+      "description": "Schema version identifier"
+    },
+    "issuerDid": {
+      "type": "string",
+      "pattern": "^did:artha:[a-f0-9]{64}$",
+      "description": "Artha-DID of the credential issuer (must be in AttestorRegistry)",
+      "examples": ["did:artha:issuer1234567890abcdef..."]
+    },
+    "subjectDid": {
+      "type": "string",
+      "pattern": "^did:artha:[a-f0-9]{64}$",
+      "description": "Artha-DID of the credential subject",
+      "examples": ["did:artha:subject1234567890abcdef..."]
+    },
+    "type": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      },
+      "contains": {
+        "const": "VerifiableCredential"
+      },
+      "description": "Credential types",
+      "examples": [["VerifiableCredential", "KYC.L1"], ["VerifiableCredential", "EDU.VERIFIED"]]
+    },
+    "claim": {
+      "type": "object",
+      "required": ["type", "value"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "KYC.L1",
+            "KYC.L2",
+            "KYC.L3",
+            "EDU.VERIFIED",
+            "EDU.DEGREE",
+            "GOV.PASSPORT",
+            "GOV.NATIONAL_ID",
+            "ORG.VERIFIED",
+            "ORG.ACCREDITED",
+            "RESEARCH.APPROVED",
+            "DEVELOPER.VERIFIED",
+            "Custom"
+          ],
+          "description": "Standardized claim type"
+        },
+        "value": {
+          "type": "object",
+          "description": "Claim-specific data (structure varies by type)"
+        },
+        "claimHash": {
+          "type": "string",
+          "pattern": "^0x[a-f0-9]{64}$",
+          "description": "Keccak256 hash of claim data (stored on-chain)"
+        }
+      },
+      "description": "The credential claim"
+    },
+    "docCid": {
+      "type": "string",
+      "pattern": "^artha://[a-zA-Z0-9]+$",
+      "description": "SVDB CID of full credential document"
+    },
+    "issuedAt": {
+      "type": "integer",
+      "description": "Unix timestamp of issuance",
+      "minimum": 1609459200
+    },
+    "expiresAt": {
+      "type": "integer",
+      "description": "Unix timestamp of expiration (0 = no expiration)",
+      "minimum": 0
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Evidence type",
+            "examples": ["DocumentVerification", "BiometricCheck", "InPersonVerification"]
+          },
+          "docCid": {
+            "type": "string",
+            "pattern": "^artha://[a-zA-Z0-9]+$",
+            "description": "SVDB CID of supporting evidence"
+          },
+          "verifier": {
+            "type": "string",
+            "description": "Entity that verified this evidence"
+          }
+        }
+      },
+      "description": "Optional supporting evidence"
+    },
+    "proof": {
+      "type": "object",
+      "required": ["type", "created", "value"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["Ed25519Signature2020", "Dilithium3Signature2023"],
+          "description": "Signature algorithm"
+        },
+        "created": {
+          "type": "integer",
+          "description": "Unix timestamp of signature",
+          "minimum": 1609459200
+        },
+        "value": {
+          "type": "string",
+          "pattern": "^0x[a-f0-9]+$",
+          "description": "Issuer's signature over credential"
+        }
+      },
+      "description": "Cryptographic proof by issuer"
+    },
+    "revoked": {
+      "type": "boolean",
+      "description": "Revocation status",
+      "default": false
+    }
+  },
+  "additionalProperties": false,
+  "examples": [
+    {
+      "@context": [
+        "https://www.w3.org/2018/credentials/v1",
+        "https://arthachain.online/contexts/kyc/v1"
+      ],
+      "@schema": "artha://schema/VC@v1",
+      "issuerDid": "did:artha:issuer1234567890abcdef...",
+      "subjectDid": "did:artha:subject1234567890abcdef...",
+      "type": ["VerifiableCredential", "KYC.L1"],
+      "claim": {
+        "type": "KYC.L1",
+        "value": {
+          "fullName": "Alice Anderson",
+          "country": "US",
+          "ageOver18": true
+        },
+        "claimHash": "0xabc123..."
+      },
+      "docCid": "artha://QmVC123...",
+      "issuedAt": 1730592000,
+      "expiresAt": 1762128000,
+      "evidence": [
+        {
+          "type": "DocumentVerification",
+          "docCid": "artha://QmEvidence456...",
+          "verifier": "Acme KYC Services"
+        }
+      ],
+      "proof": {
+        "type": "Ed25519Signature2020",
+        "created": 1730592000,
+        "value": "0x9876543210..."
+      },
+      "revoked": false
+    }
+  ]
+}
+

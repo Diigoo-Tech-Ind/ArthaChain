@@ -1,0 +1,181 @@
+openapi: 3.1.0
+info:
+  title: ArthaChain Public API (Placeholder)
+  version: 0.1.0
+servers:
+  - url: http://localhost:8080
+paths:
+  /api/v1/test/health:
+    get:
+      summary: Health check
+      responses:
+        '200': { description: OK }
+  /api/v1/contracts/deploy:
+    post:
+      summary: Deploy EVM contract
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                bytecode: { type: string }
+      responses:
+        '200': { description: Deployed }
+  /api/v1/contracts/call:
+    post:
+      summary: Call EVM contract
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                to: { type: string }
+                data: { type: string }
+      responses:
+        '200': { description: Call result }
+  /api/v1/transactions/submit:
+    post:
+      summary: Submit a transaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sender: { type: string }
+                recipient: { type: string, nullable: true }
+                amount: { type: integer }
+                fee: { type: integer }
+                signature: { type: string }
+      responses:
+        '200': { description: Accepted }
+  /api/v1/svdb/deals:
+    post:
+      summary: Create a storage/computation deal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cid: { type: string }
+                size: { type: integer }
+                replicas: { type: integer }
+                months: { type: integer }
+                maxPrice: { type: integer }
+      responses:
+        '200': { description: Deal created }
+
+openapi: 3.1.0
+info:
+  title: ArthaChain Public API (Placeholder)
+  version: 0.1.0
+  description: |
+    Placeholder OpenAPI for `/api/v1/*` until full spec is generated.
+servers:
+  - url: http://localhost:8080
+    description: Local dev
+paths:
+  /api/v1/test/health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+  /api/v1/contracts/deploy:
+    post:
+      summary: Deploy EVM contract
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                bytecode:
+                  type: string
+                  description: Hex-encoded bytecode
+      responses:
+        '200':
+          description: Deployed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  address:
+                    type: string
+  /api/v1/contracts/call:
+    post:
+      summary: Call EVM contract
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                to:
+                  type: string
+                data:
+                  type: string
+      responses:
+        '200':
+          description: Call result
+  /api/v1/transactions/submit:
+    post:
+      summary: Submit a transaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sender:
+                  type: string
+                recipient:
+                  type: string
+                  nullable: true
+                amount:
+                  type: integer
+                fee:
+                  type: integer
+                signature:
+                  type: string
+      responses:
+        '200':
+          description: Accepted
+  /api/v1/svdb/deals:
+    post:
+      summary: Create a storage/computation deal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cid:
+                  type: string
+                size:
+                  type: integer
+                replicas:
+                  type: integer
+                months:
+                  type: integer
+                maxPrice:
+                  type: integer
+      responses:
+        '200':
+          description: Deal created
+
+components: {}
+
+

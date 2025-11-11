@@ -1,0 +1,17 @@
+[package]
+name = "ai-federation"
+version = "1.0.0"
+edition = "2021"
+
+[dependencies]
+axum = "0.7"
+tokio = { version = "1.35", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+uuid = { version = "1.6", features = ["v4"] }
+rand = "0.8"
+
+[[bin]]
+name = "ai-federation"
+path = "src/main.rs"
+

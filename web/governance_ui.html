@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Artha DAO Governance UI</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        h1 { color: #667eea; font-size: 36px; margin-bottom: 10px; }
+        .subtitle { color: #666; font-size: 18px; }
+        .governance-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .config-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+        .card-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .param-group {
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .param-group:last-child { border-bottom: none; }
+        .param-label {
+            font-size: 14px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .param-current {
+            font-size: 12px;
+            color: #888;
+            font-weight: normal;
+        }
+        .param-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        .param-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .param-description {
+            font-size: 12px;
+            color: #888;
+            margin-top: 5px;
+        }
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s;
+            margin-top: 15px;
+            width: 100%;
+        }
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #d32f2f;
+        }
+        .btn-success {
+            background: #4caf50;
+            color: white;
+        }
+        .proposals-section {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            margin-top: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+        .proposal-card {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+        }
+        .proposal-card.emergency {
+            border-left-color: #f44336;
+            background: #ffebee;
+        }
+        .proposal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .proposal-id {
+            font-weight: bold;
+            font-size: 18px;
+            color: #667eea;
+        }
+        .proposal-status {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status-pending { background: #fff3cd; color: #856404; }
+        .status-approved { background: #d4edda; color: #155724; }
+        .status-executed { background: #d1ecf1; color: #0c5460; }
+        .proposal-content { margin-bottom: 15px; }
+        .proposal-meta {
+            font-size: 12px;
+            color: #888;
+            margin-top: 10px;
+        }
+        .vote-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .vote-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .vote-yes {
+            background: #4caf50;
+            color: white;
+        }
+        .vote-yes:hover { background: #388e3c; }
+        .vote-no {
+            background: #f44336;
+            color: white;
+        }
+        .vote-no:hover { background: #d32f2f; }
+        .approval-progress {
+            margin-top: 15px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            height: 30px;
+            overflow: hidden;
+            position: relative;
+        }
+        .approval-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #4caf50, #66bb6a);
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        .threshold-line {
+            position: absolute;
+            left: 55.55%;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #f44336;
+        }
+        .threshold-label {
+            position: absolute;
+            left: 55.55%;
+            top: -20px;
+            transform: translateX(-50%);
+            font-size: 10px;
+            color: #f44336;
+            font-weight: bold;
+        }
+        .create-proposal {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            margin-top: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-label {
+            font-weight: bold;
+            margin-bottom: 8px;
+            display: block;
+        }
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 14px;
+            min-height: 100px;
+            resize: vertical;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .checkbox-group input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏛️ Artha DAO Governance</h1>
+            <p class="subtitle">Configure system parameters and vote on proposals</p>
+        </div>
+
+        <!-- DAO Parameter Configuration -->
+        <div class="governance-grid">
+            <!-- Price Oracle Configuration -->
+            <div class="config-card">
+                <div class="card-title">💰 Price Oracle Settings</div>
+                <div class="param-group">
+                    <div class="param-label">
+                        Base Price (ARTH/GB-month)
+                        <span class="param-current">Current: 0.001 ARTH</span>
+                    </div>
+                    <input type="number" class="param-input" id="base-price" value="0.001" step="0.0001">
+                    <div class="param-description">Minimum storage cost per GB per month</div>
+                </div>
+                <div class="param-group">
+                    <div class="param-label">
+                        Price Floor Multiplier
+                        <span class="param-current">Current: 0.5x</span>
+                    </div>
+                    <input type="number" class="param-input" id="price-floor" value="0.5" step="0.1">
+                    <div class="param-description">Minimum price = base × multiplier</div>
+                </div>
+                <div class="param-group">
+                    <div class="param-label">
+                        Price Ceiling Multiplier
+                        <span class="param-current">Current: 10x</span>
+                    </div>
+                    <input type="number" class="param-input" id="price-ceiling" value="10" step="0.5">
+                    <div class="param-description">Maximum price = base × multiplier</div>
+                </div>
+                <button class="btn btn-primary" onclick="proposePrice()">Propose Price Update</button>
+            </div>
+
+            <!-- Risk Thresholds -->
+            <div class="config-card">
+                <div class="card-title">⚠️ Risk Scoring Thresholds</div>
+                <div class="param-group">
+                    <div class="param-label">
+                        Block Threshold
+                        <span class="param-current">Current: 0.8</span>
+                    </div>
+                    <input type="number" class="param-input" id="risk-block" value="0.8" step="0.05" min="0" max="1">
+                    <div class="param-description">VCs with risk > this value are blocked</div>
+                </div>
+                <div class="param-group">
+                    <div class="param-label">
+                        Warning Threshold
+                        <span class="param-current">Current: 0.6</span>
+                    </div>
+                    <input type="number" class="param-input" id="risk-warn" value="0.6" step="0.05" min="0" max="1">
+                    <div class="param-description">VCs with risk > this value show warnings</div>
+                </div>
+                <div class="param-group">
+                    <div class="param-label">
+                        Low Issuer Reputation Penalty
+                        <span class="param-current">Current: +0.3</span>
+                    </div>
+                    <input type="number" class="param-input" id="risk-issuer" value="0.3" step="0.05">
+                    <div class="param-description">Risk added for low-reputation issuers</div>
+                </div>
+                <button class="btn btn-primary" onclick="proposeRiskUpdate()">Propose Risk Update</button>
+            </div>
+
+            <!-- VC Requirements -->
+            <div class="config-card">
+                <div class="card-title">📜 Required Credentials</div>
+                <div class="param-group">
+                    <div class="param-label">
+                        AI Job Submission Requirements
+                        <span class="param-current">Current: KYC.L1</span>
+                    </div>
+                    <input type="text" class="param-input" id="vc-job" value="KYC.L1,EDU.VERIFIED" placeholder="Comma-separated VC types">
+                    <div class="param-description">Required VCs to submit AI jobs</div>
+                </div>
+                <div class="param-group">
+                    <div class="param-label">
+                        Node Registration Requirements
+                        <span class="param-current">Current: ORG.VERIFIED</span>
+                    </div>
+                    <input type="text" class="param-input" id="vc-node" value="ORG.VERIFIED,KYC.L2" placeholder="Comma-separated VC types">
+                    <div class="param-description">Required VCs to register infrastructure nodes</div>
+                </div>
+                <div class="param-group">
+                    <div class="param-label">
+                        Private Dataset Access
+                        <span class="param-current">Current: RESEARCH.APPROVED</span>
+                    </div>
+                    <input type="text" class="param-input" id="vc-data" value="RESEARCH.APPROVED" placeholder="Comma-separated VC types">
+                    <div class="param-description">Default VCs for restricted datasets</div>
+                </div>
+                <button class="btn btn-primary" onclick="proposeVCUpdate()">Propose VC Requirements</button>
+            </div>
+
+            <!-- Anomaly Detection -->
+            <div class="config-card">
+                <div class="card-title">🔍 Anomaly Detection Thresholds</div>
+                <div class="param-group">
+                    <div class="param-label">
+                        Penalize Threshold
+                        <span class="param-current">Current: 0.6</span>
+                    </div>
+                    <input type="number" class="param-input" id="anomaly-penalize" value="0.6" step="0.05" min="0" max="1">
+                    <div class="param-description">Anomaly score > this triggers penalties</div>
+                </div>
+                <div class="param-group">
+                    <div class="param-label">
+                        Probe Threshold
+                        <span class="param-current">Current: 0.3</span>
+                    </div>
+                    <input type="number" class="param-input" id="anomaly-probe" value="0.3" step="0.05" min="0" max="1">
+                    <div class="param-description">Anomaly score > this triggers extra checks</div>
+                </div>
+                <div class="param-group">
+                    <div class="param-label">
+                        Auto-Drain on Consecutive Failures
+                        <span class="param-current">Current: 3</span>
+                    </div>
+                    <input type="number" class="param-input" id="anomaly-drain" value="3" step="1" min="1">
+                    <div class="param-description">Number of failures before auto-drain</div>
+                </div>
+                <button class="btn btn-primary" onclick="proposeAnomalyUpdate()">Propose Anomaly Update</button>
+            </div>
+
+            <!-- Reputation Scoring -->
+            <div class="config-card">
+                <div class="card-title">⭐ Reputation Scoring</div>
+                <div class="param-group">
+                    <div class="param-label">
+                        Minimum Reputation for Jobs
+                        <span class="param-current">Current: 50</span>
+                    </div>
+                    <input type="number" class="param-input" id="rep-min" value="50" step="5" min="0" max="100">
+                    <div class="param-description">Artha Score required to submit jobs</div>
+                </div>
+                <div class="param-group">
+                    <div class="param-label">
+                        Sybil Cluster Size Threshold
+                        <span class="param-current">Current: 3</span>
+                    </div>
+                    <input type="number" class="param-input" id="rep-sybil" value="3" step="1" min="2">
+                    <div class="param-description">DIDs from same IP > this flagged as Sybil</div>
+                </div>
+                <div class="param-group">
+                    <div class="param-label">
+                        Velocity Abuse Window (days)
+                        <span class="param-current">Current: 7</span>
+                    </div>
+                    <input type="number" class="param-input" id="rep-velocity" value="7" step="1" min="1">
+                    <div class="param-description">Too many VCs in this window = abuse</div>
+                </div>
+                <button class="btn btn-primary" onclick="proposeReputationUpdate()">Propose Reputation Update</button>
+            </div>
+
+            <!-- Emergency Settings -->
+            <div class="config-card">
+                <div class="card-title">🚨 Emergency Council Settings</div>
+                <div class="param-group">
+                    <div class="param-label">
+                        Emergency Timelock (hours)
+                        <span class="param-current">Current: 24h</span>
+                    </div>
+                    <input type="number" class="param-input" id="emergency-timelock" value="24" step="1" min="1">
+                    <div class="param-description">Fast-track timelock for critical issues</div>
+                </div>
+                <div class="param-group">
+                    <div class="param-label">
+                        Normal Timelock (hours)
+                        <span class="param-current">Current: 48h</span>
+                    </div>
+                    <input type="number" class="param-input" id="normal-timelock" value="48" step="1" min="24">
+                    <div class="param-description">Standard timelock for pause proposals</div>
+                </div>
+                <div class="param-group">
+                    <div class="param-label">
+                        Auto-Unpause Delay (days)
+                        <span class="param-current">Current: 7 days</span>
+                    </div>
+                    <input type="number" class="param-input" id="auto-unpause" value="7" step="1" min="3">
+                    <div class="param-description">Automatic unpause after this period</div>
+                </div>
+                <button class="btn btn-danger" onclick="proposeEmergencyUpdate()">Propose Emergency Update</button>
+            </div>
+        </div>
+
+        <!-- Active Proposals -->
+        <div class="proposals-section">
+            <h2 style="margin-bottom: 20px;">📋 Active Proposals</h2>
+            <div id="proposals-list">
+                <!-- Proposals populated by JS -->
+            </div>
+        </div>
+
+        <!-- Create New Proposal -->
+        <div class="create-proposal">
+            <h2 style="margin-bottom: 20px;">✍️ Create Custom Proposal</h2>
+            <div class="form-group">
+                <label class="form-label">Proposal Title</label>
+                <input type="text" class="param-input" id="proposal-title" placeholder="e.g., Update Price Oracle Base Rate">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Proposal Description</label>
+                <textarea id="proposal-description" placeholder="Detailed explanation of the proposal and rationale..."></textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Target Contract Address</label>
+                <input type="text" class="param-input" id="proposal-target" placeholder="0x...">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Function Call Data (hex)</label>
+                <input type="text" class="param-input" id="proposal-data" placeholder="0x...">
+            </div>
+            <div class="form-group">
+                <div class="checkbox-group">
+                    <input type="checkbox" id="proposal-emergency">
+                    <label class="form-label" for="proposal-emergency" style="margin: 0;">🚨 Mark as Emergency (24h timelock)</label>
+                </div>
+            </div>
+            <button class="btn btn-success" onclick="submitProposal()">Submit Proposal to DAO</button>
+        </div>
+    </div>
+
+    <script>
+        const PROPOSALS = [
+            {
+                id: 1,
+                title: "Update Base Price to 0.0015 ARTH/GB-month",
+                description: "Increase base storage price to match rising costs",
+                proposer: "did:artha:council001",
+                status: "pending",
+                approvals: 3,
+                threshold: 5,
+                emergency: false,
+                createdAt: Date.now() - 3600000,
+                executionTime: Date.now() + 43200000
+            },
+            {
+                id: 2,
+                title: "Emergency: Pause SVDBProofManager",
+                description: "Critical bug found in proof verification",
+                proposer: "did:artha:council005",
+                status: "pending",
+                approvals: 4,
+                threshold: 5,
+                emergency: true,
+                createdAt: Date.now() - 1800000,
+                executionTime: Date.now() + 21600000
+            },
+            {
+                id: 3,
+                title: "Add EDU.VERIFIED to Node Registration Requirements",
+                description: "Improve node operator quality",
+                proposer: "did:artha:council003",
+                status: "approved",
+                approvals: 6,
+                threshold: 5,
+                emergency: false,
+                createdAt: Date.now() - 172800000,
+                executionTime: Date.now() + 3600000
+            }
+        ];
+
+        function renderProposals() {
+            const container = document.getElementById('proposals-list');
+            container.innerHTML = '';
+
+            PROPOSALS.forEach(proposal => {
+                const card = document.createElement('div');
+                card.className = `proposal-card ${proposal.emergency ? 'emergency' : ''}`;
+                
+                const approvalPercent = (proposal.approvals / 9) * 100;
+                const statusClass = proposal.status === 'approved' ? 'status-approved' : proposal.status === 'executed' ? 'status-executed' : 'status-pending';
+                const statusText = proposal.status.toUpperCase();
+                
+                const timeUntilExecution = Math.max(0, Math.floor((proposal.executionTime - Date.now()) / 1000 / 3600));
+
+                card.innerHTML = `
+                    <div class="proposal-header">
+                        <span class="proposal-id">Proposal #${proposal.id}</span>
+                        <span class="proposal-status ${statusClass}">${statusText}</span>
+                    </div>
+                    <div class="proposal-content">
+                        <h3 style="margin-bottom: 10px;">${proposal.title}</h3>
+                        <p style="color: #666; font-size: 14px;">${proposal.description}</p>
+                        <div class="proposal-meta">
+                            Proposed by: ${proposal.proposer}<br>
+                            ${proposal.emergency ? '🚨 <strong>EMERGENCY PROPOSAL</strong><br>' : ''}
+                            Execution in: ${timeUntilExecution}h
+                        </div>
+                    </div>
+                    <div class="approval-progress">
+                        <div class="threshold-label">5/9 Required</div>
+                        <div class="threshold-line"></div>
+                        <div class="approval-bar" style="width: ${approvalPercent}%">
+                            ${proposal.approvals}/9 Approvals
+                        </div>
+                    </div>
+                    ${proposal.status === 'pending' ? `
+                        <div class="vote-buttons">
+                            <button class="vote-btn vote-yes" onclick="voteProposal(${proposal.id}, true)">
+                                ✓ Approve
+                            </button>
+                            <button class="vote-btn vote-no" onclick="voteProposal(${proposal.id}, false)">
+                                ✗ Reject
+                            </button>
+                        </div>
+                    ` : ''}
+                `;
+
+                container.appendChild(card);
+            });
+        }
+
+        function proposePrice() {
+            const basePrice = document.getElementById('base-price').value;
+            const floor = document.getElementById('price-floor').value;
+            const ceiling = document.getElementById('price-ceiling').value;
+            
+            alert(`Submitting proposal:\nBase Price: ${basePrice} ARTH/GB-month\nFloor: ${floor}x\nCeiling: ${ceiling}x\n\nThis will create a DAO vote.`);
+            
+            // In real implementation, this would call the contract
+            console.log('Propose price update:', { basePrice, floor, ceiling });
+        }
+
+        function proposeRiskUpdate() {
+            const block = document.getElementById('risk-block').value;
+            const warn = document.getElementById('risk-warn').value;
+            const issuer = document.getElementById('risk-issuer').value;
+            
+            alert(`Submitting proposal:\nBlock Threshold: ${block}\nWarning Threshold: ${warn}\nIssuer Penalty: ${issuer}\n\nThis will create a DAO vote.`);
+            console.log('Propose risk update:', { block, warn, issuer });
+        }
+
+        function proposeVCUpdate() {
+            const job = document.getElementById('vc-job').value;
+            const node = document.getElementById('vc-node').value;
+            const data = document.getElementById('vc-data').value;
+            
+            alert(`Submitting proposal:\nJob Requirements: ${job}\nNode Requirements: ${node}\nData Access: ${data}\n\nThis will create a DAO vote.`);
+            console.log('Propose VC update:', { job, node, data });
+        }
+
+        function proposeAnomalyUpdate() {
+            const penalize = document.getElementById('anomaly-penalize').value;
+            const probe = document.getElementById('anomaly-probe').value;
+            const drain = document.getElementById('anomaly-drain').value;
+            
+            alert(`Submitting proposal:\nPenalize: ${penalize}\nProbe: ${probe}\nDrain: ${drain} failures\n\nThis will create a DAO vote.`);
+            console.log('Propose anomaly update:', { penalize, probe, drain });
+        }
+
+        function proposeReputationUpdate() {
+            const min = document.getElementById('rep-min').value;
+            const sybil = document.getElementById('rep-sybil').value;
+            const velocity = document.getElementById('rep-velocity').value;
+            
+            alert(`Submitting proposal:\nMin Score: ${min}\nSybil Threshold: ${sybil}\nVelocity Window: ${velocity} days\n\nThis will create a DAO vote.`);
+            console.log('Propose reputation update:', { min, sybil, velocity });
+        }
+
+        function proposeEmergencyUpdate() {
+            const emergency = document.getElementById('emergency-timelock').value;
+            const normal = document.getElementById('normal-timelock').value;
+            const auto = document.getElementById('auto-unpause').value;
+            
+            if (confirm('⚠️ This affects emergency procedures. Are you sure?')) {
+                alert(`Submitting proposal:\nEmergency: ${emergency}h\nNormal: ${normal}h\nAuto-Unpause: ${auto} days\n\nThis will create a DAO vote.`);
+                console.log('Propose emergency update:', { emergency, normal, auto });
+            }
+        }
+
+        function submitProposal() {
+            const title = document.getElementById('proposal-title').value;
+            const description = document.getElementById('proposal-description').value;
+            const target = document.getElementById('proposal-target').value;
+            const data = document.getElementById('proposal-data').value;
+            const emergency = document.getElementById('proposal-emergency').checked;
+            
+            if (!title || !description || !target) {
+                alert('Please fill in all required fields');
+                return;
+            }
+            
+            alert(`Submitting custom proposal:\nTitle: ${title}\nTarget: ${target}\nEmergency: ${emergency}\n\nThis will create a DAO vote.`);
+            console.log('Submit proposal:', { title, description, target, data, emergency });
+        }
+
+        function voteProposal(id, approve) {
+            const action = approve ? 'APPROVE' : 'REJECT';
+            if (confirm(`${action} Proposal #${id}?`)) {
+                alert(`Vote recorded: ${action}\n\nTransaction submitted to blockchain.`);
+                console.log(`Vote on proposal ${id}:`, approve);
+                
+                // Update proposal in UI
+                const proposal = PROPOSALS.find(p => p.id === id);
+                if (proposal && approve) {
+                    proposal.approvals++;
+                    if (proposal.approvals >= proposal.threshold) {
+                        proposal.status = 'approved';
+                    }
+                }
+                renderProposals();
+            }
+        }
+
+        // Initialize
+        renderProposals();
+        
+        // Refresh proposals every 30 seconds
+        setInterval(() => {
+            // In real implementation, fetch from blockchain
+            renderProposals();
+        }, 30000);
+    </script>
+</body>
+</html>
+

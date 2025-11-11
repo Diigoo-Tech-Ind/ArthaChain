@@ -1,0 +1,26 @@
+# Energy Domain Model Template
+model_id: energy-{name}
+domain: energy
+compliance:
+  - nerc-cip
+  - eu-energy-regulations
+
+architecture:
+  type: {prophet|torch|tf}
+  task: {demand-forecast|grid-stability|renewable-prediction|anomaly-detection}
+
+training:
+  epochs: 20
+  batch_size: 64
+  
+data_requirements:
+  min_samples: 10000
+  schema: energy-grid-v1
+  
+deployment:
+  access_control: private
+  vc_required:
+    - vc:energy-operator-license
+  real_time: required
+  fail_safe: required
+

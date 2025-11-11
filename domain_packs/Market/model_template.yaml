@@ -1,0 +1,27 @@
+# Marketing Domain Model Template
+model_id: market-{name}
+domain: marketing
+compliance:
+  - gdpr
+  - ccpa
+  - can-spam
+
+architecture:
+  type: {torch|tf|recommendation}
+  task: {segmentation|churn-prediction|campaign-optimization|recommendation}
+
+training:
+  epochs: 10
+  batch_size: 256
+  
+data_requirements:
+  min_samples: 10000
+  schema: market-customer-v1
+  consent_required: true
+  
+deployment:
+  access_control: token
+  vc_required:
+    - vc:marketing-certification
+  opt_out: required
+

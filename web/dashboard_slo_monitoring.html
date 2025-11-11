@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ArthaAIN SLO Monitoring Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0a0e27;
+            color: #e0e0e0;
+            padding: 20px;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        .slo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .slo-card {
+            background: #1a1f3a;
+            border-radius: 10px;
+            padding: 20px;
+            border: 1px solid #2a2f4a;
+        }
+        .slo-card h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+        .slo-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        .status-indicator.healthy { background: #4ade80; }
+        .status-indicator.warning { background: #fbbf24; }
+        .status-indicator.critical { background: #ef4444; }
+        .metric-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #4ade80;
+            margin: 10px 0;
+        }
+        .chart-container {
+            margin-top: 20px;
+            height: 200px;
+            background: #0f1422;
+            border-radius: 5px;
+            display: flex;
+            align-items: end;
+            padding: 10px;
+            gap: 5px;
+        }
+        .bar {
+            flex: 1;
+            background: #667eea;
+            min-height: 10px;
+            border-radius: 3px 3px 0 0;
+            transition: height 0.3s;
+        }
+        .alert-list {
+            margin-top: 30px;
+        }
+        .alert-item {
+            padding: 15px;
+            margin: 10px 0;
+            background: #1a1f3a;
+            border-radius: 5px;
+            border-left: 4px solid #ef4444;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 ArthaAIN SLO Monitoring Dashboard</h1>
+        <p>Service Level Objective tracking and alerting</p>
+    </div>
+
+    <div class="slo-grid">
+        <div class="slo-card">
+            <h3>Inference Availability</h3>
+            <div class="slo-status">
+                <span class="status-indicator healthy" id="inf-avail-indicator"></span>
+                <span>Target: 99.9%</span>
+            </div>
+            <div class="metric-value" id="inf-avail-value">99.95%</div>
+            <div class="chart-container" id="inf-avail-chart"></div>
+        </div>
+
+        <div class="slo-card">
+            <h3>Inference Latency (p99)</h3>
+            <div class="slo-status">
+                <span class="status-indicator healthy" id="inf-lat-indicator"></span>
+                <span>Target: &lt;200ms</span>
+            </div>
+            <div class="metric-value" id="inf-lat-value">145ms</div>
+            <div class="chart-container" id="inf-lat-chart"></div>
+        </div>
+
+        <div class="slo-card">
+            <h3>Policy Check Latency</h3>
+            <div class="slo-status">
+                <span class="status-indicator healthy" id="policy-indicator"></span>
+                <span>Target: &lt;150ms</span>
+            </div>
+            <div class="metric-value" id="policy-value">98ms</div>
+            <div class="chart-container" id="policy-chart"></div>
+        </div>
+
+        <div class="slo-card">
+            <h3>Download Latency (100MB)</h3>
+            <div class="slo-status">
+                <span class="status-indicator warning" id="download-indicator"></span>
+                <span>Target: &lt;1.5s</span>
+            </div>
+            <div class="metric-value" id="download-value">1.8s</div>
+            <div class="chart-container" id="download-chart"></div>
+        </div>
+
+        <div class="slo-card">
+            <h3>Job Success Rate</h3>
+            <div class="slo-status">
+                <span class="status-indicator healthy" id="job-success-indicator"></span>
+                <span>Target: &gt;95%</span>
+            </div>
+            <div class="metric-value" id="job-success-value">97.2%</div>
+            <div class="chart-container" id="job-success-chart"></div>
+        </div>
+
+        <div class="slo-card">
+            <h3>Service Uptime</h3>
+            <div class="slo-status">
+                <span class="status-indicator healthy" id="uptime-indicator"></span>
+                <span>Target: 99.9%</span>
+            </div>
+            <div class="metric-value" id="uptime-value">99.98%</div>
+            <div class="chart-container" id="uptime-chart"></div>
+        </div>
+    </div>
+
+    <div class="alert-list">
+        <h2>🚨 Active Alerts</h2>
+        <div id="alerts-container">
+            <!-- Populated by JS -->
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8080';
+        
+        async function updateSLOMetrics() {
+            try {
+                // Fetch SLO metrics (mock data - replace with real API)
+                const metrics = {
+                    inference_availability: 0.9995,
+                    inference_latency_p99_ms: 145,
+                    policy_check_latency_ms: 98,
+                    download_latency_100mb_ms: 1800,
+                    job_success_rate: 0.972,
+                    service_uptime: 0.9998,
+                };
+                
+                // Update values
+                document.getElementById('inf-avail-value').textContent = (metrics.inference_availability * 100).toFixed(2) + '%';
+                document.getElementById('inf-lat-value').textContent = metrics.inference_latency_p99_ms + 'ms';
+                document.getElementById('policy-value').textContent = metrics.policy_check_latency_ms + 'ms';
+                document.getElementById('download-value').textContent = (metrics.download_latency_100mb_ms / 1000).toFixed(1) + 's';
+                document.getElementById('job-success-value').textContent = (metrics.job_success_rate * 100).toFixed(1) + '%';
+                document.getElementById('uptime-value').textContent = (metrics.service_uptime * 100).toFixed(2) + '%';
+                
+                // Update status indicators
+                updateIndicator('inf-avail-indicator', metrics.inference_availability >= 0.999);
+                updateIndicator('inf-lat-indicator', metrics.inference_latency_p99_ms < 200);
+                updateIndicator('policy-indicator', metrics.policy_check_latency_ms < 150);
+                updateIndicator('download-indicator', metrics.download_latency_100mb_ms < 1500);
+                updateIndicator('job-success-indicator', metrics.job_success_rate >= 0.95);
+                updateIndicator('uptime-indicator', metrics.service_uptime >= 0.999);
+                
+                // Check for alerts
+                const alerts = [];
+                if (metrics.download_latency_100mb_ms > 1500) {
+                    alerts.push({
+                        severity: 'warning',
+                        message: 'Download latency exceeds SLO target (1.5s)',
+                        value: (metrics.download_latency_100mb_ms / 1000).toFixed(1) + 's',
+                    });
+                }
+                
+                // Update alerts
+                const alertsContainer = document.getElementById('alerts-container');
+                if (alerts.length === 0) {
+                    alertsContainer.innerHTML = '<p style="opacity: 0.7;">No active alerts ✅</p>';
+                } else {
+                    alertsContainer.innerHTML = alerts.map(alert => `
+                        <div class="alert-item">
+                            <strong>${alert.severity.toUpperCase()}:</strong> ${alert.message} (Current: ${alert.value})
+                        </div>
+                    `).join('');
+                }
+                
+            } catch (e) {
+                console.error('Failed to update SLO metrics:', e);
+            }
+        }
+        
+        function updateIndicator(id, healthy) {
+            const indicator = document.getElementById(id);
+            indicator.className = 'status-indicator ' + (healthy ? 'healthy' : 'warning');
+        }
+        
+        // Update every 5 seconds
+        updateSLOMetrics();
+        setInterval(updateSLOMetrics, 5000);
+    </script>
+</body>
+</html>
+

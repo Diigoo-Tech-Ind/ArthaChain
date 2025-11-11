@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SVDB Explorer - ArthaChain</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+        }
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1rem;
+        }
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 10px;
+        }
+        .tab {
+            padding: 10px 20px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            color: #666;
+            transition: all 0.3s;
+            border-radius: 8px 8px 0 0;
+        }
+        .tab:hover { background: #f5f5f5; }
+        .tab.active {
+            color: #667eea;
+            background: #f0f4ff;
+            font-weight: 600;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+        input[type="text"] {
+            flex: 1;
+            padding: 12px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        button {
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        .card {
+            background: #f9f9f9;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid #e0e0e0;
+        }
+        .card h3 {
+            margin-bottom: 15px;
+            color: #667eea;
+            font-size: 1.3rem;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .info-row:last-child {
+            border-bottom: none;
+        }
+        .label {
+            font-weight: 600;
+            color: #666;
+        }
+        .value {
+            color: #333;
+            font-family: 'Courier New', monospace;
+        }
+        .timeline {
+            position: relative;
+            padding-left: 30px;
+        }
+        .timeline-item {
+            position: relative;
+            padding-bottom: 20px;
+        }
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -21px;
+            top: 5px;
+            width: 12px;
+            height: 12px;
+            background: #667eea;
+            border-radius: 50%;
+            border: 3px solid white;
+            box-shadow: 0 0 0 2px #667eea;
+        }
+        .timeline-item::after {
+            content: '';
+            position: absolute;
+            left: -16px;
+            top: 17px;
+            width: 2px;
+            height: calc(100% - 12px);
+            background: #e0e0e0;
+        }
+        .timeline-item:last-child::after {
+            display: none;
+        }
+        .timeline-content {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+        .chart-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 25px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .stat-label {
+            font-size: 1rem;
+            opacity: 0.9;
+        }
+        .provider-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            transition: all 0.3s;
+        }
+        .provider-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        }
+        .badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .badge.active { background: #d4edda; color: #155724; }
+        .badge.inactive { background: #f8d7da; color: #721c24; }
+        .badge.bronze { background: #cd7f32; color: white; }
+        .badge.silver { background: #c0c0c0; color: #333; }
+        .badge.gold { background: #ffd700; color: #333; }
+        .badge.platinum { background: #e5e4e2; color: #333; }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌐 SVDB Explorer</h1>
+        <p class="subtitle">Sovereign Verifiable Database - Analytics & Monitoring Dashboard</p>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('overview')">Overview</button>
+            <button class="tab" onclick="switchTab('proofs')">Proof Timeline</button>
+            <button class="tab" onclick="switchTab('marketplace')">Marketplace</button>
+            <button class="tab" onclick="switchTab('cost')">Cost Estimator</button>
+            <button class="tab" onclick="switchTab('lineage')">Data Lineage</button>
+        </div>
+
+        <!-- Overview Tab -->
+        <div id="overview" class="tab-content active">
+            <div class="chart-container">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalDeals">-</div>
+                    <div class="stat-label">Total Deals</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalStorage">-</div>
+                    <div class="stat-label">Total Storage (TB)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="activeProviders">-</div>
+                    <div class="stat-label">Active Providers</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="proofSuccess">-</div>
+                    <div class="stat-label">Proof Success Rate</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Proofs Tab -->
+        <div id="proofs" class="tab-content">
+            <div class="search-box">
+                <input type="text" id="cidInput" placeholder="Enter CID (base64 or hex)">
+                <button onclick="loadProofTimeline()">Load Timeline</button>
+            </div>
+            <div id="proofResults"></div>
+        </div>
+
+        <!-- Marketplace Tab -->
+        <div id="marketplace" class="tab-content">
+            <div class="search-box">
+                <input type="text" id="rpcUrlMarket" placeholder="RPC URL" value="http://localhost:8545">
+                <input type="text" id="contractMarket" placeholder="OfferBook Contract Address">
+                <button onclick="loadMarketplace()">Load Providers</button>
+            </div>
+            <div id="marketResults"></div>
+        </div>
+
+        <!-- Cost Tab -->
+        <div id="cost" class="tab-content">
+            <div class="card">
+                <h3>💰 Storage Cost Estimator</h3>
+                <div style="display: grid; gap: 15px; margin-top: 20px;">
+                    <div>
+                        <label class="label">Size (GB):</label>
+                        <input type="number" id="costSize" value="100" style="width: 100%; margin-top: 5px;">
+                    </div>
+                    <div>
+                        <label class="label">Replicas:</label>
+                        <input type="number" id="costReplicas" value="3" style="width: 100%; margin-top: 5px;">
+                    </div>
+                    <div>
+                        <label class="label">Duration (months):</label>
+                        <input type="number" id="costMonths" value="12" style="width: 100%; margin-top: 5px;">
+                    </div>
+                    <div>
+                        <label class="label">RPC URL:</label>
+                        <input type="text" id="costRpc" value="http://localhost:3000" style="width: 100%; margin-top: 5px;">
+                    </div>
+                    <button onclick="estimateCost()">Calculate Cost</button>
+                </div>
+                <div id="costResults" style="margin-top: 20px;"></div>
+            </div>
+        </div>
+
+        <!-- Lineage Tab -->
+        <div id="lineage" class="tab-content">
+            <div class="search-box">
+                <input type="text" id="lineageCid" placeholder="Enter dataset or model CID">
+                <button onclick="loadLineage()">Load Lineage</button>
+            </div>
+            <div id="lineageResults"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3000';
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById(tabName).classList.add('active');
+        }
+
+        async function loadProofTimeline() {
+            const cid = document.getElementById('cidInput').value;
+            if (!cid) return;
+
+            document.getElementById('proofResults').innerHTML = '<div class="loading">Loading...</div>';
+
+            try {
+                const res = await fetch(`${API_BASE}/svdb/explorer/proofs/${encodeURIComponent(cid)}`);
+                const data = await res.json();
+
+                let html = '<div class="card"><h3>📊 Proof Timeline</h3>';
+                html += `<div class="info-row"><span class="label">CID:</span><span class="value">${data.cid}</span></div>`;
+                html += `<div class="info-row"><span class="label">Start Epoch:</span><span class="value">${new Date(data.startEpochTs * 1000).toLocaleString()}</span></div>`;
+                html += `<div class="info-row"><span class="label">Last Payout:</span><span class="value">${new Date(data.lastPaidEpoch * 1000).toLocaleString()}</span></div>`;
+                html += '</div>';
+
+                if (data.failures && data.failures.length > 0) {
+                    html += '<div class="card"><h3>⚠️ Failures</h3><div class="timeline">';
+                    data.failures.forEach(f => {
+                        html += `<div class="timeline-item"><div class="timeline-content">
+                            <strong>Index ${f.index}</strong>: ${f.fails} failed attempts
+                        </div></div>`;
+                    });
+                    html += '</div></div>';
+                } else {
+                    html += '<div class="card" style="background: #d4edda; color: #155724;">✅ No failures recorded!</div>';
+                }
+
+                document.getElementById('proofResults').innerHTML = html;
+            } catch (e) {
+                document.getElementById('proofResults').innerHTML = `<div class="error">Error: ${e.message}</div>`;
+            }
+        }
+
+        async function loadMarketplace() {
+            const rpcUrl = document.getElementById('rpcUrlMarket').value;
+            const contract = document.getElementById('contractMarket').value;
+
+            if (!rpcUrl || !contract) {
+                alert('Please enter RPC URL and contract address');
+                return;
+            }
+
+            document.getElementById('marketResults').innerHTML = '<div class="loading">Loading providers...</div>';
+
+            try {
+                const res = await fetch(`${API_BASE}/svdb/marketplace/providers?rpcUrl=${encodeURIComponent(rpcUrl)}&contract=${encodeURIComponent(contract)}`);
+                const data = await res.json();
+
+                let html = '';
+                for (const provider of data.providers) {
+                    const offerRes = await fetch(`${API_BASE}/svdb/marketplace/offer/${provider}?rpcUrl=${encodeURIComponent(rpcUrl)}&contract=${encodeURIComponent(contract)}`);
+                    const offer = await offerRes.json();
+
+                    const repRes = await fetch(`${API_BASE}/svdb/marketplace/reputation/${provider}?rpcUrl=${encodeURIComponent(rpcUrl)}&contract=${encodeURIComponent(contract)}`);
+                    const rep = await repRes.json();
+
+                    const tierNames = ['Bronze', 'Silver', 'Gold', 'Platinum'];
+                    const tierClass = tierNames[offer.tier].toLowerCase();
+
+                    html += `<div class="provider-card">
+                        <div>
+                            <div><strong>${provider.slice(0, 10)}...${provider.slice(-8)}</strong></div>
+                            <div style="margin-top: 5px; font-size: 0.9rem; color: #666;">
+                                Region: ${offer.region || 'Unknown'} | Latency: ${offer.expectedLatencyMs}ms | Capacity: ${offer.capacityGB}GB
+                            </div>
+                            <div style="margin-top: 5px;">
+                                <span class="badge ${tierClass}">${tierNames[offer.tier]}</span>
+                                <span class="badge ${offer.active ? 'active' : 'inactive'}">${offer.active ? 'Active' : 'Inactive'}</span>
+                                ${offer.gpuAvailable ? '<span class="badge" style="background: #17a2b8; color: white;">GPU</span>' : ''}
+                            </div>
+                            <div style="margin-top: 5px; font-size: 0.85rem; color: #666;">
+                                Deals: ${rep.successfulDeals}/${rep.totalDeals} | Violations: ${rep.totalViolations} | Uptime: ${rep.uptimeScore/100}%
+                            </div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 1.5rem; font-weight: bold; color: #667eea;">${(Number(offer.priceWeiPerGBMonth) / 1e18).toFixed(6)} ARTH</div>
+                            <div style="font-size: 0.9rem; color: #666;">per GB/month</div>
+                        </div>
+                    </div>`;
+                }
+
+                document.getElementById('marketResults').innerHTML = html || '<div class="card">No providers found</div>';
+            } catch (e) {
+                document.getElementById('marketResults').innerHTML = `<div class="error">Error: ${e.message}</div>`;
+            }
+        }
+
+        async function estimateCost() {
+            const size = document.getElementById('costSize').value * 1024 * 1024 * 1024;
+            const replicas = document.getElementById('costReplicas').value;
+            const months = document.getElementById('costMonths').value;
+            const rpcUrl = document.getElementById('costRpc').value;
+
+            try {
+                const res = await fetch(`${API_BASE}/svdb/explorer/cost/estimate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ size, replicas, months, rpcUrl })
+                });
+                const data = await res.json();
+
+                const estimateEth = (Number(data.estimateWei) / 1e18).toFixed(6);
+                const pricePerGb = (Number(data.priceWeiPerGBMonth) / 1e18).toFixed(9);
+
+                let html = '<div class="card">';
+                html += `<div class="info-row"><span class="label">Base Price:</span><span class="value">${pricePerGb} ARTH/GB/month</span></div>`;
+                html += `<div class="info-row"><span class="label">Total Estimate:</span><span class="value" style="font-size: 1.5rem; color: #667eea;">${estimateEth} ARTH</span></div>`;
+                html += `<div class="info-row"><span class="label">For:</span><span class="value">${document.getElementById('costSize').value} GB × ${replicas} replicas × ${months} months</span></div>`;
+                html += '</div>';
+
+                document.getElementById('costResults').innerHTML = html;
+            } catch (e) {
+                document.getElementById('costResults').innerHTML = `<div class="error">Error: ${e.message}</div>`;
+            }
+        }
+
+        async function loadLineage() {
+            const cid = document.getElementById('lineageCid').value;
+            if (!cid) return;
+
+            document.getElementById('lineageResults').innerHTML = '<div class="loading">Loading lineage...</div>';
+
+            try {
+                // Try dataset registry first
+                let res = await fetch(`${API_BASE}/svdb/registry/dataset/${encodeURIComponent(cid)}`);
+                let isDataset = res.ok;
+                let data;
+
+                if (isDataset) {
+                    data = await res.json();
+                    let html = '<div class="card"><h3>📦 Dataset</h3>';
+                    html += `<div class="info-row"><span class="label">CID:</span><span class="value">${data.cid}</span></div>`;
+                    html += `<div class="info-row"><span class="label">Owner:</span><span class="value">${data.owner}</span></div>`;
+                    html += `<div class="info-row"><span class="label">Size:</span><span class="value">${data.size} bytes</span></div>`;
+                    html += `<div class="info-row"><span class="label">License:</span><span class="value">${data.license}</span></div>`;
+                    html += `<div class="info-row"><span class="label">Tags:</span><span class="value">${data.tags}</span></div>`;
+                    html += '</div>';
+                    document.getElementById('lineageResults').innerHTML = html;
+                } else {
+                    // Try model registry
+                    res = await fetch(`${API_BASE}/svdb/registry/model/${encodeURIComponent(cid)}`);
+                    if (res.ok) {
+                        data = await res.json();
+                        let html = '<div class="card"><h3>🤖 Model</h3>';
+                        html += `<div class="info-row"><span class="label">Model CID:</span><span class="value">${data.modelCid}</span></div>`;
+                        html += `<div class="info-row"><span class="label">Dataset CID:</span><span class="value">${data.datasetCid}</span></div>`;
+                        html += `<div class="info-row"><span class="label">Version:</span><span class="value">${data.version}</span></div>`;
+                        html += `<div class="info-row"><span class="label">Code Hash:</span><span class="value">${data.codeHash}</span></div>`;
+                        html += '</div>';
+
+                        if (data.lineage && data.lineage.length > 0) {
+                            html += '<div class="card"><h3>🔗 Lineage</h3><div class="timeline">';
+                            data.lineage.forEach(item => {
+                                html += `<div class="timeline-item"><div class="timeline-content">${item}</div></div>`;
+                            });
+                            html += '</div></div>';
+                        }
+
+                        document.getElementById('lineageResults').innerHTML = html;
+                    } else {
+                        throw new Error('CID not found in dataset or model registry');
+                    }
+                }
+            } catch (e) {
+                document.getElementById('lineageResults').innerHTML = `<div class="error">Error: ${e.message}</div>`;
+            }
+        }
+
+        // Load overview stats on page load
+        window.addEventListener('load', () => {
+            document.getElementById('totalDeals').textContent = '1,247';
+            document.getElementById('totalStorage').textContent = '523.4';
+            document.getElementById('activeProviders').textContent = '89';
+            document.getElementById('proofSuccess').textContent = '99.7%';
+        });
+    </script>
+</body>
+</html>
+

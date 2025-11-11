@@ -1,0 +1,10 @@
+{
+  "title": "Slash & Rotation",
+  "panels": [
+    {"type": "graph", "title": "Slash Events", "targets": [{"expr": "slash_events_total"}]},
+    {"type": "graph", "title": "Validator Rotation", "targets": [{"expr": "validator_rotation_total"}]},
+    {"type": "stat",  "title": "Active Validators", "targets": [{"expr": "active_validators"}]}
+  ]
+}
+
+

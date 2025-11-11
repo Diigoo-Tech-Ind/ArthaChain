@@ -1,0 +1,137 @@
+version: '3.8'
+
+services:
+  # Blockchain node
+  arthachain-node:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+      - "8545:8545"
+    environment:
+      - ARTHA_RPC_URL=http://localhost:8545
+      - ARTHA_NETWORK=testnet
+    volumes:
+      - node-data:/data
+    networks:
+      - arthachain
+
+  # AI Services
+  ai-jobd:
+    build:
+      context: ../services/ai-jobd
+    ports:
+      - "8081:8081"
+    environment:
+      - ARTHA_RPC_URL=http://arthachain-node:8545
+      - ARTHA_JOBD_URL=http://ai-jobd:8081
+      - ARTHA_SCHEDULER_URL=http://ai-scheduler:8083
+      - ARTHA_RUNTIME_URL=http://ai-runtime:8084
+      - AI_JOB_MANAGER_ADDR=${AI_JOB_MANAGER_ADDR}
+      - DATASET_REGISTRY_ADDR=${DATASET_REGISTRY_ADDR}
+      - MODEL_REGISTRY_ADDR=${MODEL_REGISTRY_ADDR}
+    depends_on:
+      - arthachain-node
+    networks:
+      - arthachain
+
+  ai-scheduler:
+    build:
+      context: ../services/ai-scheduler
+    ports:
+      - "8083:8083"
+    environment:
+      - ARTHA_RPC_URL=http://arthachain-node:8545
+      - ARTHA_JOBD_URL=http://ai-jobd:8081
+      - AI_JOB_MANAGER_ADDR=${AI_JOB_MANAGER_ADDR}
+    depends_on:
+      - ai-jobd
+    networks:
+      - arthachain
+
+  ai-runtime:
+    build:
+      context: ../services/ai-runtime
+    ports:
+      - "8084:8084"
+    environment:
+      - ARTHA_RPC_URL=http://arthachain-node:8545
+      - SVDB_API_URL=http://arthachain-node:8080
+      - PROOF_SERVICE_URL=http://ai-proofs:8085
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - ai-proofs
+    networks:
+      - arthachain
+
+  ai-proofs:
+    build:
+      context: ../services/ai-proofs
+    ports:
+      - "8085:8085"
+    environment:
+      - ARTHA_RPC_URL=http://arthachain-node:8545
+      - PROOF_OF_COMPUTE_ADDR=${PROOF_OF_COMPUTE_ADDR}
+    depends_on:
+      - arthachain-node
+    networks:
+      - arthachain
+
+  policy-gate:
+    build:
+      context: ../services/policy-gate
+    ports:
+      - "8082:8082"
+    environment:
+      - DID_REGISTRY_URL=http://arthachain-node:8080
+      - VC_REGISTRY_URL=http://arthachain-node:8080
+    depends_on:
+      - arthachain-node
+    networks:
+      - arthachain
+
+  ai-agents:
+    build:
+      context: ../services/ai-agents
+    ports:
+      - "8086:8086"
+    environment:
+      - ARTHA_RUNTIME_URL=http://ai-runtime:8084
+    depends_on:
+      - ai-runtime
+    networks:
+      - arthachain
+
+  ai-federation:
+    build:
+      context: ../services/ai-federation
+    ports:
+      - "8087:8087"
+    networks:
+      - arthachain
+
+  ai-evolution:
+    build:
+      context: ../services/ai-evolution
+    ports:
+      - "8088:8088"
+    networks:
+      - arthachain
+
+  ai-ethics:
+    build:
+      context: ../services/ai-ethics
+    ports:
+      - "8089:8089"
+    networks:
+      - arthachain
+
+volumes:
+  node-data:
+
+networks:
+  arthachain:
+    driver: bridge
+

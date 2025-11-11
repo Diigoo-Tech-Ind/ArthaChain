@@ -1,0 +1,73 @@
+{
+  "info": {
+    "name": "ArthaChain API (Placeholder)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "0.1.0"
+  },
+  "item": [
+    { "name": "Health", "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/test/health" } },
+    { "name": "Deploy Contract", "request": { "method": "POST", "header": [{"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\n  \"bytecode\": \"0x6000600055\"\n}"}, "url": "{{baseUrl}}/api/v1/contracts/deploy" } },
+    { "name": "Call Contract", "request": { "method": "POST", "header": [{"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\n  \"to\": \"0x0000000000000000000000000000000000000000\",\n  \"data\": \"0x\"\n}"}, "url": "{{baseUrl}}/api/v1/contracts/call" } },
+    { "name": "Submit Transaction", "request": { "method": "POST", "header": [{"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\n  \"sender\": \"0x111...\",\n  \"recipient\": \"0x222...\",\n  \"amount\": 1000,\n  \"fee\": 0,\n  \"signature\": \"0x11...\"\n}"}, "url": "{{baseUrl}}/api/v1/transactions/submit" } },
+    { "name": "Create Deal", "request": { "method": "POST", "header": [{"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\n  \"cid\": \"artha://bafy...\",\n  \"size\": 1073741824,\n  \"replicas\": 1,\n  \"months\": 1,\n  \"maxPrice\": 1000000000000000\n}"}, "url": "{{baseUrl}}/api/v1/svdb/deals" } }
+  ],
+  "variable": [{ "key": "baseUrl", "value": "http://localhost:8080" }]
+}
+
+{
+  "info": {
+    "name": "ArthaChain API (Placeholder)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "0.1.0"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "url": {{baseUrl}}/api/v1/test/health
+      }
+    },
+    {
+      "name": "Deploy Contract",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {"mode": "raw", "raw": "{\n  \"bytecode\": \"0x6000600055\"\n}"},
+        "url": "{{baseUrl}}/api/v1/contracts/deploy"
+      }
+    },
+    {
+      "name": "Call Contract",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {"mode": "raw", "raw": "{\n  \"to\": \"0x0000000000000000000000000000000000000000\",\n  \"data\": \"0x\"\n}"},
+        "url": "{{baseUrl}}/api/v1/contracts/call"
+      }
+    },
+    {
+      "name": "Submit Transaction",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {"mode": "raw", "raw": "{\n  \"sender\": \"0x111...\",\n  \"recipient\": \"0x222...\",\n  \"amount\": 1000,\n  \"fee\": 0,\n  \"signature\": \"0x11...\"\n}"},
+        "url": "{{baseUrl}}/api/v1/transactions/submit"
+      }
+    },
+    {
+      "name": "Create Deal",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {"mode": "raw", "raw": "{\n  \"cid\": \"artha://bafy...\",\n  \"size\": 1073741824,\n  \"replicas\": 1,\n  \"months\": 1,\n  \"maxPrice\": 1000000000000000\n}"},
+        "url": "{{baseUrl}}/api/v1/svdb/deals"
+      }
+    }
+  ],
+  "variable": [
+    {"key": "baseUrl", "value": "http://localhost:8080"}
+  ]
+}
+
+

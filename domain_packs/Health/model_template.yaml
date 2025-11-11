@@ -1,0 +1,42 @@
+# Health Domain Model Template
+model_id: health-{name}
+domain: health
+compliance:
+  - hipaa
+  - gdpr
+  - fda
+
+architecture:
+  type: {torch|tf|jax}  # Framework
+  base_model: {base-model-name}
+  task: {classification|segmentation|nlp|prediction}
+
+training:
+  epochs: 10
+  batch_size: 32
+  learning_rate: 1e-4
+  optimizer: adamw
+  data_augmentation: true
+  
+data_requirements:
+  min_samples: 1000
+  schema: health-dicom-v1  # or health-fhir-v1, health-clinical-v1
+  labels_required: true
+  de_identification: required
+  
+validation:
+  metrics:
+    - accuracy
+    - sensitivity
+    - specificity
+    - f1_score
+  test_split: 0.2
+  
+deployment:
+  access_control: allowlist
+  vc_required:
+    - vc:medical-license
+    - vc:hipaa-training
+  audit_logging: true
+  encryption: xchacha20
+

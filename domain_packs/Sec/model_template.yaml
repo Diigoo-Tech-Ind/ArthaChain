@@ -1,0 +1,27 @@
+# Security Domain Model Template
+model_id: sec-{name}
+domain: cybersecurity
+compliance:
+  - iso27001
+  - soc2
+  - nist
+
+architecture:
+  type: {torch|tf}
+  task: {intrusion-detection|malware-classification|anomaly-detection|phishing}
+
+training:
+  epochs: 30
+  batch_size: 128
+  
+data_requirements:
+  min_samples: 100000
+  schema: sec-network-v1
+  
+deployment:
+  access_control: private
+  vc_required:
+    - vc:security-clearance
+  audit_logging: true
+  threat_intel: required
+

@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ArthaAIN Services Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0a0e27;
+            color: #e0e0e0;
+            padding: 20px;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+        }
+        .service-card {
+            background: #1a1f3a;
+            border-radius: 10px;
+            padding: 20px;
+            border: 1px solid #2a2f4a;
+        }
+        .service-card h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+        .service-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #4ade80;
+            animation: pulse 2s infinite;
+        }
+        .status-dot.warning { background: #fbbf24; }
+        .status-dot.error { background: #ef4444; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #2a2f4a;
+        }
+        .metric-label {
+            color: #94a3b8;
+        }
+        .metric-value {
+            color: #4ade80;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🛠️ ArthaAIN Services Dashboard</h1>
+        <p>Real-time monitoring of all microservices</p>
+    </div>
+
+    <div class="services-grid" id="services-container">
+        <!-- Populated by JS -->
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8080';
+        const SERVICES = [
+            { name: 'ai-jobd', port: 8081, url: 'http://localhost:8081' },
+            { name: 'policy-gate', port: 8082, url: 'http://localhost:8082' },
+            { name: 'ai-scheduler', port: 8083, url: 'http://localhost:8083' },
+            { name: 'ai-runtime', port: 8084, url: 'http://localhost:8084' },
+            { name: 'ai-proofs', port: 8085, url: 'http://localhost:8085' },
+            { name: 'ai-agents', port: 8086, url: 'http://localhost:8086' },
+            { name: 'ai-federation', port: 8087, url: 'http://localhost:8087' },
+            { name: 'ai-evolution', port: 8088, url: 'http://localhost:8088' },
+            { name: 'ai-ethics', port: 8089, url: 'http://localhost:8089' },
+            { name: 'continuald', port: 8090, url: 'http://localhost:8090' },
+            { name: 'symbolic-ai', port: 8091, url: 'http://localhost:8091' },
+            { name: 'receipts-daemon', port: 8092, url: 'http://localhost:8092' },
+        ];
+
+        async function checkServiceHealth(service) {
+            try {
+                const resp = await fetch(`${service.url}/health`, { signal: AbortSignal.timeout(2000) });
+                return resp.ok ? 'healthy' : 'unhealthy';
+            } catch {
+                return 'offline';
+            }
+        }
+
+        async function getServiceMetrics(service) {
+            try {
+                const resp = await fetch(`${service.url}/metrics`, { signal: AbortSignal.timeout(2000) });
+                if (resp.ok) {
+                    return await resp.json();
+                }
+            } catch {}
+            return null;
+        }
+
+        async function updateDashboard() {
+            const container = document.getElementById('services-container');
+            container.innerHTML = '';
+
+            for (const service of SERVICES) {
+                const status = await checkServiceHealth(service);
+                const metrics = await getServiceMetrics(service);
+
+                const statusDot = status === 'healthy' ? 'status-dot' :
+                                 status === 'unhealthy' ? 'status-dot warning' :
+                                 'status-dot error';
+
+                const card = document.createElement('div');
+                card.className = 'service-card';
+                card.innerHTML = `
+                    <h3>${service.name}</h3>
+                    <div class="service-status">
+                        <span class="${statusDot}"></span>
+                        <span>${status.toUpperCase()}</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Port:</span>
+                        <span class="metric-value">${service.port}</span>
+                    </div>
+                    ${metrics ? `
+                        <div class="metric">
+                            <span class="metric-label">Uptime:</span>
+                            <span class="metric-value">${metrics.uptime || 'N/A'}</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Requests:</span>
+                            <span class="metric-value">${metrics.requests || 0}</span>
+                        </div>
+                    ` : ''}
+                `;
+                container.appendChild(card);
+            }
+        }
+
+        updateDashboard();
+        setInterval(updateDashboard, 5000);
+    </script>
+</body>
+</html>
+

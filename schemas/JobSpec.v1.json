@@ -1,0 +1,255 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "artha://schema/JobSpec@v1",
+  "title": "Artha AI Job Specification v1",
+  "description": "Job specification for AI model training, inference, and data processing on ArthaChain",
+  "type": "object",
+  "required": ["@schema", "jobId", "type", "aiid", "submitterDid"],
+  "properties": {
+    "@schema": {
+      "type": "string",
+      "const": "artha://schema/JobSpec@v1",
+      "description": "Schema version identifier"
+    },
+    "jobId": {
+      "type": "string",
+      "pattern": "^0x[a-f0-9]{64}$",
+      "description": "Unique job identifier (hash)"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["training", "inference", "fine-tuning", "evaluation", "data-processing"],
+      "description": "Job type"
+    },
+    "aiid": {
+      "type": "string",
+      "pattern": "^aiid:artha:[a-f0-9]{64}$",
+      "description": "AI Identity ID of the model/agent"
+    },
+    "datasetId": {
+      "type": "string",
+      "pattern": "^(artha://[a-zA-Z0-9]+|0x[a-f0-9]{64})$",
+      "description": "Input dataset CID or DatasetRegistry ID"
+    },
+    "submitterDid": {
+      "type": "string",
+      "pattern": "^did:artha:[a-f0-9]{64}$",
+      "description": "Artha-DID of job submitter"
+    },
+    "params": {
+      "type": "object",
+      "description": "Job-specific parameters",
+      "properties": {
+        "batchSize": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Batch size for processing"
+        },
+        "epochs": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of training epochs (training jobs)"
+        },
+        "learningRate": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Learning rate (training jobs)"
+        },
+        "temperature": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Sampling temperature (inference jobs)"
+        },
+        "maxTokens": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum output tokens (inference jobs)"
+        },
+        "customConfig": {
+          "type": "object",
+          "description": "Job-specific custom parameters"
+        }
+      }
+    },
+    "paramsHash": {
+      "type": "string",
+      "pattern": "^0x[a-f0-9]{64}$",
+      "description": "Keccak256 hash of params object (for on-chain verification)"
+    },
+    "requirements": {
+      "type": "object",
+      "properties": {
+        "minGpuVram": {
+          "type": "integer",
+          "description": "Minimum GPU VRAM in GB"
+        },
+        "gpuModel": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Acceptable GPU models",
+          "examples": [["A100", "H100"]]
+        },
+        "minRam": {
+          "type": "integer",
+          "description": "Minimum RAM in GB"
+        },
+        "storageGb": {
+          "type": "integer",
+          "description": "Required storage in GB"
+        },
+        "estimatedDurationMinutes": {
+          "type": "integer",
+          "description": "Estimated job duration"
+        },
+        "region": {
+          "type": "string",
+          "pattern": "^[A-Z]{2}$",
+          "description": "Preferred region (ISO-3166-1 alpha-2)"
+        },
+        "coLocation": {
+          "type": "boolean",
+          "description": "Require data and compute in same region"
+        }
+      },
+      "description": "Resource requirements and preferences"
+    },
+    "credentials": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Required VC types for job execution",
+      "examples": [["KYC.L1", "RESEARCH.APPROVED"]]
+    },
+    "budget": {
+      "type": "object",
+      "properties": {
+        "maxCost": {
+          "type": "string",
+          "pattern": "^\\d+$",
+          "description": "Maximum cost in wei"
+        },
+        "currency": {
+          "type": "string",
+          "enum": ["ARTH", "USDC", "ETH"],
+          "description": "Payment currency"
+        }
+      }
+    },
+    "outputSpec": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["model", "dataset", "metrics", "artifacts"],
+          "description": "Expected output type"
+        },
+        "format": {
+          "type": "string",
+          "description": "Output format",
+          "examples": ["safetensors", "onnx", "pytorch", "json"]
+        },
+        "encryption": {
+          "type": "boolean",
+          "description": "Encrypt output",
+          "default": false
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["queued", "assigned", "running", "completed", "failed", "cancelled"],
+      "description": "Current job status"
+    },
+    "assignedNode": {
+      "type": "string",
+      "pattern": "^0x[a-f0-9]{64}$",
+      "description": "Node pubkey assigned to execute job"
+    },
+    "outputCid": {
+      "type": "string",
+      "pattern": "^artha://[a-zA-Z0-9]+$",
+      "description": "SVDB CID of job output (when completed)"
+    },
+    "proofId": {
+      "type": "string",
+      "pattern": "^0x[a-f0-9]{64}$",
+      "description": "ProofRegistry ID for execution proof"
+    },
+    "timestamps": {
+      "type": "object",
+      "properties": {
+        "submittedAt": {
+          "type": "integer",
+          "description": "Unix timestamp of submission",
+          "minimum": 1609459200
+        },
+        "startedAt": {
+          "type": "integer",
+          "description": "Unix timestamp of execution start"
+        },
+        "completedAt": {
+          "type": "integer",
+          "description": "Unix timestamp of completion"
+        }
+      }
+    },
+    "logs": {
+      "type": "object",
+      "properties": {
+        "logsCid": {
+          "type": "string",
+          "pattern": "^artha://[a-zA-Z0-9]+$",
+          "description": "SVDB CID of execution logs"
+        },
+        "errorMessage": {
+          "type": "string",
+          "description": "Error message if job failed"
+        }
+      }
+    }
+  },
+  "additionalProperties": false,
+  "examples": [
+    {
+      "@schema": "artha://schema/JobSpec@v1",
+      "jobId": "0xjob1234567890abcdef...",
+      "type": "training",
+      "aiid": "aiid:artha:abcdef1234567890...",
+      "datasetId": "artha://QmDataset123...",
+      "submitterDid": "did:artha:researcher1234567890...",
+      "params": {
+        "batchSize": 32,
+        "epochs": 10,
+        "learningRate": 0.0001
+      },
+      "paramsHash": "0xparams123...",
+      "requirements": {
+        "minGpuVram": 80,
+        "gpuModel": ["A100", "H100"],
+        "minRam": 256,
+        "storageGb": 500,
+        "estimatedDurationMinutes": 120,
+        "region": "US",
+        "coLocation": true
+      },
+      "credentials": ["KYC.L1", "RESEARCH.APPROVED"],
+      "budget": {
+        "maxCost": "1000000000000000000",
+        "currency": "ARTH"
+      },
+      "outputSpec": {
+        "type": "model",
+        "format": "safetensors",
+        "encryption": false
+      },
+      "status": "queued",
+      "timestamps": {
+        "submittedAt": 1730592000
+      }
+    }
+  ]
+}
+

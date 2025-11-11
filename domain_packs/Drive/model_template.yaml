@@ -1,0 +1,34 @@
+# Autonomous Driving Domain Model Template
+model_id: drive-{name}
+domain: autonomous-driving
+compliance:
+  - iso26262
+  - nhtsa
+  - eu-type-approval
+
+architecture:
+  type: {torch|cv}
+  task: {object-detection|path-planning|behavior-prediction|sensor-fusion}
+
+training:
+  epochs: 50
+  batch_size: 16
+  safety_validation: required
+  
+data_requirements:
+  min_samples: 50000
+  schema: drive-sensor-v1
+  labels_required: true
+  
+validation:
+  safety_criteria:
+    - false_positive_rate < 0.001
+    - latency < 100ms
+    
+deployment:
+  access_control: private
+  vc_required:
+    - vc:automotive-certification
+  real_time: required
+  fail_safe: required
+

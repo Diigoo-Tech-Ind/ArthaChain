@@ -1,0 +1,69 @@
+name: ArthaChain CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch: {}
+
+jobs:
+  rust-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libssl-dev
+      - name: Cargo test (blockchain_node)
+        run: |
+          cargo test -p blockchain_node --all-features --locked
+      - name: Run economic simulations
+        run: |
+          python3 scripts/econ/sim_emissions.py
+          python3 scripts/econ/sim_burn_curve.py
+          python3 scripts/econ/sim_storage_supply.py
+          python3 scripts/econ/sim_deal_market.py
+      - name: Upload econ CSV artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: econ-csv
+          path: data/econ/*.csv
+
+  foundry-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Foundry toolchain
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+      - name: Forge tests
+        working-directory: contracts
+        run: |
+          forge --version
+          forge test -vvv
+          forge test --ffi --runs 256 --mc ArthaCoinInvariants -vvv
+
+  echidna-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Echidna property tests
+        working-directory: contracts
+        run: |
+          docker --version
+          docker run --rm -v "$PWD":/work -w /work/contracts trailofbits/echidna \
+            echidna-test contracts/test/ArthaCoinEchidna.sol --config contracts/echidna.yaml
+
+

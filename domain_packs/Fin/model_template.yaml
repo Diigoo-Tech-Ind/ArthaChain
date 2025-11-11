@@ -1,0 +1,41 @@
+# Finance Domain Model Template
+model_id: fin-{name}
+domain: finance
+compliance:
+  - kyc
+  - aml
+  - pci-dss
+  - mifid-ii
+
+architecture:
+  type: {torch|tf}
+  task: {fraud-detection|credit-scoring|risk-assessment|trading}
+
+training:
+  epochs: 20
+  batch_size: 64
+  learning_rate: 1e-4
+  
+data_requirements:
+  min_samples: 10000
+  schema: fin-transaction-v1
+  labels_required: true
+  encryption: required
+  
+validation:
+  metrics:
+    - precision
+    - recall
+    - f1_score
+    - roc_auc
+  test_split: 0.2
+  explainability: required  # SHAP/LIME
+  
+deployment:
+  access_control: token
+  vc_required:
+    - vc:kyc-level-1
+    - vc:aml-certification
+  audit_logging: true
+  data_residency: eu|us
+

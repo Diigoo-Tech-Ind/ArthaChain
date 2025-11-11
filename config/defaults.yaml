@@ -1,0 +1,142 @@
+# ArthaAIN v1 - Default Configuration
+# Sane defaults for production deployment
+
+# Storage Defaults
+storage:
+  chunk_size_mb: 8
+  erasure_coding: "8+2"  # 8 data + 2 parity shards
+  target_replicas: 5
+  cache_enabled: true
+  cache_ttl_seconds: 3600
+
+# Inference Defaults
+inference:
+  max_tokens_text: 8192
+  max_size_image_mb: 2
+  timeout_seconds: 30
+  rate_limit_per_minute: 60
+  max_concurrent_requests: 100
+
+# Training Defaults
+training:
+  mixed_precision: true
+  gradient_checkpointing: true
+  autosave_steps: 500
+  checkpoint_retention: 10  # Keep last 10 checkpoints
+  max_epochs: 1000
+  default_batch_size: 64
+  default_learning_rate: 0.001
+  default_optimizer: "adamw"
+
+# Ethics & Safety Defaults
+ethics:
+  nsfw_filter_enabled: true
+  jailbreak_detection_enabled: true
+  toxicity_threshold: 0.7
+  bias_detection_enabled: true
+  content_moderation_strict: false  # false for general, true for SocialFi
+
+# Pricing Defaults (in ARTH tokens)
+pricing:
+  storage_per_gb_month: 0.01
+  retrieval_per_gb: 0.001
+  compute_per_gpu_second:
+    consumer: 0.0001      # RTX 3090, RTX 4090
+    pro: 0.0002           # A100 40GB, A100 80GB
+    datacenter: 0.0005    # H100, multi-GPU
+  inference_per_token: 0.0000001
+
+# Service Defaults
+services:
+  ai_jobd:
+    port: 8081
+    workers: 4
+    queue_size: 1000
+    
+  ai_scheduler:
+    port: 8083
+    scoring_interval_seconds: 10
+    max_nodes_per_job: 3
+    
+  ai_runtime:
+    port: 8084
+    max_concurrent_jobs: 10
+    gpu_allocation_timeout_seconds: 60
+    
+  ai_proofs:
+    port: 8085
+    proof_submission_interval_seconds: 30
+    batch_size: 10
+    
+  policy_gate:
+    port: 8082
+    cache_enabled: true
+    cache_ttl_seconds: 300
+
+# Node Role Defaults
+node_roles:
+  validator:
+    enabled: true
+    stake_required: 1000000  # 1M ARTH
+    
+  storage_provider:
+    enabled: true
+    min_storage_gb: 100
+    min_stake: 100000  # 100K ARTH
+    
+  retriever:
+    enabled: true
+    cache_size_gb: 50
+    
+  compute_gpu:
+    enabled: false  # Enable manually for GPU nodes
+    min_gpu_memory_gb: 24
+    supported_models: ["h100", "a100", "rtx4090", "rtx3090"]
+    
+  agent_orchestrator:
+    enabled: false
+    max_concurrent_agents: 10
+    
+  federation_aggregator:
+    enabled: false
+    min_participants: 3
+    
+  audit_ethics:
+    enabled: false
+    
+  quantum_bridge:
+    enabled: false
+
+# Network Defaults
+network:
+  rpc_url: "http://localhost:8545"
+  chain_id: 1337
+  gas_price_gwei: 20
+  gas_limit: 5000000
+  
+# DealMarket Defaults
+deal_market:
+  epoch_seconds: 86400  # 1 day epochs
+  min_deal_size_gb: 1
+  min_deal_duration_months: 1
+  max_deal_duration_months: 60
+
+# Logging Defaults
+logging:
+  level: "info"  # debug, info, warn, error
+  format: "json"
+  file_rotation: true
+  max_file_size_mb: 100
+  max_files: 10
+
+# Monitoring Defaults
+monitoring:
+  metrics_enabled: true
+  prometheus_port: 9090
+  health_check_interval_seconds: 5
+  slo_targets:
+    inference_availability: 0.999
+    inference_latency_p99_ms: 200
+    policy_check_latency_ms: 150
+    download_latency_100mb_ms: 1500
+

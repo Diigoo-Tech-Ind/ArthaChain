@@ -1,0 +1,260 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "artha://schema/NodeCert@v1",
+  "title": "Artha Node Certificate v1",
+  "description": "Infrastructure node certificate for validators, storage providers, retrievers, and GPU nodes",
+  "type": "object",
+  "required": ["@schema", "nodePubkey", "ownerDid", "role", "region", "capabilities"],
+  "properties": {
+    "@schema": {
+      "type": "string",
+      "const": "artha://schema/NodeCert@v1",
+      "description": "Schema version identifier"
+    },
+    "nodePubkey": {
+      "type": "string",
+      "pattern": "^0x[a-f0-9]{64}$",
+      "description": "Node's Ed25519 public key"
+    },
+    "ownerDid": {
+      "type": "string",
+      "pattern": "^did:artha:[a-f0-9]{64}$",
+      "description": "Artha-DID of node operator"
+    },
+    "role": {
+      "type": "string",
+      "enum": ["validator", "sp", "retriever", "gpu", "relay"],
+      "description": "Primary node role"
+    },
+    "region": {
+      "type": "string",
+      "pattern": "^[A-Z]{2}$",
+      "description": "ISO-3166-1 alpha-2 country code",
+      "examples": ["US", "DE", "SG"]
+    },
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z]+:[a-zA-Z0-9._-]+$"
+      },
+      "description": "Hardware/software capabilities",
+      "examples": [
+        ["storage:10tb", "bandwidth:10gbps"],
+        ["gpu:a100", "gpu:h100", "cuda:12.0"],
+        ["ram:512gb", "nvme:4tb"]
+      ]
+    },
+    "specs": {
+      "type": "object",
+      "properties": {
+        "cpu": {
+          "type": "object",
+          "properties": {
+            "cores": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "model": {
+              "type": "string",
+              "examples": ["AMD EPYC 7763", "Intel Xeon Platinum 8380"]
+            }
+          }
+        },
+        "memory": {
+          "type": "object",
+          "properties": {
+            "totalGb": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "type": {
+              "type": "string",
+              "examples": ["DDR4", "DDR5"]
+            }
+          }
+        },
+        "storage": {
+          "type": "object",
+          "properties": {
+            "totalTb": {
+              "type": "number",
+              "minimum": 0
+            },
+            "type": {
+              "type": "string",
+              "enum": ["nvme", "ssd", "hdd", "hybrid"]
+            }
+          }
+        },
+        "gpu": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "model": {
+                "type": "string",
+                "examples": ["NVIDIA A100", "NVIDIA H100", "AMD MI300X"]
+              },
+              "count": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "vramGb": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        },
+        "network": {
+          "type": "object",
+          "properties": {
+            "bandwidth": {
+              "type": "string",
+              "pattern": "^\\d+(gbps|mbps)$",
+              "examples": ["10gbps", "100gbps"]
+            },
+            "latencyMs": {
+              "type": "number",
+              "description": "Average latency to backbone"
+            }
+          }
+        }
+      },
+      "description": "Detailed hardware specifications"
+    },
+    "slaId": {
+      "type": "string",
+      "pattern": "^0x[a-f0-9]{64}$",
+      "description": "Current active SLA contract ID"
+    },
+    "stake": {
+      "type": "string",
+      "pattern": "^\\d+$",
+      "description": "Staked amount in wei (string to avoid precision loss)"
+    },
+    "endpoints": {
+      "type": "object",
+      "properties": {
+        "api": {
+          "type": "string",
+          "format": "uri",
+          "description": "Node API endpoint"
+        },
+        "p2p": {
+          "type": "string",
+          "description": "libp2p multiaddr",
+          "examples": ["/ip4/1.2.3.4/tcp/4001/p2p/12D3KooW..."]
+        },
+        "metrics": {
+          "type": "string",
+          "format": "uri",
+          "description": "Prometheus metrics endpoint"
+        }
+      }
+    },
+    "certifications": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["ISO27001", "SOC2", "GDPR", "TEE_ATTESTATION", "Custom"],
+            "description": "Certification type"
+          },
+          "issuer": {
+            "type": "string",
+            "description": "Certifying authority"
+          },
+          "proofCid": {
+            "type": "string",
+            "pattern": "^artha://[a-zA-Z0-9]+$",
+            "description": "SVDB CID of certification document"
+          },
+          "expiresAt": {
+            "type": "integer",
+            "description": "Unix timestamp of expiration"
+          }
+        }
+      },
+      "description": "Optional compliance certifications"
+    },
+    "lastHeartbeat": {
+      "type": "integer",
+      "description": "Unix timestamp of last heartbeat",
+      "minimum": 1609459200
+    },
+    "uptimePercent": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "30-day uptime percentage"
+    },
+    "active": {
+      "type": "boolean",
+      "description": "Active status",
+      "default": true
+    },
+    "registeredAt": {
+      "type": "integer",
+      "description": "Unix timestamp of registration",
+      "minimum": 1609459200
+    }
+  },
+  "additionalProperties": false,
+  "examples": [
+    {
+      "@schema": "artha://schema/NodeCert@v1",
+      "nodePubkey": "0xabc1234567890def...",
+      "ownerDid": "did:artha:operator1234567890abcdef...",
+      "role": "sp",
+      "region": "US",
+      "capabilities": [
+        "storage:10tb",
+        "bandwidth:10gbps",
+        "raid:zfs"
+      ],
+      "specs": {
+        "cpu": {
+          "cores": 64,
+          "model": "AMD EPYC 7763"
+        },
+        "memory": {
+          "totalGb": 512,
+          "type": "DDR4"
+        },
+        "storage": {
+          "totalTb": 10,
+          "type": "nvme"
+        },
+        "network": {
+          "bandwidth": "10gbps",
+          "latencyMs": 2.5
+        }
+      },
+      "slaId": "0xsla123...",
+      "stake": "1000000000000000000000",
+      "endpoints": {
+        "api": "https://sp.arthachain.online",
+        "p2p": "/ip4/1.2.3.4/tcp/4001/p2p/12D3KooW...",
+        "metrics": "https://sp.arthachain.online/metrics"
+      },
+      "certifications": [
+        {
+          "type": "SOC2",
+          "issuer": "Acme Auditors",
+          "proofCid": "artha://QmCert123...",
+          "expiresAt": 1762128000
+        }
+      ],
+      "lastHeartbeat": 1730592000,
+      "uptimePercent": 99.95,
+      "active": true,
+      "registeredAt": 1720000000
+    }
+  ]
+}
+

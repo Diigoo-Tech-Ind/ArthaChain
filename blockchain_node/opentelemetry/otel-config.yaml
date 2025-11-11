@@ -1,0 +1,22 @@
+exporters:
+  otlp:
+    endpoint: http://localhost:4317
+    protocol: grpc
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: []
+      exporters: [otlp]
+    metrics:
+      receivers: [otlp]
+      processors: []
+      exporters: [otlp]
+
+resources:
+  attributes:
+    service.name: arthachain-node
+    service.version: v1
+
+

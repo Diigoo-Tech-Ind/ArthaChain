@@ -1,0 +1,27 @@
+# Education Domain Model Template
+model_id: edu-{name}
+domain: education
+compliance:
+  - ferpa
+  - gdpr
+  - coppa
+
+architecture:
+  type: {torch|tf}
+  task: {adaptive-learning|grading|concept-detection|performance-prediction}
+
+training:
+  epochs: 15
+  batch_size: 32
+  
+data_requirements:
+  min_samples: 1000
+  schema: edu-progress-v1
+  labels_required: true
+  
+deployment:
+  access_control: allowlist
+  vc_required:
+    - vc:educator-license
+  audit_logging: true
+

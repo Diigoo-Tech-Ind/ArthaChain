@@ -1,0 +1,25 @@
+# Agriculture Domain Model Template
+model_id: agri-{name}
+domain: agriculture
+compliance:
+  - organic-certification
+  - food-safety
+
+architecture:
+  type: {cv|torch}
+  task: {disease-detection|yield-prediction|soil-analysis|irrigation}
+
+training:
+  epochs: 25
+  batch_size: 32
+  
+data_requirements:
+  min_samples: 5000
+  schema: agri-crop-v1
+  
+deployment:
+  access_control: allowlist
+  vc_required:
+    - vc:farming-license
+  season_aware: true
+

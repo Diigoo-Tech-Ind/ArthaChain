@@ -66,5 +66,15 @@ blockchain_node/models/security/*.onnx
 caddy_data/
 caddy_config/
 node_data/
-data/blockchain/state.json
 *.backup
+
+# Runtime blockchain data (keep genesis.json)
+data/blockchain/state.json
+data/blockchain/blocks.json
+data/blockchain/mempool.json
+data/blockchain/metrics.json
+data/blockchain/validators.json
+blockchain_node/data/blockchain/*.json
+
+# TestSprite temporary files
+testsprite_tests/tmp/*.json

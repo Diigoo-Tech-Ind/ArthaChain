@@ -230,7 +230,8 @@ contract ArthaCoin is
     // ==================== TRANSFER OVERRIDES ====================
 
     /**
-     * @notice Override transfer to implement burn-on-transfer and anti-whale
+     * @notice Override transfer to implement anti-whale checks
+     * @dev Burn mechanism removed from transfers - burns only apply to gas fees
      * @param from Sender address
      * @param to Recipient address
      * @param amount Transfer amount
@@ -238,32 +239,17 @@ contract ArthaCoin is
     function _transfer(address from, address to, uint256 amount) internal override {
         // Skip checks for minting/burning or if managers not set
         if (from == address(0) || to == address(0) || 
-            address(antiWhaleManager) == address(0) || 
-            address(burnManager) == address(0)) {
+            address(antiWhaleManager) == address(0)) {
             super._transfer(from, to, amount);
             return;
         }
 
-        // Anti-whale checks
+        // Anti-whale checks only - no burn on transfer amount
         antiWhaleManager.validateTransfer(from, to, amount, totalSupply());
 
-        // Calculate burn amount if not exempt
-        uint256 burnAmount = 0;
-        if (!burnExempt[from] && !burnExempt[to]) {
-            uint256 burnRate = burnManager.getCurrentBurnRate();
-            burnAmount = (amount * burnRate) / 10000; // burnRate is in basis points
-        }
-
-        // Execute burn if applicable
-        if (burnAmount > 0) {
-            _burn(from, burnAmount);
-            totalBurned += burnAmount;
-            emit TokensBurned(from, burnAmount, burnManager.getCurrentBurnRate());
-        }
-
-        // Execute transfer (reduced by burn amount)
-        uint256 transferAmount = amount - burnAmount;
-        super._transfer(from, to, transferAmount);
+        // Execute full transfer - no burn on transfer amount
+        // Burns only apply to gas fees, not transfer amounts
+        super._transfer(from, to, amount);
     }
 
     // ==================== MANAGER FUNCTIONS ====================

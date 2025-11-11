@@ -39,6 +39,42 @@ impl Default for ArthaCoinConfig {
     }
 }
 
+/// Configuration for adaptive reward distribution
+#[derive(Debug, Clone)]
+pub struct RewardDistributionConfig {
+    /// Whether sharding is active
+    pub sharding_active: bool,
+    /// Whether DAG/parallel processing is active
+    pub dag_active: bool,
+    /// Number of active shards
+    pub active_shards: usize,
+    /// Whether parallel processor is running
+    pub parallel_processor_running: bool,
+}
+
+impl Default for RewardDistributionConfig {
+    fn default() -> Self {
+        Self {
+            sharding_active: false,
+            dag_active: false,
+            active_shards: 1,
+            parallel_processor_running: false,
+        }
+    }
+}
+
+impl RewardDistributionConfig {
+    /// Determine which model to use
+    pub fn use_comprehensive_model(&self) -> bool {
+        // Use comprehensive model if:
+        // 1. Sharding is active AND multiple shards exist
+        // 2. OR DAG/parallel processing is active
+        (self.sharding_active && self.active_shards > 1) 
+        || self.dag_active 
+        || self.parallel_processor_running
+    }
+}
+
 /// Native ArthaCoin state manager
 /// This integrates ArthaCoin contracts as the native currency
 #[derive(Debug)]
@@ -55,6 +91,8 @@ pub struct ArthaCoinNative {
     total_burned: Arc<RwLock<u128>>,
     /// Pool allocations (45% validators, 20% staking, etc.)
     pool_balances: Arc<RwLock<HashMap<String, u128>>>,
+    /// Reward distribution configuration
+    reward_config: Arc<RwLock<RewardDistributionConfig>>,
 }
 
 /// Pool names for emissions
@@ -65,6 +103,17 @@ pub const MARKETING_WALLET: &str = "marketing_wallet";
 pub const DEVELOPERS_POOL: &str = "developers_pool";
 pub const DAO_GOVERNANCE_POOL: &str = "dao_governance_pool";
 pub const TREASURY_RESERVE: &str = "treasury_reserve";
+pub const GAS_FEE_TREASURY: &str = "gas_fee_treasury"; // 12% of remaining gas fees after burn
+
+// Consensus and processing reward pools (from gas fees)
+pub const SVCP_POOL: &str = "svcp_pool"; // Block creation/proposal
+pub const SVBFT_POOL: &str = "svbft_pool"; // Block confirmation/validation
+pub const SHARDING_POOL: &str = "sharding_pool"; // Cross-shard coordination
+pub const DAG_POOL: &str = "dag_pool"; // DAG construction and parallel processing
+
+// Service provider pools (from validator pool emissions)
+pub const STORAGE_POOL: &str = "storage_pool"; // SVDB storage providers
+pub const GPU_POOL: &str = "gpu_pool"; // GPU/compute providers
 
 impl ArthaCoinNative {
     /// Create new ArthaCoin native integration
@@ -84,6 +133,7 @@ impl ArthaCoinNative {
             current_cycle: Arc::new(RwLock::new(0)),
             total_burned: Arc::new(RwLock::new(0)),
             pool_balances: Arc::new(RwLock::new(pool_balances)),
+            reward_config: Arc::new(RwLock::new(RewardDistributionConfig::default())),
         })
     }
 
@@ -112,6 +162,18 @@ impl ArthaCoinNative {
         pool_balances.insert(DEVELOPERS_POOL.to_string(), developers_amount);
         pool_balances.insert(DAO_GOVERNANCE_POOL.to_string(), dao_amount);
         pool_balances.insert(TREASURY_RESERVE.to_string(), treasury_amount);
+        // Initialize gas fee treasury (starts at 0, accumulates from gas fees)
+        pool_balances.insert(GAS_FEE_TREASURY.to_string(), 0);
+        
+        // Initialize consensus and processing pools (from gas fees)
+        pool_balances.insert(SVCP_POOL.to_string(), 0);
+        pool_balances.insert(SVBFT_POOL.to_string(), 0);
+        pool_balances.insert(SHARDING_POOL.to_string(), 0);
+        pool_balances.insert(DAG_POOL.to_string(), 0);
+        
+        // Initialize service provider pools (from validator pool emissions)
+        pool_balances.insert(STORAGE_POOL.to_string(), 0);
+        pool_balances.insert(GPU_POOL.to_string(), 0);
 
         info!(
             "Genesis emission distributed: {} ARTHA",
@@ -157,7 +219,8 @@ impl ArthaCoinNative {
         Ok(())
     }
 
-    /// Transfer tokens with burn mechanism
+    /// Transfer tokens - full amount transferred (no burn on transfer)
+    /// Burns only apply to gas fees, not transfer amounts
     pub async fn transfer(&self, from: &str, to: &str, amount: u128) -> Result<()> {
         debug!("ArthaCoin transfer: {} -> {} amount: {}", from, to, amount);
 
@@ -167,37 +230,24 @@ impl ArthaCoinNative {
             return Err(anyhow!("Insufficient balance"));
         }
 
-        // Calculate burn (simplified - would integrate with BurnManager)
-        let burn_rate = self.get_current_burn_rate().await;
-        let burn_amount = (amount * burn_rate as u128) / 10000; // burn_rate in basis points
-        let transfer_amount = amount - burn_amount;
-
-        // Execute burn
-        if burn_amount > 0 {
-            self.burn_tokens(burn_amount).await?;
-            info!(
-                "Burned {} ARTHA ({}% rate)",
-                burn_amount as f64 / 10_f64.powi(18),
-                burn_rate as f64 / 100.0
-            );
-        }
-
-        // Execute transfer
+        // Execute full transfer - no burn on transfer amount
+        // Burns only apply to gas fees, not transfer amounts
         self.set_balance(from, sender_balance - amount).await?;
         let recipient_balance = self.get_balance(to).await?;
-        self.set_balance(to, recipient_balance + transfer_amount)
-            .await?;
+        self.set_balance(to, recipient_balance + amount).await?;
 
         info!(
-            "Transferred {} ARTHA from {} to {}",
-            transfer_amount as f64 / 10_f64.powi(18),
+            "Transferred {} ARTHA from {} to {} (full amount - no burn on transfer)",
+            amount as f64 / 10_f64.powi(18),
             from,
             to
         );
         Ok(())
     }
 
-    /// Pay gas fees (replaces simple fee deduction)
+    /// Pay gas fees with burn and adaptive distribution
+    /// Burn rate: 40-96% (progressive over time)
+    /// Remaining gas fee split: 12% treasury, 88% distributed adaptively
     pub async fn pay_gas(&self, from: &str, gas_used: u64, gas_price: u128) -> Result<()> {
         let fee = gas_used as u128 * gas_price;
         let balance = self.get_balance(from).await?;
@@ -206,22 +256,115 @@ impl ArthaCoinNative {
             return Err(anyhow!("Insufficient balance for gas"));
         }
 
-        // Deduct gas fee with burn
+        // Calculate burn on gas fee (40-96% progressive)
         let burn_rate = self.get_current_burn_rate().await;
         let burn_amount = (fee * burn_rate as u128) / 10000;
+        let remaining_fee = fee - burn_amount;
 
+        // Deduct full gas fee from sender
         self.set_balance(from, balance - fee).await?;
 
+        // Execute burn on gas fee
         if burn_amount > 0 {
             self.burn_tokens(burn_amount).await?;
         }
 
+        // Distribute remaining gas fee: 12% treasury, 88% adaptive distribution
+        let treasury_portion = (remaining_fee * 12) / 100;
+        let distribution_portion = remaining_fee - treasury_portion;
+
+        // Add treasury portion
+        let mut pool_balances = self.pool_balances.write().await;
+        let treasury_balance = pool_balances.get(GAS_FEE_TREASURY).copied().unwrap_or(0);
+        pool_balances.insert(GAS_FEE_TREASURY.to_string(), treasury_balance + treasury_portion);
+
+        // Adaptive distribution based on sharding/DAG status
+        let reward_config = self.reward_config.read().await;
+        if reward_config.use_comprehensive_model() {
+            // Model 2: Comprehensive (with Sharding + DAG)
+            self.distribute_gas_fees_comprehensive(distribution_portion, &mut pool_balances).await?;
+        } else {
+            // Model 1: Simple (SVCP + SVBFT only)
+            self.distribute_gas_fees_simple(distribution_portion, &mut pool_balances).await?;
+        }
+
         debug!(
-            "Gas fee paid: {} ARTHA (burned: {})",
+            "Gas fee paid: {} ARTHA (burned: {}, treasury: {}, distributed: {})",
             fee as f64 / 10_f64.powi(18),
-            burn_amount as f64 / 10_f64.powi(18)
+            burn_amount as f64 / 10_f64.powi(18),
+            treasury_portion as f64 / 10_f64.powi(18),
+            distribution_portion as f64 / 10_f64.powi(18)
         );
         Ok(())
+    }
+
+    /// Distribute gas fees using simple model (SVCP + SVBFT only)
+    /// Model 1: 55% SVCP, 45% SVBFT
+    async fn distribute_gas_fees_simple(
+        &self,
+        remaining_fee: u128,
+        pool_balances: &mut HashMap<String, u128>,
+    ) -> Result<()> {
+        let svcp_portion = (remaining_fee * 55) / 100;
+        let svbft_portion = remaining_fee - svcp_portion;
+
+        let svcp_balance = pool_balances.get(SVCP_POOL).copied().unwrap_or(0);
+        pool_balances.insert(SVCP_POOL.to_string(), svcp_balance + svcp_portion);
+
+        let svbft_balance = pool_balances.get(SVBFT_POOL).copied().unwrap_or(0);
+        pool_balances.insert(SVBFT_POOL.to_string(), svbft_balance + svbft_portion);
+
+        debug!(
+            "Simple distribution: SVCP: {}, SVBFT: {}",
+            svcp_portion as f64 / 10_f64.powi(18),
+            svbft_portion as f64 / 10_f64.powi(18)
+        );
+        Ok(())
+    }
+
+    /// Distribute gas fees using comprehensive model (SVCP + SVBFT + Sharding + DAG)
+    /// Model 2: 30% SVCP, 25% SVBFT, 18% Sharding, 15% DAG
+    async fn distribute_gas_fees_comprehensive(
+        &self,
+        remaining_fee: u128,
+        pool_balances: &mut HashMap<String, u128>,
+    ) -> Result<()> {
+        let svcp_portion = (remaining_fee * 30) / 100;
+        let svbft_portion = (remaining_fee * 25) / 100;
+        let sharding_portion = (remaining_fee * 18) / 100;
+        let dag_portion = remaining_fee - svcp_portion - svbft_portion - sharding_portion;
+
+        let svcp_balance = pool_balances.get(SVCP_POOL).copied().unwrap_or(0);
+        pool_balances.insert(SVCP_POOL.to_string(), svcp_balance + svcp_portion);
+
+        let svbft_balance = pool_balances.get(SVBFT_POOL).copied().unwrap_or(0);
+        pool_balances.insert(SVBFT_POOL.to_string(), svbft_balance + svbft_portion);
+
+        let sharding_balance = pool_balances.get(SHARDING_POOL).copied().unwrap_or(0);
+        pool_balances.insert(SHARDING_POOL.to_string(), sharding_balance + sharding_portion);
+
+        let dag_balance = pool_balances.get(DAG_POOL).copied().unwrap_or(0);
+        pool_balances.insert(DAG_POOL.to_string(), dag_balance + dag_portion);
+
+        debug!(
+            "Comprehensive distribution: SVCP: {}, SVBFT: {}, Sharding: {}, DAG: {}",
+            svcp_portion as f64 / 10_f64.powi(18),
+            svbft_portion as f64 / 10_f64.powi(18),
+            sharding_portion as f64 / 10_f64.powi(18),
+            dag_portion as f64 / 10_f64.powi(18)
+        );
+        Ok(())
+    }
+
+    /// Update reward distribution configuration
+    pub async fn update_reward_config(&self, config: RewardDistributionConfig) {
+        let mut reward_config = self.reward_config.write().await;
+        *reward_config = config;
+    }
+
+    /// Get current reward distribution configuration
+    pub async fn get_reward_config(&self) -> RewardDistributionConfig {
+        self.reward_config.read().await.clone()
     }
 
     /// Burn tokens (implements progressive burn)

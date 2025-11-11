@@ -148,6 +148,13 @@ impl BalanceBridge {
                 | "developers_pool"
                 | "dao_governance_pool"
                 | "treasury_reserve"
+                | "gas_fee_treasury"
+                | "svcp_pool"
+                | "svbft_pool"
+                | "sharding_pool"
+                | "dag_pool"
+                | "storage_pool"
+                | "gpu_pool"
         )
     }
 
@@ -170,6 +177,7 @@ impl BalanceBridge {
                 .get_pool_balance("dao_governance_pool")
                 .await?,
             treasury_reserve: self.arthacoin.get_pool_balance("treasury_reserve").await?,
+            gas_fee_treasury: self.arthacoin.get_pool_balance("gas_fee_treasury").await?,
         })
     }
 }
@@ -197,4 +205,5 @@ pub struct PoolBalances {
     pub developers_pool: u128,
     pub dao_governance_pool: u128,
     pub treasury_reserve: u128,
+    pub gas_fee_treasury: u128, // 12% of remaining gas fees after burn
 }

@@ -44,6 +44,9 @@ tmp/
 /target/
 **/target/
 Cargo.lock
+.rustup/
+.cargo/
+rust-toolchain.toml
 
 # Build/test artifacts
 coverage/

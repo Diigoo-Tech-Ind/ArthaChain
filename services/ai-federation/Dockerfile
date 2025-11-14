@@ -1,5 +1,15 @@
-# AI Federation Service
-FROM rust:1.82-slim as builder
+# AI Federation Service - Production Ready
+# Updated: 2025 - Latest stable versions with security best practices
+
+# Build stage
+FROM rust:1.83-slim as builder
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    pkg-config \
+    libssl-dev \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -9,42 +19,56 @@ COPY Cargo.toml Cargo.lock ./
 # Copy service-specific Cargo.toml
 COPY services/ai-federation/Cargo.toml ./services/ai-federation/
 
+# Pre-build dependencies (caching optimization)
+RUN cargo fetch
+
+# Build dependencies only (caching layer)
+RUN cargo build --release --target-dir /app/target || true
+
 # Copy source code
 COPY services/ai-federation ./services/ai-federation
 
-# Build dependencies first (caching layer)
-RUN cargo build --release --bin ai-federation || true
-
 # Build the application
 RUN cargo build --release --bin ai-federation
+
+# Strip binary to reduce size
+RUN strip /app/target/release/ai-federation
 
 # Runtime stage
 FROM debian:bookworm-slim as runtime
 
 # Install runtime dependencies
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     libssl3 \
     curl \
     libgcc-s1 \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /tmp/* \
+    && rm -rf /var/tmp/*
 
-# Create non-root user
-RUN useradd -r -s /bin/false ai-federation
+# Create non-root user with specific UID/GID
+RUN groupadd -r -g 1009 ai-federation && \
+    useradd -r -u 1009 -g ai-federation -s /bin/false -d /nonexistent ai-federation
 
 # Copy binary from builder stage
-COPY --from=builder /app/target/release/ai-federation /usr/local/bin/ai-federation
+COPY --from=builder --chown=ai-federation:ai-federation /app/target/release/ai-federation /usr/local/bin/ai-federation
 
-# Set ownership and permissions
-RUN chown ai-federation:ai-federation /usr/local/bin/ai-federation && \
-    chmod +x /usr/local/bin/ai-federation
+# Set executable permissions
+RUN chmod +x /usr/local/bin/ai-federation
 
+# Switch to non-root user
 USER ai-federation
+
+# Set working directory
+WORKDIR /app
 
 EXPOSE 8087
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+# Health check with proper intervals
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8087/health || exit 1
 
+# Use exec form for proper signal handling
 CMD ["ai-federation"]
-

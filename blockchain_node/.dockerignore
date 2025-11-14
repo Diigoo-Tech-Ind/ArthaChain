@@ -1,0 +1,30 @@
+# Blockchain Node .dockerignore
+# Exclude unnecessary files from Docker build context
+
+# Test files
+tests/
+**/tests/
+test_*.rs
+*_test.rs
+
+# Documentation
+*.md
+!README.md
+docs/
+
+# Logs
+*.log
+logs/
+
+# Data
+data/
+*.db
+
+# IDE
+.vscode/
+.idea/
+
+# Temporary
+tmp/
+*.tmp
+

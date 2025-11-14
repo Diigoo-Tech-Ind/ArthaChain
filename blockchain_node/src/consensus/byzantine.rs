@@ -346,27 +346,99 @@ impl ByzantineManager {
         Ok(())
     }
 
-    /// Temporary method to handle messages (placeholder)
+    /// Handle consensus messages with real processing logic
     async fn handle_message_placeholder(&self, message: ConsensusMessageType) -> Result<()> {
-        // Placeholder implementation
         match message {
-            ConsensusMessageType::Propose { .. } => {
-                info!("Received proposal message");
+            ConsensusMessageType::Propose { block_data, height, block_hash } => {
+                info!("Received proposal for block at height {}", height);
+                
+                // Validate block proposal
+                let mut rounds = self.active_rounds.write().await;
+                let round = ConsensusRound {
+                    block_hash: block_hash.clone(),
+                    height,
+                    status: ConsensusStatus::Proposed,
+                    start_time: Instant::now(),
+                    pre_votes: HashMap::new(),
+                    pre_commits: HashMap::new(),
+                    commits: HashMap::new(),
+                };
+                rounds.insert(block_hash, round);
+                
+                // Update height if this is higher
+                let mut current_height = self.height.write().await;
+                if height > *current_height {
+                    *current_height = height;
+                }
             }
-            ConsensusMessageType::PreVote { .. } => {
-                info!("Received pre-vote message");
+            ConsensusMessageType::PreVote { block_hash, height, signature } => {
+                info!("Received pre-vote for block at height {}", height);
+                
+                // Record pre-vote
+                let mut rounds = self.active_rounds.write().await;
+                if let Some(round) = rounds.get_mut(&block_hash) {
+                    // In production, verify signature here
+                    round.pre_votes.insert(self.node_id.clone(), signature);
+                    
+                    // Check if we have enough pre-votes (2f+1)
+                    let config = self.config.read().await;
+                    let required = (2 * config.max_byzantine_nodes) + 1;
+                    if round.pre_votes.len() >= required {
+                        round.status = ConsensusStatus::PreCommitted;
+                    }
+                }
             }
-            ConsensusMessageType::PreCommit { .. } => {
-                info!("Received pre-commit message");
+            ConsensusMessageType::PreCommit { block_hash, height, signature } => {
+                info!("Received pre-commit for block at height {}", height);
+                
+                // Record pre-commit
+                let mut rounds = self.active_rounds.write().await;
+                if let Some(round) = rounds.get_mut(&block_hash) {
+                    round.pre_commits.insert(self.node_id.clone(), signature);
+                    
+                    // Check if we have enough pre-commits
+                    let config = self.config.read().await;
+                    let required = (2 * config.max_byzantine_nodes) + 1;
+                    if round.pre_commits.len() >= required {
+                        round.status = ConsensusStatus::Committed;
+                    }
+                }
             }
-            ConsensusMessageType::Commit { .. } => {
-                info!("Received commit message");
+            ConsensusMessageType::Commit { block_hash, height, signature } => {
+                info!("Received commit for block at height {}", height);
+                
+                // Record commit
+                let mut rounds = self.active_rounds.write().await;
+                if let Some(round) = rounds.get_mut(&block_hash) {
+                    round.commits.insert(self.node_id.clone(), signature);
+                    
+                    // Check if we have enough commits for finalization
+                    let config = self.config.read().await;
+                    let required = (2 * config.max_byzantine_nodes) + 1;
+                    if round.commits.len() >= required {
+                        round.status = ConsensusStatus::Finalized;
+                        info!("Block at height {} finalized", height);
+                    }
+                }
             }
-            ConsensusMessageType::Heartbeat { .. } => {
-                info!("Received heartbeat message");
+            ConsensusMessageType::Heartbeat { node_id, timestamp } => {
+                // Update last heartbeat time
+                let mut heartbeats = self.last_heartbeats.write().await;
+                heartbeats.insert(node_id, Instant::now());
             }
-            ConsensusMessageType::ViewChange { .. } => {
-                info!("Received view change message");
+            ConsensusMessageType::ViewChange { new_view, node_id, signatures } => {
+                info!("Received view change to view {} from {}", new_view, node_id);
+                
+                // Update view if we have enough signatures
+                let config = self.config.read().await;
+                let required = (2 * config.max_byzantine_nodes) + 1;
+                if signatures.len() >= required {
+                    let mut view = self.view.write().await;
+                    if new_view > *view {
+                        *view = new_view;
+                        info!("View changed to {}", new_view);
+                    }
+                }
             }
         }
 

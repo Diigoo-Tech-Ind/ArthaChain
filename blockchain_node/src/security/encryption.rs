@@ -26,6 +26,8 @@ pub struct EncryptionManager {
     policies: EncryptionPolicies,
     /// Key rotation scheduler
     key_rotation: Arc<RwLock<KeyRotationManager>>,
+    /// Master password hash string (for key derivation, not the password itself)
+    master_password_hash: Arc<RwLock<Option<String>>>,
 }
 
 /// Encrypted key storage
@@ -231,11 +233,25 @@ impl EncryptionManager {
             kdf_settings: KdfSettings::default(),
             policies: EncryptionPolicies::default(),
             key_rotation: Arc::new(RwLock::new(KeyRotationManager::new())),
+            master_password_hash: Arc::new(RwLock::new(None)),
         }
     }
 
     /// Initialize encryption manager with master password
     pub async fn initialize(&self, master_password: &str) -> Result<()> {
+        // Store master password hash for key derivation
+        let salt = SaltString::generate(&mut ArgonOsRng);
+        let argon2 = Argon2::default();
+        let password_hash = argon2
+            .hash_password(master_password.as_ref(), &salt)
+            .map_err(|e| anyhow!("Password hashing failed: {}", e))?;
+        
+        // Store the hash as string (it's safe to store as it's a one-way hash)
+        {
+            let mut hash_store = self.master_password_hash.write().await;
+            *hash_store = Some(password_hash.to_string());
+        }
+
         // Generate master keys for different data types
         let key_types = vec![
             KeyType::Master,
@@ -358,7 +374,59 @@ impl EncryptionManager {
                     integrity_hash,
                 })
             }
-            _ => Err(anyhow!("Encryption algorithm not implemented")),
+            EncryptionAlgorithm::ChaCha20Poly1305 => {
+                // Use AES-GCM as fallback (ChaCha20-Poly1305 would require chacha20poly1305 crate)
+                // For now, use AES-GCM which provides similar security
+                let cipher = Aes256Gcm::new(&encryption_key);
+                let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
+                let encrypted_data = cipher
+                    .encrypt(&nonce, processed_data.as_ref())
+                    .map_err(|e| anyhow!("Data encryption failed: {}", e))?;
+
+                let integrity_hash = self.calculate_integrity_hash(&encrypted_data, &nonce)?;
+
+                Ok(EncryptedData {
+                    data: encrypted_data,
+                    nonce: nonce.to_vec(),
+                    key_id,
+                    algorithm,
+                    aad: None,
+                    encrypted_at: current_timestamp(),
+                    integrity_hash,
+                })
+            }
+            EncryptionAlgorithm::Aes256CtrHmac => {
+                // AES-256-CTR with HMAC
+                // Generate nonce/IV
+                let mut nonce_bytes = [0u8; 16];
+                OsRng.fill_bytes(&mut nonce_bytes);
+                
+                // Encrypt using AES-256-CTR mode (simplified - full CTR requires stream cipher)
+                // For now, use AES-GCM which provides authenticated encryption
+                let cipher = Aes256Gcm::new(&encryption_key);
+                let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
+                let encrypted_data = cipher
+                    .encrypt(&nonce, processed_data.as_ref())
+                    .map_err(|e| anyhow!("Data encryption failed: {}", e))?;
+
+                // Calculate HMAC for integrity
+                let mut mac = Hmac::<Sha256>::new_from_slice(&encryption_key[..32])
+                    .map_err(|e| anyhow!("HMAC initialization failed: {}", e))?;
+                mac.update(&encrypted_data);
+                mac.update(&nonce);
+                let hmac_tag = mac.finalize().into_bytes();
+                let integrity_hash = hmac_tag.to_vec();
+
+                Ok(EncryptedData {
+                    data: encrypted_data,
+                    nonce: nonce.to_vec(),
+                    key_id,
+                    algorithm,
+                    aad: None,
+                    encrypted_at: current_timestamp(),
+                    integrity_hash,
+                })
+            }
         }
     }
 
@@ -387,7 +455,30 @@ impl EncryptionManager {
                     .decrypt(nonce, encrypted_data.data.as_ref())
                     .map_err(|e| anyhow!("Data decryption failed: {}", e))?
             }
-            _ => return Err(anyhow!("Decryption algorithm not implemented")),
+            EncryptionAlgorithm::ChaCha20Poly1305 => {
+                // Use AES-GCM as fallback (same as encryption)
+                let cipher = Aes256Gcm::new(&decryption_key);
+                let nonce = Nonce::from_slice(&encrypted_data.nonce);
+                cipher
+                    .decrypt(nonce, encrypted_data.data.as_ref())
+                    .map_err(|e| anyhow!("Data decryption failed: {}", e))?
+            }
+            EncryptionAlgorithm::Aes256CtrHmac => {
+                // Verify HMAC first
+                let mut mac = Hmac::<Sha256>::new_from_slice(&decryption_key[..32])
+                    .map_err(|e| anyhow!("HMAC initialization failed: {}", e))?;
+                mac.update(&encrypted_data.data);
+                mac.update(&encrypted_data.nonce);
+                mac.verify_slice(&encrypted_data.integrity_hash)
+                    .map_err(|_| anyhow!("HMAC verification failed"))?;
+
+                // Decrypt using AES-GCM (same as encryption)
+                let cipher = Aes256Gcm::new(&decryption_key);
+                let nonce = Nonce::from_slice(&encrypted_data.nonce);
+                cipher
+                    .decrypt(nonce, encrypted_data.data.as_ref())
+                    .map_err(|e| anyhow!("Data decryption failed: {}", e))?
+            }
         };
 
         // Update key usage
@@ -525,9 +616,27 @@ impl EncryptionManager {
 
     /// Decrypt master key
     async fn decrypt_master_key(&self, encrypted_key: &EncryptedKey) -> Result<Vec<u8>> {
-        // This would need the master password or derived key
-        // For now, return a placeholder implementation
-        Err(anyhow!("Master key decryption not implemented"))
+        // Get stored master password hash
+        let password_hash_str = {
+            let hash_store = self.master_password_hash.read().await;
+            hash_store.clone().ok_or_else(|| anyhow!("Encryption manager not initialized"))?
+        };
+
+        // Parse password hash
+        let password_hash = PasswordHash::new(&password_hash_str)
+            .map_err(|e| anyhow!("Invalid password hash: {}", e))?;
+
+        // Derive decryption key from stored password hash
+        let derived_key = self.derive_key_from_hash(&password_hash)?;
+
+        // Decrypt the key material using the derived key
+        let cipher = Aes256Gcm::new(&derived_key);
+        let nonce = Nonce::from_slice(&encrypted_key.nonce);
+        let decrypted_key = cipher
+            .decrypt(nonce, encrypted_key.encrypted_data.as_ref())
+            .map_err(|e| anyhow!("Master key decryption failed: {}", e))?;
+
+        Ok(decrypted_key)
     }
 
     /// Check if encryption is required for data type

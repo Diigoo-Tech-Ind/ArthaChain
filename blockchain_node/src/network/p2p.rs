@@ -1370,9 +1370,11 @@ impl P2PNetwork {
 
         for seed in dns_seeds {
             let seed = seed.to_string();
+            let network_clone = self.clone();
             tokio::spawn(async move {
-                // Placeholder DNS seed query implementation
-                info!("Querying DNS seed: {}", seed);
+                if let Err(e) = network_clone.query_dns_seed(seed.clone()).await {
+                    warn!("Failed to query DNS seed {}: {}", seed, e);
+                }
             });
         }
 

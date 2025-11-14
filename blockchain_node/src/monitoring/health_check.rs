@@ -1081,34 +1081,61 @@ impl ComponentChecker for NetworkHealthChecker {
 
 /// Consensus health checker
 pub struct ConsensusHealthChecker {
-    // Would contain consensus manager reference
+    // Consensus state tracking
+    consensus_rounds: Arc<RwLock<u64>>,
+    last_block_time: Arc<RwLock<Option<Instant>>>,
 }
 
 impl ConsensusHealthChecker {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            consensus_rounds: Arc::new(RwLock::new(0)),
+            last_block_time: Arc::new(RwLock::new(None)),
+        }
+    }
+
+    pub fn update_round(&self, round: u64) {
+        let mut rounds = self.consensus_rounds.write().blocking_lock();
+        *rounds = round;
+        let mut last_time = self.last_block_time.write().blocking_lock();
+        *last_time = Some(Instant::now());
     }
 }
 
 #[async_trait]
 impl ComponentChecker for ConsensusHealthChecker {
     async fn check_health(&self) -> Result<ComponentHealth> {
-        // Check consensus state
-        // This is a placeholder implementation
-
+        let rounds = *self.consensus_rounds.read().await;
+        let last_time = *self.last_block_time.read().await;
+        
         let mut details = HashMap::new();
-        details.insert("leader_status".to_string(), "active".to_string());
-        details.insert("consensus_rounds".to_string(), "100".to_string());
+        details.insert("consensus_rounds".to_string(), rounds.to_string());
+        
+        // Check if consensus is active (block produced recently)
+        let is_healthy = if let Some(time) = last_time {
+            let elapsed = time.elapsed();
+            details.insert("last_block_elapsed_ms".to_string(), elapsed.as_millis().to_string());
+            elapsed.as_secs() < 30 // Healthy if block within last 30 seconds
+        } else {
+            details.insert("status".to_string(), "initializing".to_string());
+            true // Allow initialization period
+        };
+        
+        let health_score = if is_healthy {
+            if rounds > 0 { 1.0 } else { 0.5 }
+        } else {
+            0.3
+        };
 
         Ok(ComponentHealth {
             name: "consensus".to_string(),
-            is_healthy: true,
-            health_score: 1.0,
+            is_healthy,
+            health_score,
             last_check: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
                 .as_millis() as u64,
-            error: None,
+            error: if is_healthy { None } else { Some("No blocks produced recently".to_string()) },
             details,
         })
     }
@@ -1120,34 +1147,61 @@ impl ComponentChecker for ConsensusHealthChecker {
 
 /// AI Engine health checker
 pub struct AIEngineHealthChecker {
-    // Would contain AI engine reference
+    active_models: Arc<RwLock<usize>>,
+    model_accuracy: Arc<RwLock<f64>>,
+    last_inference_time: Arc<RwLock<Option<Instant>>>,
 }
 
 impl AIEngineHealthChecker {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            active_models: Arc::new(RwLock::new(0)),
+            model_accuracy: Arc::new(RwLock::new(0.0)),
+            last_inference_time: Arc::new(RwLock::new(None)),
+        }
+    }
+
+    pub fn update_models(&self, count: usize, accuracy: f64) {
+        *self.active_models.write().blocking_lock() = count;
+        *self.model_accuracy.write().blocking_lock() = accuracy;
+        *self.last_inference_time.write().blocking_lock() = Some(Instant::now());
     }
 }
 
 #[async_trait]
 impl ComponentChecker for AIEngineHealthChecker {
     async fn check_health(&self) -> Result<ComponentHealth> {
-        // Check AI models status
-        // This is a placeholder implementation
-
+        let models = *self.active_models.read().await;
+        let accuracy = *self.model_accuracy.read().await;
+        let last_inference = *self.last_inference_time.read().await;
+        
         let mut details = HashMap::new();
-        details.insert("active_models".to_string(), "5".to_string());
-        details.insert("model_accuracy".to_string(), "0.95".to_string());
+        details.insert("active_models".to_string(), models.to_string());
+        details.insert("model_accuracy".to_string(), format!("{:.2}", accuracy));
+        
+        let is_healthy = models > 0 && accuracy > 0.5;
+        let health_score = if is_healthy {
+            accuracy.min(1.0)
+        } else {
+            0.0
+        };
+        
+        if let Some(time) = last_inference {
+            let elapsed = time.elapsed();
+            details.insert("last_inference_elapsed_ms".to_string(), elapsed.as_millis().to_string());
+        } else {
+            details.insert("status".to_string(), "no_inferences".to_string());
+        }
 
         Ok(ComponentHealth {
             name: "ai_engine".to_string(),
-            is_healthy: true,
-            health_score: 0.95,
+            is_healthy,
+            health_score,
             last_check: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
                 .as_millis() as u64,
-            error: None,
+            error: if is_healthy { None } else { Some("AI engine not operational".to_string()) },
             details,
         })
     }

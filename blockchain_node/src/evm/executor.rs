@@ -16,6 +16,8 @@ pub struct EvmExecutor {
     transaction_queue: mpsc::Sender<EvmTransaction>,
     /// Configuration
     config: EvmConfig,
+    /// Current block number (can be updated from blockchain state)
+    block_number: Arc<Mutex<u64>>,
 }
 
 impl EvmExecutor {
@@ -31,6 +33,7 @@ impl EvmExecutor {
             runtime: Mutex::new(runtime),
             transaction_queue: tx_sender,
             config,
+            block_number: Arc::new(Mutex::new(0)),
         };
 
         // Spawn a task to process transactions with its own runtime instance
@@ -107,5 +110,29 @@ impl EvmExecutor {
     /// Get a reference to the runtime
     pub fn get_runtime(&self) -> &Mutex<EvmRuntime> {
         &self.runtime
+    }
+
+    /// Get account balance from backend
+    pub async fn get_balance(&self, address: H160) -> Result<U256, EvmError> {
+        let runtime = self.runtime.lock().unwrap();
+        let account = runtime.get_account(&address).await?;
+        Ok(account.balance)
+    }
+
+    /// Get account nonce from backend
+    pub async fn get_nonce(&self, address: H160) -> Result<u64, EvmError> {
+        let runtime = self.runtime.lock().unwrap();
+        let account = runtime.get_account(&address).await?;
+        Ok(account.nonce)
+    }
+
+    /// Get block number
+    pub fn get_block_number(&self) -> u64 {
+        *self.block_number.lock().unwrap()
+    }
+
+    /// Set block number (should be called by blockchain state updates)
+    pub fn set_block_number(&self, block_number: u64) {
+        *self.block_number.lock().unwrap() = block_number;
     }
 }

@@ -200,24 +200,32 @@ impl NetworkConfig {
         let mut peers = Vec::new();
 
         for dns_seed in &self.dns_seeds {
-            // In a real implementation, this would perform DNS TXT record lookups
-            // For now, simulate DNS discovery
             println!("🔍 Querying DNS seed: {}", dns_seed);
 
-            // Mock DNS response (in production, use DNS TXT records)
-            use std::collections::hash_map::DefaultHasher;
-            use std::hash::{Hash, Hasher};
-
-            let mut hasher = DefaultHasher::new();
-            dns_seed.hash(&mut hasher);
-            let seed = hasher.finish();
-
-            let mock_peers = vec![
-                format!("/ip4/192.168.1.{}/tcp/30303", (seed % 200) as u8 + 1),
-                format!("/ip4/10.0.0.{}/tcp/30303", ((seed / 200) % 200) as u8 + 1),
-            ];
-
-            peers.extend(mock_peers);
+            // Real DNS lookup using tokio::net::lookup_host
+            use tokio::net::lookup_host;
+            
+            match lookup_host(dns_seed).await {
+                Ok(addresses) => {
+                    for addr in addresses {
+                        if addr.is_ipv4() {
+                            let peer_addr = format!("/ip4/{}/tcp/30303", addr.ip());
+                            peers.push(peer_addr);
+                        } else if addr.is_ipv6() {
+                            let peer_addr = format!("/ip6/{}/tcp/30303", addr.ip());
+                            peers.push(peer_addr);
+                        }
+                    }
+                    println!("✅ DNS seed {} resolved to {} addresses", dns_seed, peers.len());
+                }
+                Err(e) => {
+                    println!("⚠️ Failed to resolve DNS seed {}: {}", dns_seed, e);
+                    // Fallback: use default port if DNS fails
+                    if let Ok(addr) = dns_seed.parse::<std::net::SocketAddr>() {
+                        peers.push(format!("/ip4/{}/tcp/{}", addr.ip(), addr.port()));
+                    }
+                }
+            }
         }
 
         Ok(peers)

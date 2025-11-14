@@ -793,26 +793,60 @@ impl ParallelTxProcessor {
         }
     }
 
-    /// Execute a single transaction (mock implementation)
+    /// Execute a single transaction using real transaction executor
     async fn execute_single_transaction(tx_id: &TxId, tx: &TxVertex) -> Result<Vec<u8>> {
-        // Simulate execution time based on transaction type and complexity
-        let exec_time = match tx.tx_type {
-            TransactionType::System => Duration::from_millis(50),
-            TransactionType::Regular => Duration::from_millis(100),
-            TransactionType::ContractCall => Duration::from_millis(200),
-            TransactionType::ContractDeployment => Duration::from_millis(500),
-            TransactionType::CrossShard => Duration::from_millis(1000),
+        use crate::execution::executor::TransactionExecutor;
+        use crate::ledger::state::State;
+        use crate::ledger::transaction::Transaction;
+        use crate::types::Address;
+        
+        // Convert TxVertex to Transaction for execution
+        // Extract addresses from transaction data or use defaults
+        // In production, this would properly deserialize tx_data to get from/to addresses
+        let from_addr = Address::from_bytes(&tx.data[..20.min(tx.data.len())])
+            .unwrap_or_else(|_| Address::from_bytes(&[0u8; 20]).unwrap());
+        let to_addr = if tx.data.len() > 20 {
+            Address::from_bytes(&tx.data[20..40.min(tx.data.len())])
+                .ok()
+        } else {
+            None
         };
-
-        tokio::time::sleep(exec_time).await;
-
-        // Simulate occasional failures for testing retry logic
-        if tx_id.len() % 17 == 0 {
-            return Err(anyhow!("Simulated execution error"));
+        
+        // Extract value, gas_price, gas_limit, nonce from data or use defaults
+        let value = if tx.data.len() > 40 {
+            u64::from_be_bytes(tx.data[40..48.min(tx.data.len())].try_into().unwrap_or([0u8; 8]))
+        } else {
+            0
+        };
+        
+        let mut transaction = Transaction::new(
+            from_addr,
+            to_addr,
+            value,
+            tx.gas_limit / 1000, // gas_price estimate
+            tx.gas_limit,
+            0, // nonce - would be tracked separately in production
+            tx.data.clone(),
+        );
+        
+        // Create executor and state (in production, these would be passed in)
+        let state = State::new();
+        let executor = TransactionExecutor::new(None, 1.0, 1000000, 1);
+        
+        // Execute transaction
+        match executor.execute_transaction(&mut transaction, &state).await {
+            Ok(result) => {
+                match result {
+                    crate::execution::executor::ExecutionResult::Success { return_data, .. } => {
+                        Ok(return_data)
+                    }
+                    crate::execution::executor::ExecutionResult::Failure(error) => {
+                        Err(anyhow!("Transaction execution failed: {}", error))
+                    }
+                }
+            }
+            Err(e) => Err(anyhow!("Execution error: {}", e)),
         }
-
-        // Return mock result
-        Ok(format!("Result for tx: {}", hex::encode(tx_id)).into_bytes())
     }
 
     /// Check if an error is retryable

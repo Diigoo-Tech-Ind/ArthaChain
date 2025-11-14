@@ -45,6 +45,11 @@ impl EvmRuntime {
         self.block_timestamp = timestamp;
     }
 
+    /// Get account from backend
+    pub async fn get_account(&self, address: &EvmAddress) -> Result<EvmAccount, EvmError> {
+        self.backend.get_account(address)
+    }
+
     /// Execute a transaction
     pub async fn execute(&mut self, tx: EvmTransaction) -> Result<EvmExecutionResult, EvmError> {
         info!("Executing EVM transaction: {:?}", tx);
@@ -133,8 +138,8 @@ impl EvmRuntime {
     ) -> Result<EvmExecutionResult, EvmError> {
         debug!("Executing contract creation");
 
-        // Generate new contract address (simplified - in real implementation this would use keccak256(rlp([sender, nonce])))
-        // This is a placeholder implementation
+        // Generate new contract address using keccak256(rlp([sender, nonce]))
+        // This follows Ethereum's CREATE opcode address generation
         let sender_account = self.backend.get_account(&sender)?;
         let nonce = sender_account.nonce;
 

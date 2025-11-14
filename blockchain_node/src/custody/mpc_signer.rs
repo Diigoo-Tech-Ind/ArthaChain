@@ -22,6 +22,7 @@ pub struct MPCKey {
     pub total_parties: u8,
     pub shares: Vec<MPCKeyShare>,
     pub public_key: Vec<u8>,
+    pub algorithm: String, // Algorithm used (e.g., "Ed25519", "ECDSA")
     pub created_at: u64,
     pub last_used: u64,
     pub usage_count: u64,
@@ -96,6 +97,7 @@ impl MPCCustodyProvider {
             total_parties: self.total_parties,
             shares: mpc_shares,
             public_key,
+            algorithm: algorithm.to_string(),
             created_at: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
@@ -334,7 +336,7 @@ impl CustodyProvider for MPCCustodyProvider {
         
         Ok(KeyMetadata {
             key_id: key.key_id.clone(),
-            algorithm: "Ed25519".to_string(), // TODO: store algorithm in MPCKey
+            algorithm: key.algorithm.clone(),
             created_at: key.created_at,
             last_used: key.last_used,
             usage_count: key.usage_count,

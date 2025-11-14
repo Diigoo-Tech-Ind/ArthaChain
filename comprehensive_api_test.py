@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import List, Dict, Any
 
 class ArthaChainAPITester:
-    def __init__(self, base_url: str = "http://localhost:1900"):
+    def __init__(self, base_url: str = "http://localhost:8080"):
         self.base_url = base_url
         self.fully_working = []
         self.mock_data = []

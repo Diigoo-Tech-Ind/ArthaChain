@@ -66,7 +66,15 @@ async fn check_policy(
     }
     
     // 3. Check ArthaScore
-    // TODO: Query reputation service
+    // Query reputation service for ArthaScore
+    let artha_score = client
+        .get(&format!("{}/reputation/score/{}", state.did_registry_url, req.did))
+        .send()
+        .await
+        .ok()
+        .and_then(|resp| resp.json::<serde_json::Value>().ok())
+        .and_then(|json| json.get("score").and_then(|s| s.as_f64()))
+        .unwrap_or(0.0);
     
     // 4. Check budget
     if req.budget == 0 {
@@ -78,12 +86,14 @@ async fn check_policy(
         }));
     }
     
-    // Default: allow
+    // Default: allow (if ArthaScore is sufficient)
+    let allowed = artha_score >= 0.5; // Minimum score threshold
+    
     Ok(Json(PolicyCheckResponse {
-        allowed: true,
-        reason: None,
+        allowed,
+        reason: if !allowed { Some("ArthaScore too low".to_string()) } else { None },
         required_claims,
-        artha_score: Some(0.85), // Default score
+        artha_score: Some(artha_score),
     }))
 }
 

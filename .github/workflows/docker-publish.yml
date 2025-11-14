@@ -16,6 +16,39 @@ env:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - name: arthachain-node
+            dockerfile: blockchain_node/Dockerfile
+            image: ghcr.io/arthachain/arthachain-node
+          - name: ai-jobd
+            dockerfile: services/ai-jobd/Dockerfile
+            image: ghcr.io/arthachain/ai-jobd
+          - name: ai-scheduler
+            dockerfile: services/ai-scheduler/Dockerfile
+            image: ghcr.io/arthachain/ai-scheduler
+          - name: ai-runtime
+            dockerfile: services/ai-runtime/Dockerfile
+            image: ghcr.io/arthachain/ai-runtime
+          - name: ai-proofs
+            dockerfile: services/ai-proofs/Dockerfile
+            image: ghcr.io/arthachain/ai-proofs
+          - name: policy-gate
+            dockerfile: services/policy-gate/Dockerfile
+            image: ghcr.io/arthachain/policy-gate
+          - name: ai-agents
+            dockerfile: services/ai-agents/Dockerfile
+            image: ghcr.io/arthachain/ai-agents
+          - name: ai-federation
+            dockerfile: services/ai-federation/Dockerfile
+            image: ghcr.io/arthachain/ai-federation
+          - name: ai-evolution
+            dockerfile: services/ai-evolution/Dockerfile
+            image: ghcr.io/arthachain/ai-evolution
+          - name: ai-ethics
+            dockerfile: services/ai-ethics/Dockerfile
+            image: ghcr.io/arthachain/ai-ethics
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,20 +70,22 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.IMAGE_NAME }}
+          images: ${{ matrix.service.image }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha
             type=ref,event=tag
 
-      - name: Build and push
+      - name: Build and push (${{ matrix.service.name }})
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: blockchain_node/Dockerfile
+          file: ${{ matrix.service.dockerfile }}
           platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
 

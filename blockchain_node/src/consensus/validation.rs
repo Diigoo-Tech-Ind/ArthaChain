@@ -309,8 +309,15 @@ impl ValidationEngine {
 
         // Update memory usage if profiling is enabled
         if config.profile_memory_usage {
-            // In a real implementation, this would use a proper memory profiler
-            final_result.memory_usage_kb = Some(100000); // Placeholder value
+            use sysinfo::{System, Pid, Process};
+            let mut system = System::new();
+            system.refresh_process(Pid::from(std::process::id() as usize));
+            if let Some(process) = system.process(Pid::from(std::process::id() as usize)) {
+                let memory_kb = process.memory() / 1024; // Convert bytes to KB
+                final_result.memory_usage_kb = Some(memory_kb);
+            } else {
+                final_result.memory_usage_kb = Some(0);
+            }
         }
 
         // Store result
@@ -410,8 +417,15 @@ impl ValidationEngine {
 
         // Update memory usage if profiling is enabled
         if config.profile_memory_usage {
-            // In a real implementation, this would use a proper memory profiler
-            final_result.memory_usage_kb = Some(10000); // Placeholder value
+            use sysinfo::{System, Pid, Process};
+            let mut system = System::new();
+            system.refresh_process(Pid::from(std::process::id() as usize));
+            if let Some(process) = system.process(Pid::from(std::process::id() as usize)) {
+                let memory_kb = process.memory() / 1024; // Convert bytes to KB
+                final_result.memory_usage_kb = Some(memory_kb);
+            } else {
+                final_result.memory_usage_kb = Some(0);
+            }
         }
 
         // Store result

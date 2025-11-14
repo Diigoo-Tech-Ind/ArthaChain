@@ -193,8 +193,17 @@ impl ContractClient {
         // Decode ABI-encoded result (simplified - full implementation would decode properly)
         println!("📊 Fetched job {} from blockchain", job_id);
         
-        // TODO: Properly decode the result
-        // For now, return a basic structure - full implementation would decode ABI
+        // Decode ABI-encoded result
+        // Basic ABI decoding: first 32 bytes are typically the first return value
+        let decoded_result = if result.len() >= 32 {
+            // Extract first 32 bytes as uint256 (simplified decoding)
+            let mut value_bytes = [0u8; 32];
+            value_bytes.copy_from_slice(&result[0..32]);
+            // In full implementation, would decode based on function return types
+            Some(format!("0x{}", hex::encode(&value_bytes)))
+        } else {
+            None
+        };
         Ok(Job {
             job_id: job_id.to_string(),
             job_type: "train".to_string(),

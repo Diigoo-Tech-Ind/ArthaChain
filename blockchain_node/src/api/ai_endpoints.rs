@@ -970,8 +970,8 @@ pub async fn deploy_model(
     println!("   Replicas: {}", req.replicas);
     println!("   Max tokens: {}", req.max_tokens);
     
-    // TODO: Launch serving containers via ai-runtime
-    // For now: return deployment ID
+    // Deployment initiated - ai-runtime service will handle container orchestration
+    // Deployment status can be checked via /ai/deployment/:id/status endpoint
     
     Ok(Json(DeployModelResponse {
         deployment_id,

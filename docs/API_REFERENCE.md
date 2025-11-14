@@ -62,7 +62,7 @@ Create storage deal.
 
 ### Identity
 
-#### `POST /identity/did/create`
+#### `POST /api/v1/identity/create`
 Create new DID.
 
 **Request:**
@@ -82,11 +82,13 @@ Create new DID.
 }
 ```
 
-#### `GET /identity/did/:did`
-Get DID document.
+#### `POST /api/v1/identity/verify`
+Verify DID authentication.
 
-#### `POST /identity/did/rotate`
-Rotate DID keys.
+#### `GET /api/v1/identity/status`
+Get identity status.
+
+**Note:** The path `/identity/did/create` in older documentation has been updated to `/api/v1/identity/create` in the current implementation.
 
 #### `POST /identity/vc/issue`
 Issue verifiable credential.
@@ -343,7 +345,12 @@ Update agent memory.
 
 ### Policy
 
-#### `POST /policy/check`
+#### `POST /svdb/access/policy`
+Check or set access policy for SVDB content.
+
+**Note:** Policy endpoints are integrated with SVDB access control. The `/policy/check` endpoint mentioned in older documentation is now handled through `/svdb/access/policy`.
+
+#### `POST /policy/check` (Deprecated)
 Check access policy.
 
 **Request:**

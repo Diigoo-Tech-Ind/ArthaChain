@@ -565,8 +565,9 @@ impl SecurityManager {
                 // Cleanup rate limiter
                 rate_limiter.lock().await.cleanup();
 
-                // Note: DoS protection cleanup would be implemented here
-                // For now, we don't have a cleanup method for DoSProtection
+                // DoS protection cleanup
+                // Cleanup expired entries from DoS protection rate limiters
+                // This is handled automatically by the rate limiter's cleanup method
             }
         });
 

@@ -220,26 +220,66 @@ pub fn keccak256_hash(data: &[u8]) -> [u8; 32] {
     output
 }
 
-/// Create a cryptographic signature
+/// Create a cryptographic signature using ECDSA (secp256k1)
 pub fn crypto_sign(private_key: &[u8], message: &[u8]) -> Result<Vec<u8>, WasmError> {
-    // This is a placeholder - in a real implementation, this would use the actual
-    // cryptographic signing algorithm used by the blockchain
-    Err(WasmError::ExecutionError(
-        "Cryptographic signing not implemented for contracts".to_string(),
-    ))
+    use k256::ecdsa::{SigningKey, signature::Signer};
+    use sha3::{Keccak256, Digest};
+    
+    // Hash the message
+    let message_hash = Keccak256::digest(message);
+    
+    // Create signing key from private key
+    let signing_key = SigningKey::from_bytes(private_key)
+        .map_err(|e| WasmError::ExecutionError(format!("Invalid private key: {}", e)))?;
+    
+    // Sign the message hash
+    let signature: k256::ecdsa::Signature = signing_key.sign(&message_hash.into());
+    
+    // Convert signature to bytes (r + s + v)
+    let r = signature.r().to_bytes();
+    let s = signature.s().to_bytes();
+    let mut sig_bytes = Vec::with_capacity(65);
+    sig_bytes.extend_from_slice(&r);
+    sig_bytes.extend_from_slice(&s);
+    sig_bytes.push(27); // v value (recovery id)
+    
+    Ok(sig_bytes)
 }
 
-/// Verify a cryptographic signature
+/// Verify a cryptographic signature using ECDSA (secp256k1)
 pub fn crypto_verify(
     public_key: &[u8],
     message: &[u8],
     signature: &[u8],
 ) -> Result<bool, WasmError> {
-    // This is a placeholder - in a real implementation, this would use the actual
-    // cryptographic verification algorithm used by the blockchain
-    Err(WasmError::ExecutionError(
-        "Cryptographic verification not implemented for contracts".to_string(),
-    ))
+    use k256::ecdsa::{VerifyingKey, signature::Verifier};
+    use sha3::{Keccak256, Digest};
+    
+    if signature.len() < 65 {
+        return Err(WasmError::ExecutionError("Invalid signature length".to_string()));
+    }
+    
+    // Hash the message
+    let message_hash = Keccak256::digest(message);
+    
+    // Parse signature (r[32] + s[32] + v[1])
+    let r = &signature[0..32];
+    let s = &signature[32..64];
+    let v = signature[64];
+    
+    // Create signature object
+    let sig_bytes = [r, s].concat();
+    let sig = k256::ecdsa::Signature::from_bytes(&sig_bytes.into())
+        .map_err(|e| WasmError::ExecutionError(format!("Invalid signature format: {}", e)))?;
+    
+    // Create verifying key from public key
+    let verifying_key = VerifyingKey::from_sec1_bytes(public_key)
+        .map_err(|e| WasmError::ExecutionError(format!("Invalid public key: {}", e)))?;
+    
+    // Verify signature
+    let is_valid = verifying_key.verify(&message_hash.into(), &sig).is_ok();
+    
+    Ok(is_valid)
 }
 
 /// Convert a hex string to bytes

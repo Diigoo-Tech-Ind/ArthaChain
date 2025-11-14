@@ -1013,20 +1013,29 @@ impl MockStorage {
 impl Storage for MockStorage {
     async fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, crate::storage::StorageError> {
         let hash = Hash::new(key.to_vec());
-        if self.blocks.contains_key(&hash) {
-            Ok(Some(vec![1, 2, 3])) // Placeholder
+        let blocks = self.blocks.read().await;
+        if let Some(value) = blocks.get(&hash) {
+            Ok(Some(value.clone()))
         } else {
             Ok(None)
         }
     }
 
     async fn put(&self, key: &[u8], value: &[u8]) -> Result<(), crate::storage::StorageError> {
-        // Mock implementation - just succeed
+        // Store key-value pair in blocks map
+        let hash = Hash::new(key.to_vec());
+        let mut blocks = self.blocks.write().await;
+        // Use the hash as key and store the value
+        // In production, this would use actual storage backend
+        blocks.insert(hash, value.to_vec());
         Ok(())
     }
 
     async fn delete(&self, key: &[u8]) -> Result<(), crate::storage::StorageError> {
-        // Mock implementation - just succeed
+        // Remove key from blocks map
+        let hash = Hash::new(key.to_vec());
+        let mut blocks = self.blocks.write().await;
+        blocks.remove(&hash);
         Ok(())
     }
 
@@ -1037,10 +1046,17 @@ impl Storage for MockStorage {
 
     async fn list_keys(
         &self,
-        _prefix: &[u8],
+        prefix: &[u8],
     ) -> Result<Vec<Vec<u8>>, crate::storage::StorageError> {
-        // Mock implementation
-        Ok(vec![])
+        let blocks = self.blocks.read().await;
+        let mut keys = Vec::new();
+        for (hash, _) in blocks.iter() {
+            let hash_bytes = hash.0.as_slice();
+            if prefix.is_empty() || hash_bytes.starts_with(prefix) {
+                keys.push(hash_bytes.to_vec());
+            }
+        }
+        Ok(keys)
     }
 
     async fn get_stats(

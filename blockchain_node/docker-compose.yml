@@ -32,8 +32,8 @@ services:
   # Global API Service (Port 1910)
   arthachain-global-api:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: blockchain_node/Dockerfile
     container_name: arthachain-global-api
     ports:
       - "1910:1910"
@@ -58,8 +58,8 @@ services:
   # Real-Time API Server (Port 1920)
   arthachain-realtime-api:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: blockchain_node/Dockerfile
     container_name: arthachain-realtime-api
     ports:
       - "1920:1920"
@@ -84,8 +84,8 @@ services:
   # Block Explorer API (Port 1930)
   arthachain-explorer-api:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: blockchain_node/Dockerfile
     container_name: arthachain-explorer-api
     ports:
       - "1930:1930"
@@ -109,28 +109,35 @@ services:
 
   # Documentation Server (Port 1940)
   arthachain-docs:
-    image: nginx:alpine
+    image: nginx:1.27-alpine
     container_name: arthachain-docs
     ports:
       - "1940:80"
     volumes:
-      - ./docs:/usr/share/nginx/html
+      - ./docs:/usr/share/nginx/html:ro
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+      - /var/run
 
   # Metrics Server (Port 1950)
   arthachain-metrics:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v2.52.0
     container_name: arthachain-metrics
     ports:
       - "1950:9090"
     volumes:
-      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -139,35 +146,46 @@ services:
       - '--web.console.templates=/etc/prometheus/consoles'
       - '--storage.tsdb.retention.time=200h'
       - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9090/-/healthy"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 30s
+    user: "nobody"
+    security_opt:
+      - no-new-privileges:true
 
   # Faucet Service (Port 1960)
   arthachain-faucet:
-    image: nginx:alpine
+    image: nginx:1.27-alpine
     container_name: arthachain-faucet
     ports:
       - "1960:80"
     volumes:
-      - ./faucet:/usr/share/nginx/html
+      - ./faucet:/usr/share/nginx/html:ro
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+      - /var/run
 
   # RPC Service (Port 1970)
   arthachain-rpc:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: blockchain_node/Dockerfile
     container_name: arthachain-rpc
     ports:
       - "1970:1970"
@@ -191,7 +209,7 @@ services:
 
   # Load Balancer (HAProxy like Aptos)
   haproxy:
-    image: haproxy:2.8
+    image: haproxy:2.10-alpine
     container_name: arthachain-haproxy
     volumes:
       - ./config/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
@@ -205,10 +223,16 @@ services:
     depends_on:
       - arthachain-node
       - arthachain-rpc
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /var/run
+      - /tmp
 
   # Node Exporter for System Metrics
   node-exporter:
-    image: prom/node-exporter:latest
+    image: prom/node-exporter:v1.7.0
     container_name: arthachain-node-exporter
     ports:
       - "9100:9100"
@@ -222,10 +246,13 @@ services:
       - '--path.sysfs=/host/sys'
       - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    user: "nobody"
 
   # cAdvisor for Container Metrics
   cadvisor:
-    image: gcr.io/cadvisor/cadvisor:latest
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
     container_name: arthachain-cadvisor
     ports:
       - "8080:8080"
@@ -239,15 +266,17 @@ services:
     devices:
       - /dev/kmsg
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
 
   # Cloudflare Tunnel
   cloudflared:
-    image: cloudflared/cloudflared:latest
+    image: cloudflare/cloudflared:2024.12.0
     container_name: arthachain-cloudflared
     command: tunnel --config /etc/cloudflared/config.yml run arthachain-testnet
     volumes:
-      - ./cloudflared/config.yml:/etc/cloudflared/config.yml
-      - ~/.cloudflared:/root/.cloudflared
+      - ./cloudflared/config.yml:/etc/cloudflared/config.yml:ro
+      - ~/.cloudflared:/root/.cloudflared:ro
     restart: unless-stopped
     depends_on:
       - arthachain-node
@@ -258,6 +287,9 @@ services:
       - arthachain-metrics
       - arthachain-faucet
       - arthachain-rpc
+    security_opt:
+      - no-new-privileges:true
+    user: "nobody"
 
 volumes:
   prometheus_data:

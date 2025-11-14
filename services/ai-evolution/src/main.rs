@@ -7,7 +7,9 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use log::{info, warn};
 use serde::{Deserialize, Serialize};
+use std::process::Command;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use std::collections::HashMap;
@@ -156,7 +158,21 @@ async fn start_evolution(
     state.evo_jobs.write().await.insert(evo_id.clone(), evo_job);
 
     // Start evolutionary search
-    // TODO: Launch evo-runtime containers
+    // Launch evo-runtime containers via Docker
+    let container_runtime = Command::new("docker")
+        .args(&["run", "-d", "--name", &format!("evo-{}", evo_id), 
+                "-e", &format!("EVO_ID={}", evo_id),
+                "arthachain/evo-runtime:latest"])
+        .output();
+    
+    if let Ok(output) = container_runtime {
+        if output.status.success() {
+            let container_id = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            info!("Launched evo-runtime container: {}", container_id);
+        } else {
+            warn!("Failed to launch evo-runtime container: {}", String::from_utf8_lossy(&output.stderr));
+        }
+    }
 
     Ok(Json(StartEvolutionResponse {
         evo_id,

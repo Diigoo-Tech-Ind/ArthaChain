@@ -44,20 +44,22 @@ pub enum CrossChainProtocol {
     AtomicSwap,
     /// Custom ArthaChain Bridge
     ArthaChainBridge,
-    /// Ethereum Bridge
-    EthereumBridge,
-    /// Bitcoin Bridge
-    BitcoinBridge,
-    /// Cosmos Bridge
-    CosmosBridge,
-    /// Polkadot Bridge
-    PolkadotBridge,
-    /// Binance Smart Chain Bridge
-    BSCBridge,
-    /// Polygon Bridge
-    PolygonBridge,
-    /// Avalanche Bridge
-    AvalancheBridge,
+    /// External Bridge 1
+    ExternalBridge1,
+    /// External Bridge 2
+    ExternalBridge2,
+    /// External Bridge 3
+    ExternalBridge3,
+    /// External Bridge 4
+    ExternalBridge4,
+    /// External Bridge 5
+    ExternalBridge5,
+    /// External Bridge 6
+    ExternalBridge6,
+    /// External Bridge 7
+    ExternalBridge7,
+    /// External Bridge 8
+    ExternalBridge8,
 }
 
 /// Bridge contract information
@@ -301,14 +303,14 @@ pub struct ChainInfo {
 /// Chain type
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ChainType {
-    /// Ethereum-compatible
-    Ethereum,
-    /// Bitcoin
-    Bitcoin,
-    /// Cosmos
-    Cosmos,
-    /// Polkadot
-    Polkadot,
+    /// EVM-compatible chain
+    EVMCompatible,
+    /// UTXO-based chain
+    UTXOBased,
+    /// IBC-compatible chain
+    IBCCompatible,
+    /// XCM-compatible chain
+    XCMCompatible,
     /// ArthaChain
     ArthaChain,
     /// Other
@@ -1216,14 +1218,14 @@ impl CrossChainManager {
 
         // Rule-based protocol selection
         match (&tx.source_chain, &tx.dest_chain) {
-            (source, dest) if source.contains("cosmos") || dest.contains("cosmos") => {
+            (source, dest) if source.contains("ibc") || dest.contains("ibc") => {
                 Ok(CrossChainProtocol::IBC)
             }
-            (source, dest) if source.contains("polkadot") || dest.contains("polkadot") => {
+            (source, dest) if source.contains("xcm") || dest.contains("xcm") => {
                 Ok(CrossChainProtocol::XCM)
             }
-            (source, dest) if source.contains("ethereum") || dest.contains("ethereum") => {
-                Ok(CrossChainProtocol::EthereumBridge)
+            (source, dest) if source.contains("evm") || dest.contains("evm") => {
+                Ok(CrossChainProtocol::ExternalBridge1)
             }
             _ => Ok(CrossChainProtocol::ArthaChainBridge),
         }
@@ -1454,8 +1456,8 @@ impl Default for CrossChainConfig {
             supported_protocols: vec![
                 CrossChainProtocol::IBC,
                 CrossChainProtocol::XCM,
-                CrossChainProtocol::EthereumBridge,
-                CrossChainProtocol::BitcoinBridge,
+                CrossChainProtocol::ExternalBridge1,
+                CrossChainProtocol::ExternalBridge2,
                 CrossChainProtocol::ArthaChainBridge,
             ],
             bridge_contracts: HashMap::new(),

@@ -1,12 +1,12 @@
 use crate::evm::runtime::EvmRuntime;
 use crate::evm::types::{EvmConfig, EvmError, EvmExecutionResult, EvmTransaction};
 use crate::storage::HybridStorage;
-use anyhow::{anyhow, Result};
-use log::{error, info};
-
+use anyhow::Result;
+use ethereum_types::{H160, U256};
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, RwLock};
 
 /// Executor for EVM transactions
 pub struct EvmExecutor {

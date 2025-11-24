@@ -17,13 +17,13 @@ pub mod polkadot;
 /// Supported blockchain networks
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Network {
-    Ethereum,
-    Bitcoin,
-    BinanceSmartChain,
-    Polygon,
-    Avalanche,
-    Cosmos,
-    Polkadot,
+    External1,
+    External2,
+    External3,
+    External4,
+    External5,
+    External6,
+    External7,
     MultiVM,
 }
 
@@ -138,9 +138,9 @@ impl BridgeManager {
         );
 
         bridges.insert(
-            Network::Bitcoin,
+            Network::External2,
             BridgeConfig {
-                target_network: Network::Bitcoin,
+                target_network: Network::External2,
                 bridge_address: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh".to_string(),
                 min_confirmations: 6,
                 max_transfer_amount: 100_000_000, // 1 BTC in satoshis
@@ -222,7 +222,7 @@ impl BridgeManager {
         // Create transfer record
         let transfer = CrossChainTransfer {
             id: transfer_id.clone(),
-            source_network: Network::Ethereum, // ArthaChain treated as Ethereum-compatible
+            source_network: Network::External1, // ArthaChain treated as EVM-compatible
             target_network,
             source_address,
             target_address,
@@ -258,16 +258,16 @@ impl BridgeManager {
             .ok_or_else(|| anyhow::anyhow!("Transfer not found"))?;
 
         match transfer.target_network {
-            Network::Ethereum => {
+            Network::External1 => {
                 self.ethereum_bridge.process_transfer(transfer).await?;
             }
-            Network::Bitcoin => {
+            Network::External2 => {
                 self.bitcoin_bridge.process_transfer(transfer).await?;
             }
-            Network::Cosmos => {
+            Network::External6 => {
                 self.cosmos_bridge.process_transfer(transfer).await?;
             }
-            Network::Polkadot => {
+            Network::External7 => {
                 self.polkadot_bridge.process_transfer(transfer).await?;
             }
             _ => {
@@ -316,10 +316,10 @@ impl BridgeManager {
 
         // Add network-specific base fee
         let base_fee = match target_network {
-            Network::Ethereum => 50_000, // Higher due to gas costs
-            Network::Bitcoin => 10_000,
-            Network::Cosmos => 5_000,
-            Network::Polkadot => 5_000,
+            Network::External1 => 50_000, // Higher due to gas costs
+            Network::External2 => 10_000,
+            Network::External6 => 5_000,
+            Network::External7 => 5_000,
             _ => 10_000,
         };
 

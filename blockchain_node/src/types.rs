@@ -918,7 +918,7 @@ impl CallData {
         &self.0
     }
 
-    /// Get function hash from first 4 bytes (like Ethereum function selector)
+    /// Get function hash from first 4 bytes (EVM function selector)
     pub fn function_hash(&self) -> Hash {
         if self.0.len() >= 4 {
             let mut hash_bytes = [0u8; 32];

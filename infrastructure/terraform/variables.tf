@@ -1,5 +1,4 @@
 # ArthaChain Terraform Variables
-# Following Sui/Aptos/Sei industry patterns
 
 variable "aws_region" {
   description = "AWS region for ArthaChain deployment"

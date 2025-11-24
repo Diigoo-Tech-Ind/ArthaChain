@@ -268,7 +268,7 @@ pub fn derive_address_from_private_key(private_key: &[u8]) -> Result<String> {
     hasher.update(public_key.as_bytes());
     let hash = hasher.finalize();
 
-    // Take the first 20 bytes for the address (similar to Ethereum)
+    // Take the first 20 bytes for the address
     let address_bytes = &hash.as_bytes()[..20];
     Ok(hex::encode(address_bytes))
 }

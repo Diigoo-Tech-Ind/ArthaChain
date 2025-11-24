@@ -92,7 +92,7 @@ events.publish_new_transaction(&transaction);
 - [`security::encryption`] - Data encryption and anonymization
 
 ### Smart Contracts & VMs
-- [`evm`] - Ethereum Virtual Machine compatibility
+- [`evm`] - EVM compatibility
 - [`contracts`] - Smart contract management
 
 ### APIs & Integration
@@ -219,6 +219,9 @@ pub mod monitoring;
 
 // API and interface
 pub mod api;
+
+// Governance
+pub mod governance;
 
 // Utilities
 pub mod common;

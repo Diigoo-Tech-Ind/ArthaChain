@@ -357,21 +357,19 @@ pub async fn start_api_server(port: u16) -> Result<()> {
         10000,
     )));
 
-    // Use the comprehensive testnet router instead of basic router
-    // Create a basic config for the faucet
-    let faucet_config = crate::config::Config {
-        is_genesis: true,
-        ..Default::default()
+    // Create application state
+    let app_state = AppState {
+        blockchain_state: blockchain_state.clone(),
+        validator_manager,
+        mempool,
+        cross_shard_manager: Arc::new(RwLock::new(manager)),
+        node_id: format!("node_{}", uuid::Uuid::new_v4()),
+        network: "ArthaChain".to_string(),
+        stats: Arc::new(RwLock::new(NetworkStats::default())),
     };
 
-    let faucet = faucet::Faucet::new(&faucet_config, blockchain_state.clone(), None).await?;
-
-    let app = crate::api::testnet_router::create_testnet_router(
-        blockchain_state.clone(),
-        mempool,
-        Arc::new(faucet),
-        Arc::new(GasFreeManager::new()),
-    );
+    // Use the real router with actual backend
+    let app = create_router(app_state);
 
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port)).await?;
     println!(

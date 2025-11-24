@@ -16,7 +16,7 @@ use axum::response::Response as AxumResponse;
 
 use crate::api::{
     handlers::{
-        accounts, ai, blocks, consensus, contracts, dev, faucet, gas_free, identity, metrics,
+        accounts, ai, aiid, blocks, consensus, contracts, dev, faucet, gas_free, identity, metrics,
         monitoring, network_monitoring, security, status, testnet_api, transaction_submission,
         transactions, validators, wallet_rpc,
     },
@@ -1004,6 +1004,20 @@ pub fn create_testnet_router(
         .route("/api/v1/identity/verify", post(identity::authenticate_did))
         .route("/api/v1/identity/status", get(identity::get_identity_status))
         .route("/api/v1/identity/verify", get(identity::get_verify_status))
+        
+        // AIID API - AI Identity endpoints (SDK-compatible paths)
+        .route("/identity/aiid/create", post(aiid::create_aiid))
+        .route("/identity/aiid/:aiid", get(aiid::get_aiid))
+        .route("/identity/aiid/rotate", post(aiid::rotate_aiid))
+        .route("/identity/aiid/link", post(aiid::link_owner))
+        .route("/identity/aiid/:aiid/lineage", get(aiid::get_lineage))
+        
+        // AIID API - API v1 paths (alternative)
+        .route("/api/v1/identity/aiid/create", post(aiid::create_aiid))
+        .route("/api/v1/identity/aiid/:aiid", get(aiid::get_aiid))
+        .route("/api/v1/identity/aiid/rotate", post(aiid::rotate_aiid))
+        .route("/api/v1/identity/aiid/link", post(aiid::link_owner))
+        .route("/api/v1/identity/aiid/:aiid/lineage", get(aiid::get_lineage))
         
         // Wallet API - Connect to handlers
         .route("/api/v1/wallet/supported", get(wallet_rpc::get_supported_wallets))

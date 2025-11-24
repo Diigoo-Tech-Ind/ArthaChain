@@ -31,6 +31,8 @@ impl std::error::Error for CryptoError {}
 
 pub mod hash;
 pub mod keys;
+pub mod merkle_trie;  // Merkle Patricia Trie for state root calculation
+pub mod real_zkp;  // Real zero-knowledge proofs using arkworks
 pub mod signature;
 pub mod zkp;
 
@@ -38,5 +40,7 @@ pub mod zkp;
 // Note: arkworks_zkp module temporarily disabled for build stability
 pub use hash::*;
 pub use keys::*;
+pub use merkle_trie::MerklePatriciaTrie;
+pub use real_zkp::{RealZKProof, ZKPSystem};
 pub use signature::*;
 pub use zkp::*;

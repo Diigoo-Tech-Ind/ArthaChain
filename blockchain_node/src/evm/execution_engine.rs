@@ -1,7 +1,7 @@
 //! EVM Execution Engine - Phase 2.3 Implementation
 //!
-//! This module provides a complete Ethereum Virtual Machine execution environment
-//! with full Solidity smart contract support and Ethereum compatibility.
+//! This module provides a complete EVM execution environment
+//! with full Solidity smart contract support and EVM compatibility.
 
 use crate::evm::backend::EvmBackend;
 use crate::evm::types::{
@@ -41,7 +41,7 @@ pub struct EvmExecutionConfig {
 /// EVM version compatibility
 #[derive(Debug, Clone, PartialEq)]
 pub enum EvmVersion {
-    /// Frontier (Ethereum 1.0)
+    /// Frontier (EVM 1.0)
     Frontier,
     /// Homestead
     Homestead,
@@ -232,7 +232,7 @@ impl EvmExecutionEngine {
         Ok(engine)
     }
 
-    /// Initialize standard Ethereum precompiled contracts
+    /// Initialize standard EVM precompiled contracts
     fn initialize_precompiles(&mut self) {
         // EC Recovery (0x01)
         self.precompiles.insert(

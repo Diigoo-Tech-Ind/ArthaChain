@@ -22,7 +22,7 @@ use tokio::sync::Semaphore;
 pub enum ContractRuntime {
     /// WebAssembly contract
     Wasm,
-    /// Ethereum Virtual Machine contract
+    /// EVM contract
     Evm,
     /// Native contract (optimized Rust)
     Native,

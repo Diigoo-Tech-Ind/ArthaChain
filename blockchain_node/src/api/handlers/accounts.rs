@@ -15,7 +15,7 @@ use crate::evm::types::EvmAddress;
 use crate::ledger::state::State;
 use crate::storage::hybrid_storage::HybridStorage;
 
-// Ethereum types for EVM compatibility
+// EVM types for compatibility
 #[cfg(feature = "evm")]
 use ethereum_types::{H160, H256, U256};
 

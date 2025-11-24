@@ -1,7 +1,9 @@
 pub mod parallel_processor;
 pub mod svcp;
+pub mod svcp_ai_integration;  // AI integration for SVCP consensus
 
 // Make cross_shard and reputation modules always available
+pub mod ai_reputation;  // AI-powered reputation scoring
 pub mod cross_shard;
 pub mod metrics;
 pub mod reputation;
@@ -93,6 +95,10 @@ pub use weight_adjustment::DynamicWeightAdjuster;
 pub use quantum_svbft::QuantumSVBFTConsensus;
 pub use validator_set::{ValidatorSetConfig, ValidatorSetManager};
 pub use view_change::ViewChangeManager;
+
+// AI-powered reputation scoring
+pub use ai_reputation::{AiReputationCalculator, ValidatorMetrics};
+pub use svcp_ai_integration::SvcpAiIntegration;
 
 pub mod consensus_manager;
 

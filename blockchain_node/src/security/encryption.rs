@@ -2,13 +2,18 @@ use aes_gcm::{
     aead::{Aead, AeadCore, KeyInit, OsRng},
     Aes256Gcm, Key, Nonce,
 };
+use aes::Aes256;
 use anyhow::{anyhow, Result};
 use argon2::{
     password_hash::{rand_core::OsRng as ArgonOsRng, SaltString},
     Argon2, PasswordHash, PasswordHasher,
 };
-use rand::{Rng, RngCore};
+use block_modes::{BlockMode, Cbc};
+use block_padding::Pkcs7;
+use hmac::{Hmac, Mac};
+use rand::{rngs::OsRng, Rng, RngCore};
 use serde::{Deserialize, Serialize};
+use sha2::Sha256;
 use sha3::{Digest, Sha3_256};
 use std::collections::HashMap;
 use std::sync::Arc;

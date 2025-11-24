@@ -1434,7 +1434,7 @@ async fn process_evm_transaction(
         }
     };
 
-    // Calculate transaction hash using Keccak256 (Ethereum standard)
+    // Calculate transaction hash using Keccak256
     use sha3::{Keccak256, Digest};
     let mut tx_hash_data = Vec::new();
     tx_hash_data.extend_from_slice(&evm_tx.nonce.to_be_bytes());
@@ -2644,7 +2644,7 @@ pub async fn websocket_subscribe(
 
 ## Overview
 
-ArthaChain implements a comprehensive JSON-RPC 2.0 API compatible with Ethereum's JSON-RPC specification,
+ArthaChain implements a comprehensive JSON-RPC 2.0 API compatible with standard JSON-RPC specification,
 with additional support for WASM contracts and multi-VM operations.
 
 ## Base URL
@@ -2964,7 +2964,7 @@ Returns current gas price.
 - ✅ Balance verification before execution
 - ✅ Nonce validation to prevent replay attacks
 - ✅ Invalid signatures are rejected
-- ✅ Transaction hashing using Keccak256 (Ethereum standard)
+- ✅ Transaction hashing using Keccak256
 
 ## Performance
 

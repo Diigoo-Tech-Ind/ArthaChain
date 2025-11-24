@@ -6,17 +6,22 @@ use crate::ledger::block::Block;
 use crate::ledger::transaction::Transaction;
 use crate::native_token::arthacoin_native::ArthaCoinConfig;
 use crate::native_token::{ArthaCoinNative, BalanceBridge};
+use crate::storage::RocksDbStorage;
 use anyhow::Result;
 use log::{debug, info};
+use serde::{Deserialize, Serialize};
+use serde_json;
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, RwLock};
 
 /// ArthaCoin-integrated blockchain state
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ArthaCoinState {
     /// ArthaCoin native integration
+    #[serde(skip)]
     arthacoin: Arc<ArthaCoinNative>,
     /// Balance bridge for compatibility
+    #[serde(skip)]
     balance_bridge: Arc<BalanceBridge>,
     /// Account nonces
     nonces: RwLock<HashMap<String, u64>>,
@@ -36,6 +41,9 @@ pub struct ArthaCoinState {
     blocks_by_hash: RwLock<HashMap<String, Block>>,
     /// Latest block hash
     latest_block_hash: RwLock<String>,
+    /// RocksDB storage for persistence
+    #[serde(skip)]
+    rocksdb: RocksDbStorage,
 }
 
 impl ArthaCoinState {
@@ -60,6 +68,10 @@ impl ArthaCoinState {
         // Initialize ArthaCoin
         let arthacoin = Arc::new(ArthaCoinNative::new(arthacoin_config).await?);
         let balance_bridge = Arc::new(BalanceBridge::new(arthacoin.clone()));
+        // Initialize RocksDB storage
+        let rocksdb = RocksDbStorage::new();
+        // Ensure DB is ready (async init not needed for default)
+        // Note: In production you may want to call init with config.
 
         info!("ArthaCoin native currency initialized");
         if config.is_genesis {
@@ -80,6 +92,7 @@ impl ArthaCoinState {
             latest_block_hash: RwLock::new(
                 "0000000000000000000000000000000000000000000000000000000000000000".to_string(),
             ),
+            rocksdb,
         })
     }
 
@@ -90,7 +103,11 @@ impl ArthaCoinState {
 
     /// Set account balance (ArthaCoin integration)
     pub async fn set_balance(&self, address: &str, amount: u64) -> Result<()> {
-        self.balance_bridge.set_balance(address, amount).await
+        self.balance_bridge.set_balance(address, amount).await?;
+        // Persist balance in RocksDB
+        let bal_key = format!("balance:{}", address);
+        let _ = self.rocksdb.put(bal_key.as_bytes(), &amount.to_be_bytes()).await;
+        Ok(())
     }
 
     /// Get account balance in native ArthaCoin units
@@ -297,6 +314,12 @@ impl ArthaCoinState {
         let height = block.header.height;
         let hash = block.hash()?;
         let hash_str = hex::encode(hash.as_ref());
+
+        // Persist block in RocksDB
+        let block_key = format!("block:{}", height);
+        let _ = self.rocksdb.put(block_key.as_bytes(), &serde_json::to_vec(&block).unwrap()).await;
+let hash_key = format!("block_hash:{}", hash_str);
+let _ = self.rocksdb.put(hash_key.as_bytes(), &serde_json::to_vec(&block).unwrap()).await;
 
         let mut blocks = self.blocks.write().unwrap();
         let mut blocks_by_hash = self.blocks_by_hash.write().unwrap();

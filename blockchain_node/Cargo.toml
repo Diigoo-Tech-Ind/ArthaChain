@@ -194,10 +194,14 @@ tiny-keccak = { workspace = true }
 lazy_static = { workspace = true }
 socket2 = { workspace = true }
 memmap2 = { workspace = true }
+rlp = "0.5"
 
 # Machine Learning and AI
 ndarray = { workspace = true }
 ndarray-rand = { workspace = true }
+# candle-core = "0.3.3"
+# candle-nn = "0.3.3"
+# frost-dalek = "0.1.0"
 
 # Error handling
 thiserror = { workspace = true }
@@ -237,6 +241,8 @@ serde-wasm-bindgen = "0.6.5"
 # EVM Runtime
 ethereum-types = { workspace = true }
 evm-runtime = "0.43.0"
+revm = { version = "19.4.0", features = ["std", "secp256k1"] }
+revm-primitives = { version = "15.1.0", features = ["std"] }
 
 # Web3 and Blockchain Integration
 # web3 = "0.19.0"  # Temporarily disabled due to idna vulnerability
@@ -249,12 +255,12 @@ evm-runtime = "0.43.0"
 bitcoin = "0.32.0"
 bitcoin_hashes = "0.12.0"
 
-# Cosmos IBC Integration - commented out to avoid unmaintained paste dependency
+# IBC Integration - commented out to avoid unmaintained paste dependency
 # tendermint = "0.32.2"
 # tendermint-rpc = "0.32.2"
 # cosmrs = "0.12.0"
 
-# Polkadot XCM Integration
+# XCM Integration
 # subxt = "0.35.0"
 codec = { package = "parity-scale-codec", version = "3.6.0", features = ["derive"] }
 

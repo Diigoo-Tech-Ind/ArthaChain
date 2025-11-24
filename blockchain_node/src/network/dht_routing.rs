@@ -1,8 +1,8 @@
 // DHT Provider Record Routing for SVDB
 // Implements CID → NodeID provider record publishing and discovery
 
-use libp2p::kad::{Kademlia, KademliaEvent, QueryResult, Record, RecordKey};
-use libp2p::kad::store::MemoryStore;
+// use libp2p::kad::{Kademlia, KademliaEvent, QueryResult, Record, RecordKey};
+// use libp2p::kad::store::MemoryStore;
 use libp2p::{PeerId, Swarm};
 use std::collections::HashMap;
 use std::sync::Arc;

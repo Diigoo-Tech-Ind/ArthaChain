@@ -2,7 +2,7 @@ use ethereum_types::{H160, H256, U256};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-/// Ethereum-compatible address (20 bytes)
+/// EVM-compatible address (20 bytes)
 pub type EvmAddress = H160;
 
 /// Configuration for the EVM runtime

@@ -258,19 +258,11 @@ pub mod hybrid_storage;
 pub mod memmap_storage;
 pub mod memory;
 pub mod replicated_storage;
-// pub mod rocksdb_storage;  // Temporarily disabled due to macOS ARM64 linking issues
-pub mod secure_storage;
-pub mod svdb_storage;
-pub mod transaction;
+pub mod rocksdb_storage;
 
-// Re-export commonly used types and traits
-pub use blockchain_storage::*;
-pub use disaster_recovery::*;
-pub use hybrid_storage::*;
-pub use memmap_storage::*;
-pub use memory::*;
-pub use replicated_storage::*;
-pub use secure_storage::*;
-// pub use rocksdb_storage::*;  // Temporarily disabled due to macOS ARM64 linking issues
-pub use svdb_storage::*;
-pub use transaction::*;
+pub use rocksdb_storage::RocksDbStorage;
+pub use memmap_storage::MemMapStorage;
+pub use hybrid_storage::HybridStorage;
+pub use replicated_storage::ReplicatedStorage;
+// pub use svdb_storage::*;  // Commented out - external module not available
+// pub use transaction::*;   // Commented out - transaction is a separate crate module

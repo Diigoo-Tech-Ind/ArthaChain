@@ -12,12 +12,13 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::ai_services::{
-    risk_scoring::{RiskScoringService, VCRiskInput, VCRiskOutput},
-    anomaly_detection::{AnomalyDetectionService, NodeBehaviorInput, AnomalyOutput},
-    reputation_scoring::{ReputationScoringService, IdentityGraphInput, ReputationOutput},
-    authenticity_verification::{AuthenticityVerificationService, AIOutputVerificationInput, AuthenticityOutput},
-};
+// TODO: Re-enable when ai_services module is implemented
+// use crate::ai_services::{
+//     risk_scoring::{RiskScoringService, VCRiskInput, VCRiskOutput},
+//     anomaly_detection::{AnomalyDetectionService, NodeBehaviorInput, AnomalyOutput},
+//     reputation_scoring::{ReputationScoringService, IdentityGraphInput, ReputationOutput},
+//     authenticity_verification::{AuthenticityVerificationService, AIOutputVerificationInput, AuthenticityOutput},
+// };
 
 // Request/Response types for API
 #[derive(Debug, Deserialize)]

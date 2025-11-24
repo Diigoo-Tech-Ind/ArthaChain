@@ -4,7 +4,7 @@ use crate::api::errors::{ApiError, ValidationError, ValidationErrors};
 use regex::Regex;
 use serde_json::Value;
 
-/// Validate Ethereum-style address format
+/// Validate EVM-style address format
 pub fn validate_address(address: &str) -> Result<(), ValidationError> {
     if address.is_empty() {
         return Err(ValidationError {

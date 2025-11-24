@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-/// EVM RPC service for Ethereum-compatible JSON-RPC endpoints
+/// EVM RPC service for EVM-compatible JSON-RPC endpoints
 pub struct EvmRpcService {
     /// RPC server instance
     server: Option<RpcServer>,

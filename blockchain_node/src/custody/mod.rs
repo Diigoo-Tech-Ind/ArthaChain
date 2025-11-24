@@ -2,6 +2,7 @@
 /// Provides secure key management for DIDs using Multi-Party Computation and Trusted Execution Environments
 
 pub mod mpc_signer;
+pub mod production_tss;  // Production Threshold Signature Scheme
 pub mod tee_enclave;
 pub mod custody_config;
 

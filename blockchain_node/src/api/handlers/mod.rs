@@ -1,5 +1,6 @@
 pub mod accounts;
 pub mod ai;
+pub mod aiid;
 pub mod blocks;
 pub mod consensus;
 pub mod contracts;

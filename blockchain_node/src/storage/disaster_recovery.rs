@@ -12,6 +12,7 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::sync::{Mutex, RwLock};
 use tokio::time::interval;
+use crate::storage::replicated_storage::ReplicationConfig;
 
 /// Disaster recovery configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -476,8 +477,8 @@ impl DisasterRecoveryManager {
             }
         }
 
-        // 3. Export configuration and settings
-        let config_data = bincode::serialize(&crate::storage::ReplicationConfig::default())?;
+        // Serialize configuration
+        let config_data = bincode::serialize(&ReplicationConfig::default())?;
         export_data.extend_from_slice(&(config_data.len() as u32).to_le_bytes());
         export_data.extend_from_slice(&config_data);
 

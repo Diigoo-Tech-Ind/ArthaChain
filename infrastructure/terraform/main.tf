@@ -1,5 +1,4 @@
 # ArthaChain Infrastructure as Code
-# Following Sui/Aptos/Sei industry patterns
 
 terraform {
   required_version = ">= 1.0"
@@ -92,7 +91,7 @@ resource "aws_security_group" "arthachain_node" {
   description = "Security group for ArthaChain nodes"
   vpc_id      = aws_vpc.arthachain_vpc.id
   
-  # API port (like Sui:9000, Aptos:8080)
+  # API port
   ingress {
     from_port   = 8080
     to_port     = 8080
@@ -101,7 +100,7 @@ resource "aws_security_group" "arthachain_node" {
     description = "API/RPC access"
   }
   
-  # P2P port (like Sui:8084, Aptos:6180)
+  # P2P port
   ingress {
     from_port   = 8084
     to_port     = 8084
@@ -110,7 +109,7 @@ resource "aws_security_group" "arthachain_node" {
     description = "P2P networking"
   }
   
-  # Metrics port (like Sui:9184)
+  # Metrics port
   ingress {
     from_port   = 9184
     to_port     = 9184

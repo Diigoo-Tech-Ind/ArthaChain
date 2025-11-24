@@ -4,7 +4,7 @@ use std::collections::HashMap;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DIDDocument {
     pub id: String,  // did:artha:<hash>
-    pub owner: String,  // Ethereum address
+    pub owner: String,  // EVM-compatible address
     pub auth_key: String,  // Ed25519 public key (hex)
     pub enc_key: String,  // X25519 public key (hex)
     pub meta_cid: String,  // SVDB CID for full DID document

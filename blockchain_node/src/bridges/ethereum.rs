@@ -1,9 +1,9 @@
-//! Ethereum Bridge Implementation
+//! External Bridge 1 Implementation
 
 use crate::bridges::{CrossChainTransfer, TransferStatus};
 use anyhow::Result;
 
-/// Ethereum bridge handler
+/// External bridge 1 handler
 pub struct EthereumBridge {
     /// RPC endpoint
     rpc_url: String,
@@ -14,7 +14,7 @@ pub struct EthereumBridge {
 }
 
 impl EthereumBridge {
-    /// Create new Ethereum bridge
+    /// Create new external bridge
     pub fn new() -> Result<Self> {
         Ok(Self {
             rpc_url: "https://mainnet.infura.io/v3/YOUR_PROJECT_ID".to_string(),
@@ -26,7 +26,7 @@ impl EthereumBridge {
     /// Initialize the bridge
     pub async fn initialize(&self) -> Result<()> {
         // In production, this would:
-        // 1. Connect to Ethereum RPC
+        // 1. Connect to external chain RPC
         // 2. Verify bridge contract
         // 3. Set up event listeners
         // 4. Initialize validator keys
@@ -34,7 +34,7 @@ impl EthereumBridge {
         Ok(())
     }
 
-    /// Process a cross-chain transfer to Ethereum
+    /// Process a cross-chain transfer to external chain
     pub async fn process_transfer(&self, transfer: &mut CrossChainTransfer) -> Result<()> {
         // Step 1: Lock tokens on ArthaChain
         transfer.status = TransferStatus::AwaitingConfirmations;
@@ -58,11 +58,11 @@ impl EthereumBridge {
                 });
         }
 
-        // Step 4: Broadcast to Ethereum
+        // Step 4: Broadcast to external chain
         transfer.status = TransferStatus::Broadcasting;
 
-        // Simulate Ethereum transaction
-        let eth_tx_hash = self.mint_tokens_on_ethereum(transfer).await?;
+        // Simulate external chain transaction
+        let eth_tx_hash = self.mint_tokens_on_external_chain(transfer).await?;
         transfer.target_tx_hash = Some(eth_tx_hash);
 
         // Step 5: Mark as completed
@@ -71,12 +71,12 @@ impl EthereumBridge {
         Ok(())
     }
 
-    /// Mint tokens on Ethereum (simulation)
-    async fn mint_tokens_on_ethereum(&self, transfer: &CrossChainTransfer) -> Result<String> {
+    /// Mint tokens on external chain (simulation)
+    async fn mint_tokens_on_external_chain(&self, transfer: &CrossChainTransfer) -> Result<String> {
         // In production, this would:
-        // 1. Prepare Ethereum transaction
+        // 1. Prepare external chain transaction
         // 2. Sign with bridge wallet
-        // 3. Broadcast to Ethereum network
+        // 3. Broadcast to external chain network
         // 4. Wait for confirmation
 
         // Simulate network delay
@@ -92,10 +92,10 @@ impl EthereumBridge {
         ))
     }
 
-    /// Listen for Ethereum events (for incoming transfers)
+    /// Listen for external chain events (for incoming transfers)
     pub async fn listen_for_events(&self) -> Result<()> {
         // In production, this would:
-        // 1. Set up WebSocket connection to Ethereum
+        // 1. Set up WebSocket connection to external chain
         // 2. Subscribe to bridge contract events
         // 3. Process burn events (tokens being sent to ArthaChain)
         // 4. Initiate minting on ArthaChain
@@ -103,10 +103,10 @@ impl EthereumBridge {
         Ok(())
     }
 
-    /// Verify Ethereum transaction
+    /// Verify external chain transaction
     pub async fn verify_transaction(&self, tx_hash: &str) -> Result<bool> {
         // In production, this would:
-        // 1. Query Ethereum RPC for transaction
+        // 1. Query external chain RPC for transaction
         // 2. Verify transaction receipt
         // 3. Check event logs
         // 4. Validate against bridge contract
@@ -117,7 +117,7 @@ impl EthereumBridge {
 
     /// Get current gas price
     pub async fn get_gas_price(&self) -> Result<u64> {
-        // In production, would query Ethereum network
+        // In production, would query external chain network
         Ok(self.gas_price)
     }
 

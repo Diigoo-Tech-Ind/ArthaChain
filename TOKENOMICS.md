@@ -580,13 +580,13 @@ Compute Revenue = GPU Seconds × Compute Rate
 
 ## Comparison with Other Models
 
-### Similar to Ethereum (EIP-1559)
+### Gas Fee Burn Mechanism
 
-ArthaChain's gas fee burn mechanism is similar to Ethereum's EIP-1559, which burns base fees. However, ArthaChain uses a progressive burn rate (40% to 96%) compared to Ethereum's fixed percentage.
+ArthaChain's gas fee burn mechanism uses a progressive burn rate (40% to 96%) that adapts based on network conditions and transaction volume.
 
-### Similar to BNB (BEP-95)
+### Real-time Fee Processing
 
-Like Binance Coin's BEP-95 upgrade, ArthaChain burns gas fees in real-time. The key difference is ArthaChain's adaptive distribution model that rewards multiple network roles.
+ArthaChain burns gas fees in real-time with an adaptive distribution model that rewards multiple network roles.
 
 ### Unique Features
 

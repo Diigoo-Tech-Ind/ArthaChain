@@ -370,7 +370,7 @@ pub async fn gas_free_dashboard() -> impl IntoResponse {
                     <input type="text" id="from-address" name="from-address" 
                            placeholder="Enter sender wallet address (e.g., 0x742d35Cc6634C0532925a3b844Bc454e4438f44e)" 
                            pattern="0x[a-fA-F0-9]{40}"
-                           title="Valid Ethereum-style address starting with 0x followed by 40 hexadecimal characters."
+                           title="Valid EVM-style address starting with 0x followed by 40 hexadecimal characters."
                            required>
                     <small class="form-help">Enter the wallet address that will send the transaction. Must be a valid 42-character address.</small>
                 </div>
@@ -379,7 +379,7 @@ pub async fn gas_free_dashboard() -> impl IntoResponse {
                     <input type="text" id="to-address" name="to-address" 
                            placeholder="Enter recipient wallet address (e.g., 0x123456789abcdef123456789abcdef123456789a)" 
                            pattern="0x[a-fA-F0-9]{40}"
-                           title="Valid Ethereum-style address starting with 0x followed by 40 hexadecimal characters."
+                           title="Valid EVM-style address starting with 0x followed by 40 hexadecimal characters."
                            required>
                     <small class="form-help">Enter the wallet address that will receive the transaction. Must be a valid 42-character address.</small>
                 </div>

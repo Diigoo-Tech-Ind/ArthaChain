@@ -139,7 +139,7 @@ impl EvmRuntime {
         debug!("Executing contract creation");
 
         // Generate new contract address using keccak256(rlp([sender, nonce]))
-        // This follows Ethereum's CREATE opcode address generation
+        // This follows EVM CREATE opcode address generation
         let sender_account = self.backend.get_account(&sender)?;
         let nonce = sender_account.nonce;
 

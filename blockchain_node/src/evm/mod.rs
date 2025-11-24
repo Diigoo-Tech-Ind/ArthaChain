@@ -1,12 +1,15 @@
 pub mod advanced_gas_metering;
 pub mod backend;
+pub mod database;  // Real EVM database implementation using RocksDB
 pub mod execution_engine;
 pub mod executor;
 pub mod opcodes;
 pub mod precompiled;
 pub mod precompiles;
+pub mod real_executor;  // Real EVM executor using revm
 pub mod rpc;
 pub mod runtime;
+pub mod tx_executor;  // Transaction executor integration
 pub mod types;
 
 // EVM Constants
@@ -28,7 +31,9 @@ pub use advanced_gas_metering::{
     AdvancedGasConfig, AdvancedGasMeter, Eip1559GasPrice, GasEstimationResult,
 };
 pub use backend::{EvmAccount, EvmBackend};
+pub use database::EvmDatabase;  // Real EVM database
 pub use executor::EvmExecutor;
+pub use real_executor::RealEvmExecutor;  // Real revm-based executor
 pub use rpc::EvmRpcService;
 pub use runtime::{EvmExecutionContext, EvmRuntime, StepResult};
 pub use types::{EvmAddress, EvmConfig, EvmError, EvmExecutionResult, EvmLog, EvmTransaction};

@@ -551,7 +551,7 @@ arthai explorer cost --size 1000 --replicas 5 --months 12
 **Encryption:**
 - XChaCha20-Poly1305 (AEAD)
 - Ed25519 (signatures)
-- ECDSA secp256k1 (Ethereum compatibility)
+- ECDSA secp256k1 (EVM compatibility)
 
 **Zero-Knowledge:**
 - BN254 curve
@@ -805,7 +805,7 @@ MIT License - see [LICENSE](./LICENSE)
 - IPFS (content addressing)
 - Arweave (permanence)
 - Storj (encryption)
-- zkSync (zk-rollups)
+- zk-rollups
 
 **Built with:**
 - Rust (blockchain node)

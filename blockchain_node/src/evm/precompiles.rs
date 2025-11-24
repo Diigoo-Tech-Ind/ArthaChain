@@ -11,7 +11,7 @@ use num_traits::{Zero, One};
 pub fn init_precompiles() -> HashMap<EvmAddress, PrecompileFunction> {
     let mut precompiles = HashMap::new();
 
-    // Ethereum standard precompiles at their standard addresses
+    // EVM standard precompiles at their standard addresses
 
     // 0x01: ecrecover
     precompiles.insert(H160::from_low_u64_be(1), ecrecover as PrecompileFunction);

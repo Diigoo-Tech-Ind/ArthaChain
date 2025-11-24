@@ -393,7 +393,7 @@ pub async fn faucet_dashboard() -> impl IntoResponse {
                     <input type="text" id="recipient" name="recipient" 
                            placeholder="Enter your wallet address (e.g., 0x742d35Cc6634C0532925a3b844Bc454e4438f44e)" 
                            pattern="0x[a-fA-F0-9]{40}"
-                           title="Valid Ethereum-style address starting with 0x followed by 40 hexadecimal characters."
+                           title="Valid EVM-style address starting with 0x followed by 40 hexadecimal characters."
                            required>
                     <small class="form-help">Enter your wallet address to receive testnet ARTHA tokens. Must be a valid 42-character address.</small>
                 </div>

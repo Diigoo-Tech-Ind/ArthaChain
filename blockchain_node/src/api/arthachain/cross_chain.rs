@@ -157,11 +157,11 @@ pub async fn get_cross_chain_bridge_status(
     let enabled = true;
     let active_bridges = 5;
     let supported_chains = vec![
-        "Ethereum".to_string(),
-        "Bitcoin".to_string(),
-        "Polygon".to_string(),
-        "Binance Smart Chain".to_string(),
-        "Solana".to_string(),
+        "External Chain 1".to_string(),
+        "External Chain 2".to_string(),
+        "External Chain 3".to_string(),
+        "External Chain 4".to_string(),
+        "External Chain 5".to_string(),
     ];
     let total_transactions = current_height * 50;
     let pending_transactions = 12;
@@ -190,57 +190,57 @@ pub async fn get_supported_chains(
     
     let chains = vec![
         SupportedChain {
-            chain_name: "Ethereum".to_string(),
+            chain_name: "External Chain 1".to_string(),
             chain_id: 1,
             chain_type: "EVM".to_string(),
             bridge_status: "Active".to_string(),
             transaction_count: current_height * 20,
             total_volume: current_height * 1000000,
-            bridge_fee: 1000000000000000000, // 1 ETH
+            bridge_fee: 1000000000000000000,
             confirmation_time_ms: 120000, // 2 minutes
             last_activity: chrono::Utc::now().timestamp() as u64,
         },
         SupportedChain {
-            chain_name: "Bitcoin".to_string(),
+            chain_name: "External Chain 2".to_string(),
             chain_id: 0,
             chain_type: "UTXO".to_string(),
             bridge_status: "Active".to_string(),
             transaction_count: current_height * 15,
             total_volume: current_height * 5000000,
-            bridge_fee: 10000, // 0.0001 BTC
+            bridge_fee: 10000,
             confirmation_time_ms: 600000, // 10 minutes
             last_activity: chrono::Utc::now().timestamp() as u64,
         },
         SupportedChain {
-            chain_name: "Polygon".to_string(),
+            chain_name: "External Chain 3".to_string(),
             chain_id: 137,
             chain_type: "EVM".to_string(),
             bridge_status: "Active".to_string(),
             transaction_count: current_height * 10,
             total_volume: current_height * 500000,
-            bridge_fee: 100000000000000000, // 0.1 MATIC
+            bridge_fee: 100000000000000000,
             confirmation_time_ms: 30000, // 30 seconds
             last_activity: chrono::Utc::now().timestamp() as u64,
         },
         SupportedChain {
-            chain_name: "Binance Smart Chain".to_string(),
+            chain_name: "External Chain 4".to_string(),
             chain_id: 56,
             chain_type: "EVM".to_string(),
             bridge_status: "Active".to_string(),
             transaction_count: current_height * 8,
             total_volume: current_height * 300000,
-            bridge_fee: 100000000000000000, // 0.1 BNB
+            bridge_fee: 100000000000000000,
             confirmation_time_ms: 3000, // 3 seconds
             last_activity: chrono::Utc::now().timestamp() as u64,
         },
         SupportedChain {
-            chain_name: "Solana".to_string(),
+            chain_name: "External Chain 5".to_string(),
             chain_id: 101,
-            chain_type: "Solana".to_string(),
+            chain_type: "External".to_string(),
             bridge_status: "Active".to_string(),
             transaction_count: current_height * 5,
             total_volume: current_height * 200000,
-            bridge_fee: 1000000, // 0.001 SOL
+            bridge_fee: 1000000,
             confirmation_time_ms: 1000, // 1 second
             last_activity: chrono::Utc::now().timestamp() as u64,
         },
@@ -267,11 +267,11 @@ pub async fn get_bridge_transactions(
     for i in 0..limit {
         let tx_id = format!("bridge_tx_{}_{}", i, current_height);
         let source_chain = match i % 5 {
-            0 => "Ethereum",
-            1 => "Bitcoin",
-            2 => "Polygon",
-            3 => "Binance Smart Chain",
-            4 => "Solana",
+            0 => "External Chain 1",
+            1 => "External Chain 2",
+            2 => "External Chain 3",
+            3 => "External Chain 4",
+            4 => "External Chain 5",
             _ => "Unknown",
         };
         let target_chain = "ArthaChain";
@@ -284,11 +284,11 @@ pub async fn get_bridge_transactions(
         };
         let amount = 1000000 + (i as u64 * 100000);
         let token_symbol = match source_chain {
-            "Ethereum" => "ETH",
-            "Bitcoin" => "BTC",
-            "Polygon" => "MATIC",
-            "Binance Smart Chain" => "BNB",
-            "Solana" => "SOL",
+            "External Chain 1" => "EXT1",
+            "External Chain 2" => "EXT2",
+            "External Chain 3" => "EXT3",
+            "External Chain 4" => "EXT4",
+            "External Chain 5" => "EXT5",
             _ => "UNKNOWN",
         };
         let created_at = chrono::Utc::now().timestamp() as u64 - (i as u64 * 3600);
@@ -360,11 +360,11 @@ pub async fn create_bridge_transaction(
     let success = true;
     let status = "Pending";
     let estimated_completion_ms = match request.source_chain.as_str() {
-        "Ethereum" => 120000, // 2 minutes
-        "Bitcoin" => 600000,  // 10 minutes
-        "Polygon" => 30000,   // 30 seconds
-        "Binance Smart Chain" => 3000, // 3 seconds
-        "Solana" => 1000,     // 1 second
+        "External Chain 1" => 120000, // 2 minutes
+        "External Chain 2" => 600000,  // 10 minutes
+        "External Chain 3" => 30000,   // 30 seconds
+        "External Chain 4" => 3000, // 3 seconds
+        "External Chain 5" => 1000,     // 1 second
         _ => 300000,          // 5 minutes default
     };
     
@@ -426,11 +426,11 @@ pub async fn get_bridge_transaction(
     // Simulate bridge transaction lookup
     let transaction = BridgeTransaction {
         tx_id: tx_id.clone(),
-        source_chain: "Ethereum".to_string(),
+        source_chain: "External Chain 1".to_string(),
         target_chain: "ArthaChain".to_string(),
         status: "Completed".to_string(),
         amount: 1000000,
-        token_symbol: "ETH".to_string(),
+        token_symbol: "EXT1".to_string(),
         created_at: chrono::Utc::now().timestamp() as u64 - 3600,
         completed_at: Some(chrono::Utc::now().timestamp() as u64 - 1800),
         confirmations: 12,
@@ -461,11 +461,11 @@ pub async fn get_bridge_health(
         "bridge_capacity": 0.85,
         "last_activity": chrono::Utc::now().timestamp(),
         "chain_health": {
-            "Ethereum": "Healthy",
-            "Bitcoin": "Healthy",
-            "Polygon": "Healthy",
-            "Binance Smart Chain": "Healthy",
-            "Solana": "Healthy"
+            "External Chain 1": "Healthy",
+            "External Chain 2": "Healthy",
+            "External Chain 3": "Healthy",
+            "External Chain 4": "Healthy",
+            "External Chain 5": "Healthy"
         },
         "performance_metrics": {
             "transactions_per_hour": 25,

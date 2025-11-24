@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # ArthaChain Node User Data Script
-# Following Sui/Aptos/Sei industry patterns
 
 set -e
 

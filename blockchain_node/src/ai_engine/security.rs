@@ -386,7 +386,7 @@ impl SecurityAI {
     /// Create a new SecurityAI instance
     pub fn new(config: Config, state: Arc<RwLock<State>>) -> Result<Self> {
         // Initialize ONNX Runtime
-        let ort_environment = Device::cuda_if_available(0)?;
+        let ort_environment = "cpu".to_string();
 
         // Get remote API endpoint from config or environment
         let remote_api_endpoint = std::env::var("SECURITY_AI_REMOTE_ENDPOINT").ok();

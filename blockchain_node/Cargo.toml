@@ -197,6 +197,7 @@ memmap2 = { workspace = true }
 rlp = "0.5"
 wasmer = "4.2"
 ethers = { version = "2.0", features = ["ws", "rustls"] }
+lru = "0.12"
 
 # Machine Learning and AI
 ndarray = { workspace = true }

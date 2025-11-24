@@ -1,8 +1,10 @@
 //! Real ML Inference Engine for Fraud Detection and Validator Scoring
 //! Uses ndarray for efficient numerical computations without external ML frameworks
 
+use crate::ai_engine::online_learning::{OnlineLearner, OnlineLearnerConfig};
+use crate::ai_engine::self_healing::{ModelHealthMonitor, SelfHealingConfig, AutoRetrainer};
 use anyhow::{anyhow, Result};
-use log::info;
+use log::{info, warn};
 use ndarray::{Array1, Array2, ArrayView1};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -18,6 +20,10 @@ pub struct RealInferenceEngine {
     reputation_model: Arc<RwLock<ReputationModel>>,
     /// Feature normalization parameters
     normalizer: FeatureNormalizer,
+    /// Online learner for real-time updates
+    learner: Arc<RwLock<OnlineLearner>>,
+    /// Health monitor for self-healing
+    monitor: Arc<RwLock<ModelHealthMonitor>>,
 }
 
 /// Fraud detection model using a simple neural network
@@ -134,10 +140,22 @@ impl RealInferenceEngine {
         // Initialize feature normalizer with default parameters
         let normalizer = FeatureNormalizer::new();
         
+        // Initialize online learner
+        let learner_config = OnlineLearnerConfig::default();
+        // Layer shapes: Input(8) -> Hidden(16) -> Output(1)
+        let layer_shapes = vec![(8, 16), (16, 1)];
+        let learner = Arc::new(RwLock::new(OnlineLearner::new(learner_config, layer_shapes)));
+        
+        // Initialize health monitor
+        let monitor_config = SelfHealingConfig::default();
+        let monitor = Arc::new(RwLock::new(ModelHealthMonitor::new(monitor_config)));
+        
         Self {
             fraud_model: Arc::new(RwLock::new(fraud_model)),
             reputation_model: Arc::new(RwLock::new(reputation_model)),
             normalizer,
+            learner,
+            monitor,
         }
     }
 
@@ -237,12 +255,84 @@ impl RealInferenceEngine {
         }
     }
 
-    /// Train or update fraud detection model (placeholder for future use)
+    /// Train or update fraud detection model using online learning
     pub async fn update_fraud_model(&self, training_data: Vec<(TransactionFeatures, bool)>) -> Result<()> {
-        // In production, implement gradient descent or other training algorithm
-        // For now, this is a placeholder
-        info!("Would train model with {} samples", training_data.len());
+        if training_data.is_empty() {
+            return Ok(());
+        }
+
+        // Prepare batch data
+        let batch_size = training_data.len();
+        let input_size = 8; // 8 features
+        
+        let mut inputs = Array2::<f64>::zeros((batch_size, input_size));
+        let mut targets = Array2::<f64>::zeros((batch_size, 1));
+        
+        for (i, (features, is_fraud)) in training_data.iter().enumerate() {
+            let feat_vec = vec![
+                features.amount,
+                features.gas_price,
+                features.frequency,
+                features.account_age,
+                features.unique_contracts,
+                features.avg_tx_value_24h,
+                features.time_since_last_tx,
+                features.contract_depth,
+            ];
+            
+            // Normalize features before training
+            let feat_array = Array1::from(feat_vec);
+            let normalized = self.normalizer.normalize(&feat_array);
+            
+            for j in 0..input_size {
+                inputs[[i, j]] = normalized[j];
+            }
+            
+            targets[[i, 0]] = if *is_fraud { 1.0 } else { 0.0 };
+        }
+        
+        // Update model weights
+        let mut model = self.fraud_model.write().await;
+        let mut learner = self.learner.write().await;
+        
+        // Extract weights and biases for update
+        let mut weights = vec![model.weights_1.clone(), model.weights_2.clone()];
+        let mut biases = vec![model.bias_1.clone(), model.bias_2.clone()];
+        
+        // Run optimizer step
+        let loss = learner.update_model(&mut weights, &mut biases, &inputs, &targets)?;
+        
+        // Update model with new parameters
+        model.weights_1 = weights[0].clone();
+        model.weights_2 = weights[1].clone();
+        model.bias_1 = biases[0].clone();
+        model.bias_2 = biases[1].clone();
+        
+        info!("Model updated with {} samples. Batch Loss: {:.6}", batch_size, loss);
+        
+        // Record health metrics
+        let mut monitor = self.monitor.write().await;
+        // Assume accuracy is roughly 1.0 - loss for simplicity in this context, 
+        // or calculate actual accuracy if needed
+        let is_good_batch = loss < 0.5; 
+        monitor.record_prediction(loss, is_good_batch);
+        
+        // Backup model periodically if healthy
+        if monitor.check_health() == crate::ai_engine::self_healing::HealthStatus::Healthy {
+             monitor.backup_model(&model);
+        }
+        
         Ok(())
+    }
+    
+    /// Trigger self-healing check
+    pub async fn check_and_heal(&self) -> Result<bool> {
+        let monitor = self.monitor.clone();
+        let learner = self.learner.clone();
+        let retrainer = AutoRetrainer::new(monitor, learner);
+        
+        let mut model = self.fraud_model.write().await;
+        retrainer.attempt_healing(&mut *model).await
     }
 }
 

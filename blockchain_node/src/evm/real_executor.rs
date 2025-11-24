@@ -179,7 +179,7 @@ impl RealEvmExecutor {
             data: [bytecode, constructor_args].concat(),
             gas_limit,
             gas_price: 20_000_000_000, // 20 gwei default
-            nonce: 0, // Will be fetched from state
+            nonce: U256::from(0), // Will be fetched from state
         };
 
         self.execute_transaction(&tx, block_number, block_timestamp)

@@ -11,6 +11,8 @@ pub mod fraud_detection;
 pub mod models;
 pub mod neural_network;
 pub mod performance_monitor;
+pub mod online_learning; // Online learning for real-time updates
+pub mod self_healing;    // Self-healing capabilities
 pub mod real_inference;  // Real ML inference engine
 pub mod real_fraud_detector;  // Real fraud detection using ML
 pub mod security;

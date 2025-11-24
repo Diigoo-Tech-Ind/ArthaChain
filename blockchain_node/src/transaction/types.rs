@@ -79,24 +79,22 @@ impl Transaction {
     
     /// Parse transaction from bytes
     pub fn from_bytes(data: &[u8]) -> Result<Self, String> {
-        // Basic transaction parsing from RLP-encoded bytes
-        // For now, return a default transaction with data field populated
+        // Basic transaction parsing stub
         if data.is_empty() {
             return Err("Empty transaction data".to_string());
         }
         
-        Ok(TransactionStatus {
-            hash: format!("0x{}", hex::encode(&data[..32.min(data.len())])),
-            status: "pending".to_string(),
-            block_number: None,
-            block_hash: None,
-            transaction_index: None,
+        // Return a default transaction for now
+        Ok(Transaction {
+            id: format!("0x{}", hex::encode(&data[..32.min(data.len())])),
             from: "0x0000000000000000000000000000000000000000".to_string(),
-            to: None,
-            value: "0".to_string(),
-            gas_used: None,
-            gas_price: None,
-            timestamp: None,
+            to: "0x0000000000000000000000000000000000000000".to_string(),
+            amount: 0,
+            fee: 0,
+            data: Some(data.to_vec()),
+            signature: None,
+            timestamp: 0,
+            status: TransactionStatus::Pending,
         })
     }
 }

@@ -1,0 +1,304 @@
+name: ArthaChain CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt, clippy
+
+    - name: Cache cargo registry
+      uses: actions/cache@v4
+      with:
+        path: ~/.cargo/registry
+        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-registry-
+
+    - name: Cache cargo index
+      uses: actions/cache@v4
+      with:
+        path: ~/.cargo/git
+        key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-index-
+
+    - name: Cache cargo build
+      uses: actions/cache@v4
+      with:
+        path: target
+        key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-build-target-
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential pkg-config libssl-dev python3-dev
+
+    - name: Check formatting
+      run: cargo fmt --all -- --check
+
+    - name: Run clippy
+      run: cargo clippy --all-targets --all-features -- -D warnings
+
+    - name: Run tests
+      run: cargo test --verbose --all-features
+
+    - name: Run benchmarks (if any)
+      run: cargo bench --no-run
+
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Install cargo-audit
+      run: cargo install cargo-audit
+
+    - name: Run security audit
+      run: cargo audit
+
+  build:
+    name: Build and Push Docker Images
+    runs-on: ubuntu-latest
+    needs: [test, security-audit]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    strategy:
+      matrix:
+        service:
+          - name: arthachain-node
+            dockerfile: blockchain_node/Dockerfile
+            image: ghcr.io/${{ github.repository_owner }}/arthachain-node
+          - name: ai-jobd
+            dockerfile: services/ai-jobd/Dockerfile
+            image: ghcr.io/${{ github.repository_owner }}/ai-jobd
+          - name: ai-scheduler
+            dockerfile: services/ai-scheduler/Dockerfile
+            image: ghcr.io/${{ github.repository_owner }}/ai-scheduler
+          - name: ai-runtime
+            dockerfile: services/ai-runtime/Dockerfile
+            image: ghcr.io/${{ github.repository_owner }}/ai-runtime
+          - name: ai-proofs
+            dockerfile: services/ai-proofs/Dockerfile
+            image: ghcr.io/${{ github.repository_owner }}/ai-proofs
+          - name: policy-gate
+            dockerfile: services/policy-gate/Dockerfile
+            image: ghcr.io/${{ github.repository_owner }}/policy-gate
+          - name: ai-agents
+            dockerfile: services/ai-agents/Dockerfile
+            image: ghcr.io/${{ github.repository_owner }}/ai-agents
+          - name: ai-federation
+            dockerfile: services/ai-federation/Dockerfile
+            image: ghcr.io/${{ github.repository_owner }}/ai-federation
+          - name: ai-evolution
+            dockerfile: services/ai-evolution/Dockerfile
+            image: ghcr.io/${{ github.repository_owner }}/ai-evolution
+          - name: ai-ethics
+            dockerfile: services/ai-ethics/Dockerfile
+            image: ghcr.io/${{ github.repository_owner }}/ai-ethics
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ matrix.service.image }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push Docker image (${{ matrix.service.name }})
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ${{ matrix.service.dockerfile }}
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/develop'
+    environment: staging
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Kubernetes tools
+      run: |
+        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+        chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+
+    - name: Deploy to staging
+      run: |
+        if [ -f "k8s/namespace.yaml" ] && [ -f "k8s/arthachain-deployment.yaml" ]; then
+          echo "Deploying to Kubernetes staging..."
+          kubectl apply -f k8s/namespace.yaml
+          kubectl apply -f k8s/arthachain-deployment.yaml
+          if [ -f "k8s/monitoring-stack.yaml" ]; then
+            kubectl apply -f k8s/monitoring-stack.yaml
+          fi
+          echo "✅ Kubernetes staging deployment completed"
+        else
+          echo "⚠️  Kubernetes configs not found, skipping K8s deployment"
+        fi
+        
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Kubernetes tools
+      run: |
+        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+        chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+
+    - name: Deploy to production
+      run: |
+        if [ -f "k8s/namespace.yaml" ] && [ -f "k8s/arthachain-deployment.yaml" ]; then
+          echo "Deploying to Kubernetes production..."
+          kubectl apply -f k8s/namespace.yaml
+          kubectl apply -f k8s/arthachain-deployment.yaml
+          if [ -f "k8s/monitoring-stack.yaml" ]; then
+            kubectl apply -f k8s/monitoring-stack.yaml
+          fi
+          echo "✅ Kubernetes production deployment completed"
+        else
+          echo "⚠️  Kubernetes configs not found, skipping K8s deployment"
+        fi
+
+  service-tests:
+    name: Service Integration Tests
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build all services
+      run: |
+        docker compose -f deploy/docker-compose.yml build --no-cache
+
+    - name: Start services
+      run: |
+        docker compose -f deploy/docker-compose.yml up -d
+        sleep 30
+
+    - name: Test service health endpoints
+      run: |
+        echo "Testing service health endpoints..."
+        curl -f http://localhost:8080/health || exit 1
+        curl -f http://localhost:8081/health || exit 1
+        curl -f http://localhost:8082/health || exit 1
+        curl -f http://localhost:8083/health || exit 1
+        curl -f http://localhost:8084/health || exit 1
+        curl -f http://localhost:8085/health || exit 1
+        curl -f http://localhost:8086/health || exit 1
+        curl -f http://localhost:8087/health || exit 1
+        curl -f http://localhost:8088/health || exit 1
+        curl -f http://localhost:8089/health || exit 1
+        echo "All services are healthy!"
+
+    - name: Test API endpoints
+      run: |
+        echo "Testing API endpoints..."
+        curl -f http://localhost:8080/api/v1/blockchain/status || exit 1
+        curl -f http://localhost:8080/svdb/info/test || exit 1
+        curl -f http://localhost:8080/api/v1/identity/status || exit 1
+        echo "All API endpoints are working!"
+
+    - name: Stop services
+      if: always()
+      run: |
+        docker compose -f deploy/docker-compose.yml down
+
+  performance-test:
+    name: Performance Testing
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Run performance benchmarks
+      run: |
+        if [ -d "standalone_benchmarks" ]; then
+          cd standalone_benchmarks
+          cargo run --release --bin ultra_high_tps_test || echo "Benchmarks directory not found, skipping"
+        else
+          echo "Benchmarks directory not found, skipping performance tests"
+        fi
+
+    - name: Comment PR with performance results
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          if (fs.existsSync('benchmark_results.txt')) {
+            const results = fs.readFileSync('benchmark_results.txt', 'utf8');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## Performance Test Results\n\n\`\`\`\n${results}\n\`\`\``
+            });
+          }

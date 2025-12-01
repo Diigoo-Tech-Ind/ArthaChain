@@ -88,3 +88,11 @@ testsprite_tests/tmp/*.json
 XYZ/EXP/dist/
 download_times.txt
 upload_times.txt
+
+.node.pid
+
+contracts/cache/
+contracts/out/
+contracts/lib/
+
+.cargo/

@@ -1,17 +1,24 @@
 use anyhow::{anyhow, Context, Result};
+use k256::{
+    ecdsa::Signature,
+    ecdsa::{signature::Verifier, VerifyingKey},
+};
 use libp2p::{
-    core::{transport::{Transport, OrTransport}, upgrade},
+    core::{
+        transport::{OrTransport, Transport},
+        upgrade,
+    },
     futures::StreamExt,
     gossipsub::{self, Behaviour as Gossipsub, Event as GossipsubEvent, IdentTopic, Topic},
     identity,
     kad::{self, store::MemoryStore, QueryId, QueryResult},
     noise,
     ping::{self, Behaviour as PingBehaviour, Event as PingEvent},
+    quic,
     swarm::{NetworkBehaviour, Swarm, SwarmEvent},
-    tcp, yamux, quic, PeerId, Transport as _,
+    tcp, yamux, PeerId, Transport as _,
 };
 use log::{debug, info, warn};
-use k256::{ecdsa::{VerifyingKey, signature::Verifier}, ecdsa::Signature};
 use std::collections::HashSet;
 use std::net::SocketAddr;
 use std::time::{Duration, SystemTime};
@@ -99,10 +106,10 @@ impl UpnpPeerSearch {
     async fn search_upnp_devices(&self) -> Result<Vec<DiscoveredPeer>> {
         // Real UPnP device discovery implementation
         let mut discovered_devices = Vec::new();
-        
+
         // Simulate UPnP discovery by scanning common UPnP ports
         let upnp_ports = vec![1900, 8080, 8443, 9000];
-        
+
         for port in upnp_ports {
             // Simulate finding UPnP devices on the network
             let device_id = format!("upnp_device_{}", port);
@@ -114,22 +121,22 @@ impl UpnpPeerSearch {
                 discovery_method: PeerDiscoveryMethod::UPnP,
                 last_seen: Instant::now(),
             };
-            
+
             // Simulate UPnP service validation
             if self.validate_upnp_service(&discovered_peer).await {
                 discovered_devices.push(discovered_peer);
                 info!("Found UPnP ArthaChain device: {}", device_id);
             }
         }
-        
+
         Ok(discovered_devices)
     }
-    
+
     /// Validate UPnP service to ensure it's an ArthaChain node
     async fn validate_upnp_service(&self, peer: &DiscoveredPeer) -> bool {
         // Real UPnP service validation
         // In a full implementation, this would send SSDP queries and validate responses
-        
+
         // Simulate validation by checking if the service responds to ArthaChain queries
         // For now, assume all discovered UPnP services are valid ArthaChain nodes
         !peer.services.is_empty() && peer.services.contains(&"blockchain".to_string())
@@ -272,7 +279,7 @@ impl Ord for BlockPropagationMeta {
         self.priority
             .cmp(&other.priority)
             .then_with(|| self.timestamp.cmp(&other.timestamp))
-            .then_with(|| self.block_hash.as_ref().cmp(&other.block_hash.as_ref()))
+            .then_with(|| self.block_hash.as_ref().cmp(other.block_hash.as_ref()))
     }
 }
 
@@ -527,7 +534,16 @@ impl P2PNetwork {
             .authenticate(noise::Config::new(&keypair)?)
             .multiplex(yamux::Config::default());
 
-        let transport = OrTransport::new(quic_transport, tcp_transport).boxed();
+        let transport = OrTransport::new(quic_transport, tcp_transport)
+            .map(|either, _| match either {
+                futures::future::Either::Left((peer_id, muxer)) => {
+                    (peer_id, libp2p::core::muxing::StreamMuxerBox::new(muxer))
+                }
+                futures::future::Either::Right((peer_id, muxer)) => {
+                    (peer_id, libp2p::core::muxing::StreamMuxerBox::new(muxer))
+                }
+            })
+            .boxed();
 
         // Create behavior
         let behaviour = Self::create_behaviour(peer_id)?;
@@ -537,16 +553,13 @@ impl P2PNetwork {
             transport,
             behaviour,
             peer_id,
-            libp2p::swarm::Config::without_executor(),
+            libp2p::swarm::Config::with_tokio_executor(),
         );
 
         // Subscribe to topics
         swarm.behaviour_mut().gossipsub.subscribe(&block_topic)?;
         swarm.behaviour_mut().gossipsub.subscribe(&tx_topic)?;
-        swarm
-            .behaviour_mut()
-            .gossipsub
-            .subscribe(&vote_topic)?;
+        swarm.behaviour_mut().gossipsub.subscribe(&vote_topic)?;
         swarm
             .behaviour_mut()
             .gossipsub
@@ -568,19 +581,36 @@ impl P2PNetwork {
             .parse()
             .context("Failed to parse QUIC listen address")?;
 
-        info!("Attempting to listen on {} (TCP) and QUIC udp/{})", config.network.p2p_port, config.network.p2p_port);
+        info!(
+            "Attempting to listen on {} (TCP) and QUIC udp/{})",
+            config.network.p2p_port, config.network.p2p_port
+        );
         if let Err(e) = swarm.listen_on(listen_tcp) {
-            warn!("Failed to listen on TCP port {}: {}", config.network.p2p_port, e);
+            warn!(
+                "Failed to listen on TCP port {}: {}",
+                config.network.p2p_port, e
+            );
         }
         if let Err(e) = swarm.listen_on(listen_quic) {
-            warn!("Failed to listen on QUIC port {}: {}", config.network.p2p_port, e);
+            warn!(
+                "Failed to listen on QUIC port {}: {}",
+                config.network.p2p_port, e
+            );
         }
 
         // Connect to bootstrap peers with better error handling
-        info!("Connecting to {} bootstrap nodes", config.network.bootstrap_nodes.len());
+        info!(
+            "Connecting to {} bootstrap nodes",
+            config.network.bootstrap_nodes.len()
+        );
         for (i, addr) in config.network.bootstrap_nodes.iter().enumerate() {
             // libp2p is not available, skipping connection
-            warn!("Bootstrap peer {} of {} skipped (libp2p not available): {}", i+1, config.network.bootstrap_nodes.len(), addr);
+            warn!(
+                "Bootstrap peer {} of {} skipped (libp2p not available): {}",
+                i + 1,
+                config.network.bootstrap_nodes.len(),
+                addr
+            );
             /*
             match addr.parse::<libp2p::Multiaddr>() {
                 Ok(peer_addr) => {
@@ -661,7 +691,8 @@ impl P2PNetwork {
                                                                         let key = kad::RecordKey::new(&arr);
                                                                         let _ = swarm_for_task.behaviour_mut().kademlia.start_providing(key);
                                                                         if let Some(src) = message.source {
-                                                                            if let Ok(mut map) = cid_providers.write().await {
+                                                                            {
+                                                                                let mut map = cid_providers.write().await;
                                                                                 let entry = map.entry(cid_hex.to_string()).or_insert_with(HashSet::new);
                                                                                 entry.insert(src.to_string());
                                                                                 // top-K pruning by latency
@@ -686,7 +717,7 @@ impl P2PNetwork {
                                                             let mut arr=[0u8;32]; arr.copy_from_slice(&bytes);
                                                             let key = kad::RecordKey::new(&arr);
                                                             let qid = swarm_for_task.behaviour_mut().kademlia.get_providers(key);
-                                                            if let Ok(mut pend) = pending_provider_queries.write().await { pend.insert(qid, cid_hex.to_string()); }
+                                                            { let mut pend = pending_provider_queries.write().await; pend.insert(qid, cid_hex.to_string()); }
                                                         }
                                                     }
                                                     // Also publish current known providers immediately
@@ -695,8 +726,9 @@ impl P2PNetwork {
                                                             let map = cid_providers.read().await;
                                                             map.get(cid_hex).cloned().unwrap_or_default().into_iter().collect()
                                                         };
+                                                        let latencies = peer_latency_ms.read().await;
                                                         let mut prov_list: Vec<(String, f64)> = provs.into_iter().map(|pid| {
-                                                            let lat = peer_latency_ms.read().await.get(&pid).cloned().unwrap_or(f64::INFINITY);
+                                                            let lat = latencies.get(&pid).cloned().unwrap_or(f64::INFINITY);
                                                             (pid, lat)
                                                         }).collect();
                                                         prov_list.sort_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
@@ -705,7 +737,7 @@ impl P2PNetwork {
                                                             "cid": cid_hex,
                                                             "providers": prov_list.iter().map(|(p,l)| serde_json::json!({"peer": p, "latencyMs": l})).collect::<Vec<_>>()
                                                         });
-                                                        let _ = swarm_for_task.behaviour_mut().gossipsub.publish(Topic::from(svdb_chunks_topic.clone()), serde_json::to_vec(&resp).unwrap());
+                                                        let _ = swarm_for_task.behaviour_mut().gossipsub.publish(svdb_chunks_topic.clone(), serde_json::to_vec(&resp).unwrap());
                                                     }
                                                 }
                                             }
@@ -715,29 +747,33 @@ impl P2PNetwork {
                             },
                             SwarmEvent::Behaviour(ComposedEvent::Ping(ping_evt)) => {
                                 debug!("Received ping event: {:?}", ping_evt);
-                                if let PingEvent::Success { peer, rtt } = ping_evt {
+                                if let libp2p::ping::Event { peer, result: Ok(rtt), .. } = ping_evt {
                                     let ms = rtt.as_micros() as f64 / 1000.0;
-                                    if let Ok(mut lat) = peer_latency_ms.write().await {
+                                    {
+                                        let mut lat = peer_latency_ms.write().await;
                                         lat.insert(peer.to_string(), ms);
                                     }
                                 }
                             },
                             SwarmEvent::Behaviour(ComposedEvent::Kademlia(kad::Event::OutboundQueryProgressed { id, result, .. })) => {
                                 match result {
-                                    QueryResult::GetProviders(Ok(ok)) => {
+                                    libp2p::kad::QueryResult::GetProviders(Ok(libp2p::kad::GetProvidersOk::FoundProviders { providers, .. })) => {
                                         // Update local provider map and publish
-                                        if let Ok(mut pend) = pending_provider_queries.write().await {
+                                        {
+                                            let mut pend = pending_provider_queries.write().await;
                                             if let Some(cid_hex) = pend.remove(&id) {
-                                                if let Ok(mut map) = cid_providers.write().await {
+                                                {
+                                                    let mut map = cid_providers.write().await;
                                                     let entry = map.entry(cid_hex.clone()).or_insert_with(HashSet::new);
-                                                    for p in ok.providers { entry.insert(p.to_string()); }
+                                                    for p in providers { entry.insert(p.to_string()); }
                                                 }
                                                 let provs: Vec<String> = {
                                                     let map = cid_providers.read().await;
                                                     map.get(&cid_hex).cloned().unwrap_or_default().into_iter().collect()
                                                 };
+                                                let latencies = peer_latency_ms.read().await;
                                                 let mut prov_list: Vec<(String, f64)> = provs.into_iter().map(|pid| {
-                                                    let lat = peer_latency_ms.read().await.get(&pid).cloned().unwrap_or(f64::INFINITY);
+                                                    let lat = latencies.get(&pid).cloned().unwrap_or(f64::INFINITY);
                                                     (pid, lat)
                                                 }).collect();
                                                 prov_list.sort_by(|a,b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
@@ -746,7 +782,7 @@ impl P2PNetwork {
                                                     "cid": cid_hex,
                                                     "providers": prov_list.iter().map(|(p,l)| serde_json::json!({"peer": p, "latencyMs": l})).collect::<Vec<_>>()
                                                 });
-                                                let _ = swarm_for_task.behaviour_mut().gossipsub.publish(Topic::from(svdb_chunks_topic.clone()), serde_json::to_vec(&resp).unwrap());
+                                                let _ = swarm_for_task.behaviour_mut().gossipsub.publish(svdb_chunks_topic.clone(), serde_json::to_vec(&resp).unwrap());
                                             }
                                         }
                                     },
@@ -811,7 +847,7 @@ impl P2PNetwork {
                             warn!("Failed to bootstrap Kademlia: {e}");
                         }
                     },
-                    
+
                     // Periodically log network stats
                     _ = stats_timer.tick() => {
                         let stats_guard = stats.read().await;
@@ -1021,17 +1057,17 @@ impl P2PNetwork {
 
         // Choose topic based on message type
         let topic = match &message {
-            NetworkMessage::BlockProposal(_) => Topic::from(block_topic.clone()),
-            NetworkMessage::BlockVote { .. } => Topic::from(vote_topic.clone()),
-            NetworkMessage::TransactionGossip(_) => Topic::from(tx_topic.clone()),
-            NetworkMessage::CrossShardMessage { .. } => Topic::from(cross_shard_topic.clone()),
-            NetworkMessage::BlockRequest { .. } => Topic::from(block_topic.clone()),
-            NetworkMessage::BlockResponse { .. } => Topic::from(block_topic.clone()),
-            NetworkMessage::ShardAssignment { .. } => block_topic.clone().into(),
+            NetworkMessage::BlockProposal(_) => block_topic.clone(),
+            NetworkMessage::BlockVote { .. } => vote_topic.clone(),
+            NetworkMessage::TransactionGossip(_) => tx_topic.clone(),
+            NetworkMessage::CrossShardMessage { .. } => cross_shard_topic.clone(),
+            NetworkMessage::BlockRequest { .. } => block_topic.clone(),
+            NetworkMessage::BlockResponse { .. } => block_topic.clone(),
+            NetworkMessage::ShardAssignment { .. } => block_topic.clone(),
         };
 
         // Publish to the network
-        swarm.behaviour_mut().gossipsub.publish(topic, data.clone());
+        let _ = swarm.behaviour_mut().gossipsub.publish(topic, data.clone());
 
         // Update stats
         {
@@ -1168,7 +1204,6 @@ impl P2PNetwork {
                 let _state_guard = self.state.read().await;
                 _state_guard
                     .get_block_by_hash(&meta.block_hash)
-                    .map(|b| b.clone())
             };
 
             if let Some(block) = block_option {
@@ -1224,7 +1259,7 @@ impl P2PNetwork {
 
     pub async fn get_block_by_hash(&self, hash: &Hash) -> Option<Block> {
         let state = self.state.read().await;
-        state.get_block_by_hash(hash).map(|block| block.clone())
+        state.get_block_by_hash(hash)
     }
 
     /// Create a new P2P network with specific configuration
@@ -1258,6 +1293,7 @@ impl P2PNetwork {
             dos_protection: Arc::new(DosProtection::new(DosConfig::default())),
             cid_providers: Arc::new(RwLock::new(HashMap::new())),
             peer_latency_ms: Arc::new(RwLock::new(HashMap::new())),
+            pending_provider_queries: Arc::new(RwLock::new(HashMap::new())),
         })
     }
 
@@ -1266,6 +1302,18 @@ impl P2PNetwork {
         // Implementation would establish connection to peer
         // This is a placeholder
         info!("Connecting to peer at {}", peer_addr);
+        Ok(())
+    }
+
+    /// Publish a message to a topic
+    pub async fn publish(&self, topic: &str, message: Vec<u8>) -> Result<()> {
+        // In a real implementation, this would use gossipsub to publish
+        // For now, we'll just log it
+        debug!(
+            "Publishing message to topic {}: {} bytes",
+            topic,
+            message.len()
+        );
         Ok(())
     }
 
@@ -1370,12 +1418,9 @@ impl P2PNetwork {
 
         for seed in dns_seeds {
             let seed = seed.to_string();
-            let network_clone = self.clone();
-            tokio::spawn(async move {
-                if let Err(e) = network_clone.query_dns_seed(seed.clone()).await {
-                    warn!("Failed to query DNS seed {}: {}", seed, e);
-                }
-            });
+            if let Err(e) = self.query_dns_seed(seed.clone()).await {
+                warn!("Failed to query DNS seed {}: {}", seed, e);
+            }
         }
 
         Ok(())
@@ -1487,18 +1532,17 @@ impl P2PNetwork {
     ) -> Result<()> {
         // Real mDNS discovery implementation using tokio multicast
         let message_data = serde_json::to_vec(message)?;
-        
+
         // Create multicast socket for service discovery
         let socket = tokio::net::UdpSocket::bind("0.0.0.0:0").await?;
-        socket.join_multicast_v4(
-            "224.0.0.251".parse()?,
-            "0.0.0.0".parse()?,
-        )?;
-        
+        socket.join_multicast_v4("224.0.0.251".parse()?, "0.0.0.0".parse()?)?;
+
         // Broadcast service announcement
         let broadcast_msg = format!("ANNOUNCE:{}:{}", service_name, hex::encode(&message_data));
-        socket.send_to(broadcast_msg.as_bytes(), "224.0.0.251:5353").await?;
-        
+        socket
+            .send_to(broadcast_msg.as_bytes(), "224.0.0.251:5353")
+            .await?;
+
         info!("Broadcasted mDNS discovery for service: {}", service_name);
         Ok(())
     }
@@ -1507,11 +1551,8 @@ impl P2PNetwork {
     async fn listen_for_mdns_peers(&self) -> Result<()> {
         // Real mDNS listener implementation
         let socket = tokio::net::UdpSocket::bind("224.0.0.251:5353").await?;
-        socket.join_multicast_v4(
-            "224.0.0.251".parse()?,
-            "0.0.0.0".parse()?,
-        )?;
-        
+        socket.join_multicast_v4("224.0.0.251".parse()?, "0.0.0.0".parse()?)?;
+
         let mut buffer = [0u8; 1024];
         loop {
             match socket.recv_from(&mut buffer).await {
@@ -1523,8 +1564,13 @@ impl P2PNetwork {
                             let parts: Vec<&str> = msg_str.split(':').collect();
                             if parts.len() >= 3 {
                                 if let Ok(peer_data) = hex::decode(parts[2]) {
-                                    if let Ok(peer_msg) = serde_json::from_slice::<PeerDiscoveryMessage>(&peer_data) {
-                                        info!("Discovered peer via mDNS: {} from {}", peer_msg.node_id, addr);
+                                    if let Ok(peer_msg) =
+                                        serde_json::from_slice::<PeerDiscoveryMessage>(&peer_data)
+                                    {
+                                        info!(
+                                            "Discovered peer via mDNS: {} from {}",
+                                            peer_msg.node_id, addr
+                                        );
                                         // Add to known peers
                                         let mut known_peers = self.known_peers.write().await;
                                         known_peers.insert(PeerInfo {
@@ -1552,14 +1598,14 @@ impl P2PNetwork {
         // Generate realistic discovery targets based on node ID
         let node_id_hash = blake3::hash(self.peer_id.to_string().as_bytes());
         let mut targets = Vec::new();
-        
+
         // Generate 5 target IDs for DHT queries
         for i in 0..5 {
             let mut target_bytes = node_id_hash.as_bytes().to_vec();
             target_bytes[i] = target_bytes[i].wrapping_add(i as u8);
             targets.push(hex::encode(target_bytes));
         }
-        
+
         targets
     }
 
@@ -1567,23 +1613,23 @@ impl P2PNetwork {
     async fn dht_find_peers_near(&self, target_id: String) -> Result<Vec<DiscoveredPeer>> {
         // Real DHT peer discovery implementation
         let mut discovered_peers = Vec::new();
-        
+
         // Use Kademlia DHT to find peers near the target
         let stats = self.stats.read().await;
         let known_peers = &stats.known_peers;
-        
+
         // Simulate finding peers with similar IDs (XOR distance)
         for peer_id in known_peers.iter().take(3) {
             let peer_bytes = hex::decode(peer_id).unwrap_or_default();
             let target_bytes = hex::decode(&target_id).unwrap_or_default();
-            
+
             // Calculate XOR distance (simplified)
             if peer_bytes.len() == target_bytes.len() {
                 let mut distance = 0u64;
                 for (a, b) in peer_bytes.iter().zip(target_bytes.iter()) {
                     distance += (*a ^ *b) as u64;
                 }
-                
+
                 // If distance is relatively small, consider it a close peer
                 if distance < 1000 {
                     discovered_peers.push(DiscoveredPeer {
@@ -1597,8 +1643,12 @@ impl P2PNetwork {
                 }
             }
         }
-        
-        info!("DHT discovered {} peers near target {}", discovered_peers.len(), target_id);
+
+        info!(
+            "DHT discovered {} peers near target {}",
+            discovered_peers.len(),
+            target_id
+        );
         Ok(discovered_peers)
     }
 
@@ -1606,7 +1656,7 @@ impl P2PNetwork {
     async fn query_dns_seed(&self, seed: String) -> Result<()> {
         // Real DNS seed query implementation
         use tokio::net::lookup_host;
-        
+
         // Resolve DNS seed to get peer addresses
         match lookup_host(&seed).await {
             Ok(addresses) => {
@@ -1621,20 +1671,24 @@ impl P2PNetwork {
                             discovery_method: PeerDiscoveryMethod::DNSSeed,
                             last_seen: Instant::now(),
                         };
-                        
+
                         // Attempt to connect to discovered peer
                         if let Err(e) = self.attempt_peer_connection(discovered_peer).await {
                             warn!("Failed to connect to DNS seed peer {}: {}", addr, e);
                         }
                     }
                 }
-                info!("DNS seed {} resolved to {} addresses", seed, addrs_vec.len());
+                info!(
+                    "DNS seed {} resolved to {} addresses",
+                    seed,
+                    addrs_vec.len()
+                );
             }
             Err(e) => {
                 warn!("Failed to resolve DNS seed {}: {}", seed, e);
             }
         }
-        
+
         Ok(())
     }
 
@@ -1643,18 +1697,18 @@ impl P2PNetwork {
         // Real implementation to get currently connected peers
         let stats = self.stats.read().await;
         let mut connected_peers = Vec::new();
-        
+
         for peer_id in &stats.known_peers {
             connected_peers.push(DiscoveredPeer {
                 id: peer_id.clone(),
-                address: format!("127.0.0.1:8080"), // Would get real address in full implementation
+                address: "127.0.0.1:8080".to_string(), // Would get real address in full implementation
                 protocol_version: "arthachain/1.0".to_string(),
                 services: vec!["blockchain".to_string()],
                 discovery_method: PeerDiscoveryMethod::PeerExchange,
                 last_seen: Instant::now(),
             });
         }
-        
+
         connected_peers
     }
 
@@ -1663,16 +1717,16 @@ impl P2PNetwork {
         // Real peer exchange implementation
         // In a full implementation, this would send a network request to the peer
         // For now, simulate returning some peers based on the requesting peer's characteristics
-        
+
         let mut peer_list = Vec::new();
-        
+
         // Generate some simulated peers based on the requesting peer's ID
         let peer_id_hash = blake3::hash(peer.id.as_bytes());
-        
+
         for i in 0..3 {
             let mut peer_bytes = peer_id_hash.as_bytes().to_vec();
             peer_bytes[i] = peer_bytes[i].wrapping_add(i as u8 + 1);
-            
+
             peer_list.push(DiscoveredPeer {
                 id: hex::encode(&peer_bytes[..8]),
                 address: format!("127.0.0.1:{}", 8080 + i + 10),
@@ -1682,8 +1736,12 @@ impl P2PNetwork {
                 last_seen: Instant::now(),
             });
         }
-        
-        info!("Peer exchange with {} returned {} peers", peer.id, peer_list.len());
+
+        info!(
+            "Peer exchange with {} returned {} peers",
+            peer.id,
+            peer_list.len()
+        );
         Ok(peer_list)
     }
 
@@ -1691,24 +1749,31 @@ impl P2PNetwork {
     async fn is_peer_known(&self, peer: &DiscoveredPeer) -> bool {
         // Real implementation to check if peer is already known
         let known_peers = self.known_peers.read().await;
-        known_peers.iter().any(|known_peer| known_peer.peer_id == peer.id)
+        known_peers
+            .iter()
+            .any(|known_peer| known_peer.peer_id == peer.id)
     }
 
     /// Connect to peer
     async fn connect_to_peer(&self, peer: &DiscoveredPeer) -> Result<()> {
         // Real peer connection implementation
         // In a full implementation, this would establish a TCP connection and perform handshake
-        
+
         // Simulate connection attempt with timeout
         let timeout = tokio::time::Duration::from_secs(5);
         match tokio::time::timeout(timeout, async {
             // Simulate network connection
             tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
             Ok::<(), anyhow::Error>(())
-        }).await {
+        })
+        .await
+        {
             Ok(Ok(_)) => {
-                info!("Successfully connected to peer {} at {}", peer.id, peer.address);
-                
+                info!(
+                    "Successfully connected to peer {} at {}",
+                    peer.id, peer.address
+                );
+
                 // Add to known peers
                 let mut known_peers = self.known_peers.write().await;
                 known_peers.insert(PeerInfo {
@@ -1716,7 +1781,7 @@ impl P2PNetwork {
                     addresses: vec![peer.address.clone()],
                     last_seen: Instant::now(),
                 });
-                
+
                 Ok(())
             }
             Ok(Err(e)) => Err(e),
@@ -1838,7 +1903,10 @@ impl P2PNetwork {
             "type": "svdb_provide",
             "cid": cid_hex,
         });
-        let _ = swarm.behaviour_mut().gossipsub.publish(Topic::from(self.svdb_announce_topic.clone()), serde_json::to_vec(&msg).unwrap_or_default());
+        let _ = swarm.behaviour_mut().gossipsub.publish(
+            self.svdb_announce_topic.clone(),
+            serde_json::to_vec(&msg).unwrap_or_default(),
+        );
     }
 }
 

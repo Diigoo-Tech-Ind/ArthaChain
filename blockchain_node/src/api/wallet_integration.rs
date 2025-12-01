@@ -1,6 +1,5 @@
-use axum::{extract::Query, response::Html, Json};
+use axum::{response::Html, Json};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// Comprehensive wallet integration for ArthaChain
 /// Supports top 50 EVM and WASM wallets + major IDEs

@@ -8,15 +8,11 @@ use std::sync::Arc;
 
 /// Placeholder for WasmConfig when wasm feature is disabled
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct WasmConfig {
     // Placeholder fields
 }
 
-impl Default for WasmConfig {
-    fn default() -> Self {
-        Self {}
-    }
-}
 
 /// Configuration for the transaction engine
 pub struct TransactionEngineConfig {

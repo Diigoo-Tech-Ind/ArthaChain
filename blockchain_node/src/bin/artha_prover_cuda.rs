@@ -2,13 +2,13 @@
 // Supports PoRep sealing and zk-SNARK batch proving with BN254 curve
 
 use ark_bn254::{Bn254, Fr as BnFr};
-use ark_ec::pairing::Pairing;
-use ark_ff::PrimeField;
-use ark_groth16::{Groth16, Proof, ProvingKey, VerifyingKey};
+use ark_ff::{BigInteger, PrimeField};
+use ark_groth16::{Groth16, Proof};
 use ark_relations::r1cs::{ConstraintSynthesizer, ConstraintSystemRef, SynthesisError};
+use ark_r1cs_std::fields::FieldVar;
 use ark_snark::SNARK;
 use ark_std::rand::thread_rng;
-use light_poseidon::{Poseidon, PoseidonError};
+use light_poseidon::{Poseidon, PoseidonBytesHasher};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
@@ -31,13 +31,13 @@ struct Cli {
     backend: Backend,
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 enum ProverMode {
     PorepSeal,
     SnarkBatch,
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 enum Backend {
     Cuda,
     Cpu,
@@ -69,6 +69,7 @@ struct ProofData {
 }
 
 // PoRep Seal Circuit: Proves knowledge of Poseidon(root, randomness, provider)
+#[derive(Clone)]
 struct PorepSealCircuit {
     root: Option<BnFr>,
     randomness: Option<BnFr>,
@@ -99,9 +100,8 @@ impl ConstraintSynthesizer<BnFr> for PorepSealCircuit {
     }
 }
 
-// Simplified Poseidon gadget (in production, use optimized library)
 fn poseidon_hash_gadget(
-    cs: ConstraintSystemRef<BnFr>,
+    _cs: ConstraintSystemRef<BnFr>,
     inputs: Vec<ark_r1cs_std::fields::fp::FpVar<BnFr>>,
 ) -> Result<ark_r1cs_std::fields::fp::FpVar<BnFr>, SynthesisError> {
     use ark_r1cs_std::fields::fp::FpVar;
@@ -110,12 +110,13 @@ fn poseidon_hash_gadget(
     // In production, use a proper Poseidon R1CS gadget
     let mut result = FpVar::zero();
     for input in inputs {
-        result = result + input;
+        result += input;
     }
     Ok(result)
 }
 
 // Batch SNARK Circuit: Proves multiple Merkle paths
+#[derive(Clone)]
 struct BatchSnarkCircuit {
     leaves: Vec<Option<BnFr>>,
     root: Option<BnFr>,
@@ -146,10 +147,9 @@ impl ConstraintSynthesizer<BnFr> for BatchSnarkCircuit {
 }
 
 fn compute_merkle_root_gadget(
-    cs: ConstraintSystemRef<BnFr>,
+    _cs: ConstraintSystemRef<BnFr>,
     mut leaves: Vec<ark_r1cs_std::fields::fp::FpVar<BnFr>>,
 ) -> Result<ark_r1cs_std::fields::fp::FpVar<BnFr>, SynthesisError> {
-    use ark_r1cs_std::fields::fp::FpVar;
     
     while leaves.len() > 1 {
         let mut next_level = Vec::new();

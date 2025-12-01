@@ -66,6 +66,12 @@ pub struct TestRunResult {
 #[derive(Debug, Clone)]
 pub struct StaticAnalyzer;
 
+impl Default for StaticAnalyzer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl StaticAnalyzer {
     pub fn new() -> Self {
         Self
@@ -122,6 +128,12 @@ pub struct VerificationIssue {
 
 #[derive(Debug, Clone)]
 pub struct VerificationToolService;
+
+impl Default for VerificationToolService {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl VerificationToolService {
     pub fn new() -> Self {
@@ -190,13 +202,12 @@ pub enum IssueType {
 }
 use crate::utils::quantum_merkle::QuantumMerkleTree;
 // use crate::wasm::types::WasmContractAddress; // Disabled due to WASM module being temporarily disabled
-use super::property_testing::{Property, PropertyTester, TestRunResult as PropertyTestRunResult};
-use anyhow::{anyhow, Result};
+use super::property_testing::{Property, PropertyTester};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use tokio::sync::RwLock;
 
 /// Developer tooling for contract verification and pre-deployment checks
@@ -426,10 +437,10 @@ impl ContractVerificationTools {
         let formal_verification =
             if self.config.enable_formal_verification && self.verification_tool_service.is_some() {
                 if let Some(k_spec) = &k_specification {
-                    let mut service = self.verification_tool_service.as_mut().unwrap();
+                    let service = self.verification_tool_service.as_mut().unwrap();
                     Some(service.verify_with_k_framework(k_spec).await?)
                 } else if let Some(z3_spec) = &z3_specification {
-                    let mut service = self.verification_tool_service.as_mut().unwrap();
+                    let service = self.verification_tool_service.as_mut().unwrap();
                     Some(service.verify_with_z3(z3_spec).await?)
                 } else {
                     None
@@ -686,7 +697,7 @@ impl ContractVerificationTools {
     pub fn generate_verification_report(&self, result: &PreDeploymentCheckResult) -> String {
         let mut report = String::new();
 
-        report.push_str(&format!("# Contract Verification Report\n\n"));
+        report.push_str(&"# Contract Verification Report\n\n".to_string());
         report.push_str(&format!("Contract Hash: {}\n", result.contract_hash));
         report.push_str(&format!(
             "Verification Time: {} ms\n",
@@ -697,7 +708,7 @@ impl ContractVerificationTools {
             result.risk_assessment.security_score
         ));
 
-        report.push_str(&format!("## Risk Assessment\n\n"));
+        report.push_str(&"## Risk Assessment\n\n".to_string());
         report.push_str(&format!(
             "Risk Level: {:?}\n",
             result.risk_assessment.risk_level
@@ -707,7 +718,7 @@ impl ContractVerificationTools {
             result.risk_assessment.deployment_recommendation
         ));
 
-        report.push_str(&format!("## Risk Factors\n\n"));
+        report.push_str(&"## Risk Factors\n\n".to_string());
         if result.risk_assessment.risk_factors.is_empty() {
             report.push_str("No risk factors identified.\n\n");
         } else {
@@ -720,10 +731,10 @@ impl ContractVerificationTools {
                     report.push_str(&format!("  - Affected: {}\n", component));
                 }
             }
-            report.push_str("\n");
+            report.push('\n');
         }
 
-        report.push_str(&format!("## Recommended Actions\n\n"));
+        report.push_str(&"## Recommended Actions\n\n".to_string());
         if result.recommended_actions.is_empty() {
             report.push_str("No actions needed.\n\n");
         } else {
@@ -737,11 +748,11 @@ impl ContractVerificationTools {
                     report.push_str(&format!("  - Location: {}\n", location));
                 }
             }
-            report.push_str("\n");
+            report.push('\n');
         }
 
         if let Some(analysis) = &result.static_analysis {
-            report.push_str(&format!("## Static Analysis Summary\n\n"));
+            report.push_str(&"## Static Analysis Summary\n\n".to_string());
             report.push_str(&format!(
                 "- Security Issues: {}\n",
                 analysis.security_issues.len()
@@ -783,7 +794,7 @@ impl ContractVerificationTools {
         }
 
         if let Some(testing) = &result.property_testing {
-            report.push_str(&format!("## Property Testing Summary\n\n"));
+            report.push_str(&"## Property Testing Summary\n\n".to_string());
             report.push_str(&format!(
                 "- Tests: {} total, {} passed, {} failed, {} errors\n",
                 testing.total, testing.passed, testing.failed, testing.errors
@@ -799,7 +810,7 @@ impl ContractVerificationTools {
         }
 
         if let Some(verification) = &result.formal_verification {
-            report.push_str(&format!("## Formal Verification Summary\n\n"));
+            report.push_str(&"## Formal Verification Summary\n\n".to_string());
             report.push_str(&format!("- Tool: {:?}\n", verification.tool));
             report.push_str(&format!(
                 "- Properties Verified: {}\n",
@@ -816,7 +827,7 @@ impl ContractVerificationTools {
         }
 
         if let Some(proof) = &result.quantum_proof {
-            report.push_str(&format!("## Quantum Verification\n\n"));
+            report.push_str(&"## Quantum Verification\n\n".to_string());
             report.push_str(&format!("Quantum-Resistant Proof: {}\n\n", proof));
         }
 

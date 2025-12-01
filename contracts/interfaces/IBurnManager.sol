@@ -17,7 +17,7 @@ interface IBurnManager {
      * @param year Year since deployment (0-based)
      * @return Burn rate for that year in basis points
      */
-    function getBurnRateForYear(uint256 year) external pure returns (uint256);
+    function getBurnRateForYear(uint256 year) external view returns (uint256);
     
     /**
      * @notice Gets years since deployment

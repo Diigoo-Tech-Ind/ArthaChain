@@ -1,16 +1,16 @@
 use anyhow::Result;
 use blake3::Hasher;
 use ed25519_dalek::{
-    SecretKey, Signature, Signer, SigningKey, Verifier, VerifyingKey as PublicKey,
+    Signature, Signer, SigningKey, Verifier, VerifyingKey as PublicKey,
 };
 use pqcrypto_traits::sign::{PublicKey as PqcPublicKey, SecretKey as PqcSecretKey};
 use hex;
 use rand::{rngs::OsRng, RngCore};
 use std::collections::HashMap;
-use std::sync::Arc;
 
 /// Cryptographic hash type (32 bytes)
 #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(Default)]
 pub struct Hash([u8; 32]);
 
 /// Hash data using Blake3
@@ -22,7 +22,7 @@ pub fn hash_data(data: &[u8]) -> Vec<u8> {
 
 impl std::fmt::Display for Hash {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", hex::encode(&self.0))
+        write!(f, "{}", hex::encode(self.0))
     }
 }
 
@@ -61,11 +61,6 @@ impl Hash {
     }
 }
 
-impl Default for Hash {
-    fn default() -> Self {
-        Self([0u8; 32])
-    }
-}
 
 impl PartialOrd for Hash {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
@@ -95,6 +90,12 @@ impl AsRef<[u8]> for Hash {
 #[derive(Debug, Clone)]
 pub struct AddressRegistry {
     mappings: HashMap<String, Vec<u8>>,
+}
+
+impl Default for AddressRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl AddressRegistry {

@@ -1,12 +1,13 @@
 use crate::evm::runtime::EvmRuntime;
 use crate::evm::types::{EvmConfig, EvmError, EvmExecutionResult, EvmTransaction};
 use crate::storage::HybridStorage;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
+use log::{error, info};
 use ethereum_types::{H160, U256};
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::mpsc;
 
 /// Executor for EVM transactions
 pub struct EvmExecutor {
@@ -83,7 +84,7 @@ impl EvmExecutor {
         &self,
         tx: EvmTransaction,
     ) -> Result<EvmExecutionResult, EvmError> {
-        let mut runtime = self.runtime.lock().unwrap();
+        let mut runtime = self.runtime.lock().await;
 
         // Set block context from current time
         let now = SystemTime::now()
@@ -114,25 +115,25 @@ impl EvmExecutor {
 
     /// Get account balance from backend
     pub async fn get_balance(&self, address: H160) -> Result<U256, EvmError> {
-        let runtime = self.runtime.lock().unwrap();
+        let runtime = self.runtime.lock().await;
         let account = runtime.get_account(&address).await?;
         Ok(account.balance)
     }
 
     /// Get account nonce from backend
     pub async fn get_nonce(&self, address: H160) -> Result<u64, EvmError> {
-        let runtime = self.runtime.lock().unwrap();
+        let runtime = self.runtime.lock().await;
         let account = runtime.get_account(&address).await?;
         Ok(account.nonce)
     }
 
     /// Get block number
-    pub fn get_block_number(&self) -> u64 {
-        *self.block_number.lock().unwrap()
+    pub async fn get_block_number(&self) -> u64 {
+        *self.block_number.lock().await
     }
 
     /// Set block number (should be called by blockchain state updates)
-    pub fn set_block_number(&self, block_number: u64) {
-        *self.block_number.lock().unwrap() = block_number;
+    pub async fn set_block_number(&self, block_number: u64) {
+        *self.block_number.lock().await = block_number;
     }
 }

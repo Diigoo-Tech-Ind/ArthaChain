@@ -3,9 +3,9 @@ use crate::ledger::block::Block;
 use crate::ledger::transaction::Transaction;
 use crate::network::types::NodeId;
 use anyhow::{anyhow, Result};
-use log::{debug, error, info, warn};
+use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
@@ -426,8 +426,8 @@ impl SecurityManager {
         }
 
         // Verify block signature if present
-        if config.verify_signatures && block.signature.is_some() {
-            if !self
+        if config.verify_signatures && block.signature.is_some()
+            && !self
                 .verify_signature(
                     &block.hash()?.0,
                     block.signature.as_ref().unwrap().as_bytes(),
@@ -438,7 +438,6 @@ impl SecurityManager {
             {
                 return Err(anyhow!("Invalid block signature"));
             }
-        }
 
         // Verify transactions if configured
         if config.verify_all_transactions {
@@ -475,9 +474,9 @@ impl SecurityManager {
         let config = self.config.read().await;
 
         // Verify transaction signature if present
-        if config.verify_signatures {
-            if !tx.signature.is_empty() {
-                if !self
+        if config.verify_signatures
+            && !tx.signature.is_empty()
+                && !self
                     .verify_signature(
                         tx.hash().as_bytes(),
                         &tx.signature,
@@ -488,8 +487,6 @@ impl SecurityManager {
                 {
                     return Err(anyhow::anyhow!("Invalid transaction signature"));
                 }
-            }
-        }
 
         // Transaction is valid
         Ok(true)
@@ -552,8 +549,8 @@ impl SecurityManager {
                 let most_common_fault = fault_counts
                     .iter()
                     .max_by_key(|(_, count)| **count)
-                    .map(|(fault, _)| fault.clone())
-                    .unwrap_or(&ByzantineFaultType::MalformedMessages);
+                    .map(|(fault, _)| (*fault).clone())
+                    .unwrap_or(ByzantineFaultType::MalformedMessages);
 
                 result.push((node_id.clone(), most_common_fault.clone()));
             }

@@ -4,7 +4,7 @@
 //! garbage collection optimization, cache management, and memory leak detection.
 
 use anyhow::{anyhow, Result};
-use log::{debug, error, info, warn};
+use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::collections::{HashMap, VecDeque};
@@ -12,7 +12,6 @@ use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
-use tokio::time::interval;
 
 /// Memory optimization configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -694,6 +693,12 @@ where
     }
 }
 
+impl Default for MemoryUsageTracker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MemoryUsageTracker {
     /// Create new memory usage tracker
     pub fn new() -> Self {
@@ -786,7 +791,7 @@ impl MemoryUsageTracker {
                 if growth_rate > 0.5 {
                     // 50% growth indicates potential leak
                     leak_candidates.push(LeakCandidate {
-                        allocation: allocations.last().unwrap().clone().into(),
+                        allocation: (*allocations.last().unwrap()).into(),
                         confidence: (growth_rate * 100.0).min(100.0),
                         growth_rate,
                         last_check: Instant::now(),
@@ -926,7 +931,12 @@ impl EnterpriseMemoryOptimizer {
     }
 
     /// Deallocate memory with optimization
-    pub fn deallocate(&self, ptr: *mut u8, size: usize) {
+    /// 
+    /// # Safety
+    /// 
+    /// The pointer must have been allocated with the same size parameter and must be
+    /// properly aligned. The memory must not have been already deallocated.
+    pub unsafe fn deallocate(&self, ptr: *mut u8, size: usize) {
         // Track deallocation
         self.usage_tracker.track_deallocation(size);
 
@@ -937,9 +947,7 @@ impl EnterpriseMemoryOptimizer {
 
         // Fallback to system deallocator
         let layout = Layout::from_size_align(size, std::mem::align_of::<u8>()).unwrap();
-        unsafe { 
-            System.dealloc(ptr, layout);
-        }
+        System.dealloc(ptr, layout);
     }
 
     /// Get memory statistics
@@ -1263,7 +1271,9 @@ mod tests {
         let ptr = optimizer.allocate(1024).await.unwrap();
         assert!(!ptr.is_null());
 
-        optimizer.deallocate(ptr, 1024);
+        unsafe {
+            optimizer.deallocate(ptr, 1024);
+        }
 
         // Test statistics
         let stats = optimizer.get_statistics().await;

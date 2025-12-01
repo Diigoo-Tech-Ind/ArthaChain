@@ -23,7 +23,7 @@ impl TransactionExecutor {
     /// Create a new transaction executor
     pub fn new(storage: Arc<RwLock<RocksDbStorage>>, chain_id: u64) -> Self {
         Self {
-            evm_executor: RealEvmExecutor::new(storage, chain_id),
+            evm_executor: RealEvmExecutor::new(storage.clone(), chain_id),
             current_block: Arc::new(RwLock::new(0)),
             current_timestamp: Arc::new(RwLock::new(0)),
         }
@@ -60,7 +60,7 @@ mod tests {
     #[tokio::test]
     async fn test_transaction_executor() {
         let storage = Arc::new(RwLock::new(
-            RocksDbStorage::new("/tmp/test_tx_executor").unwrap(),
+            RocksDbStorage::new_with_path(std::path::Path::new("/tmp/test_tx_executor")).unwrap(),
         ));
         let executor = TransactionExecutor::new(storage, 201766);
 

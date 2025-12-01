@@ -40,7 +40,7 @@ impl RocksDbStorage {
 
     /// Create a new RocksDB storage with custom path
     pub fn new_with_path(path: &Path) -> anyhow::Result<Self> {
-        let mut storage = Self {
+        let storage = Self {
             db: Arc::new(RwLock::new(None)),
             path: path.to_path_buf(),
             write_buffer_size: 64 * 1024 * 1024, // 64MB
@@ -66,8 +66,13 @@ impl RocksDbStorage {
         Ok(())
     }
 
-    /// Get a value by key
+    /// Get a value by key (Async)
     pub async fn get(&self, key: &[u8]) -> Option<Vec<u8>> {
+        self.get_sync(key)
+    }
+
+    /// Get a value by key (Synchronous)
+    pub fn get_sync(&self, key: &[u8]) -> Option<Vec<u8>> {
         if let Ok(db) = self.db.read() {
             if let Some(ref db) = *db {
                 return db.get(key).ok().flatten();
@@ -191,6 +196,10 @@ impl Storage for RocksDbStorage {
     }
 
     fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
 }

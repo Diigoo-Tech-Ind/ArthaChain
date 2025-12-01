@@ -1,6 +1,6 @@
 use axum::{
     extract::{Extension, Query},
-    http::{HeaderMap, HeaderValue, Method},
+    http::Method,
     Json,
 };
 use serde::{Deserialize, Serialize};
@@ -10,7 +10,6 @@ use tower_http::cors::{Any, CorsLayer};
 
 use crate::api::ApiError;
 use crate::ledger::state::State;
-use crate::types::Address;
 
 /// Response for blockchain statistics
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -123,7 +122,7 @@ pub async fn get_recent_blocks(
                 hash: format_hash(&block.hash().unwrap_or_default().to_evm_hex()),
                 tx_count: block.transactions.len(),
                 timestamp: format_timestamp_relative(block.header.timestamp),
-                validator: format_address(&hex::encode(&block.header.producer.to_bytes())),
+                validator: format_address(&hex::encode(block.header.producer.to_bytes())),
             };
             blocks.push(explorer_block);
         }
@@ -222,12 +221,10 @@ fn format_address(address: &str) -> String {
 
     if clean_address.len() > 6 {
         format!("0x{}...", &clean_address[..6])
+    } else if address.starts_with("0x") {
+        address.to_string()
     } else {
-        if address.starts_with("0x") {
-            address.to_string()
-        } else {
-            format!("0x{}", address)
-        }
+        format!("0x{}", address)
     }
 }
 

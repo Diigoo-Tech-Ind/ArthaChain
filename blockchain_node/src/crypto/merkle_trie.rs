@@ -2,8 +2,8 @@
 //! This module provides efficient state root calculation for blockchain state
 
 use anyhow::{anyhow, Result};
-use ethereum_types::{H256, U256};
-use rlp::{Encodable, RlpStream};
+use ethereum_types::H256;
+use rlp::RlpStream;
 use sha3::{Digest, Keccak256};
 use std::collections::HashMap;
 
@@ -76,7 +76,7 @@ impl MerklePatriciaTrie {
 
     /// Convert nibbles back to bytes
     fn nibbles_to_bytes(nibbles: &[u8]) -> Vec<u8> {
-        let mut bytes = Vec::with_capacity((nibbles.len() + 1) / 2);
+        let mut bytes = Vec::with_capacity(nibbles.len().div_ceil(2));
         for chunk in nibbles.chunks(2) {
             if chunk.len() == 2 {
                 bytes.push((chunk[0] << 4) | chunk[1]);

@@ -173,7 +173,7 @@ pub struct PortMapping {
 impl NatManager {
     pub fn new(config: NatConfig) -> Result<Self> {
         let stun_client = if config.enable_stun {
-            Some(Client::new(ClientConfig::default()))
+            Some(Client::new(ClientConfig))
         } else {
             None
         };

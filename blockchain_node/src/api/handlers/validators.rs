@@ -1,13 +1,11 @@
-use crate::consensus::validator_set::{
-    ValidatorInfo as ConsensusValidatorInfo, ValidatorSetManager,
-};
+use crate::consensus::validator_set::ValidatorSetManager;
 use crate::ledger::state::State;
 use axum::{
     extract::{Extension, Path},
     http::StatusCode,
     response::Json as AxumJson,
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
@@ -158,7 +156,7 @@ impl ValidatorManager {
             let performance_score = self.calculate_performance_score(&address).await;
 
             let validator_info = ValidatorInfo {
-                address: address,
+                address,
                 public_key: hex::encode(&consensus_validator.public_key),
                 stake_amount,
                 commission_rate: 0.0, // Default commission rate

@@ -1,5 +1,5 @@
-use crate::consensus::consensus_manager::{ConsensusManager, ConsensusState};
-use crate::monitoring::health_check::{ComponentHealth, HealthChecker};
+use crate::consensus::consensus_manager::ConsensusManager;
+use crate::monitoring::health_check::HealthChecker;
 use crate::monitoring::metrics_collector::MetricsCollector;
 use crate::network::partition_healer::NetworkPartitionHealer;
 use crate::storage::disaster_recovery::DisasterRecoveryManager;

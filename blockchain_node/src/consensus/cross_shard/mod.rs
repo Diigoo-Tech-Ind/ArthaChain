@@ -1,5 +1,7 @@
 pub mod coordinator;
+pub mod coordinator_storage;
 pub mod integration;
+pub mod key_registry;
 pub mod merkle_proof;
 pub mod protocol;
 pub mod resource;

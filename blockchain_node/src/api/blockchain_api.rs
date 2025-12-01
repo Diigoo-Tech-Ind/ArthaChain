@@ -90,7 +90,7 @@ impl BlockchainApi {
 
     /// Submit transaction to mempool
     pub async fn submit_transaction(&self, transaction: Transaction) -> Result<String> {
-        let mut state = self.state.write().await;
+        let state = self.state.write().await;
         state.add_pending_transaction(transaction.clone().into())?;
         Ok(hex::encode(transaction.hash().as_ref()))
     }

@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::api::{ApiError, validate_address, validate_signature, validate_amount, validate_gas_price, validate_gas_limit, validate_transaction_type, ValidationErrors};
+use crate::api::ApiError;
 use crate::ledger::state::State;
 use crate::ledger::transaction::Transaction;
 use crate::ledger::transaction::TransactionType;
@@ -63,6 +63,7 @@ impl TransactionResponse {
                 TransactionType::Transfer => 0,
                 TransactionType::ContractCreate => 1,
                 TransactionType::Deploy => 1, // Same as ContractCreate
+                TransactionType::ContractDeployment => 1, // Same as ContractCreate
                 TransactionType::Call => 2,
                 TransactionType::ValidatorRegistration => 3,
                 TransactionType::Stake => 4,
@@ -353,7 +354,7 @@ fn validate_transaction_request(req: &SubmitTransactionRequest) -> Result<(), Ap
 
 /// Verify transaction signature
 fn verify_transaction_signature(tx: &Transaction) -> bool {
-    use crate::utils::crypto::dilithium_verify;
+    
     
     // Create data to verify
     let mut data_to_verify = Vec::new();

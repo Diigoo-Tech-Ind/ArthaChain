@@ -1,15 +1,15 @@
 //! EVM precompile conformance tests
-use blockchain_node::evm::precompiles;
-use blockchain_node::evm::runtime::EvmRuntime;
-use blockchain_node::evm::types::{EvmAddress, EvmTransaction};
-use blockchain_node::evm::EvmConfig;
+use arthachain_node::evm::precompiles;
+use arthachain_node::evm::runtime::EvmRuntime;
+use arthachain_node::evm::types::{EvmAddress, EvmTransaction};
+use arthachain_node::evm::EvmConfig;
 use std::sync::{Arc, Mutex};
 
 #[tokio::test]
 async fn test_sha256_precompile() {
     // This assumes EvmRuntime exposes a way to call precompiles (address 0x02 for SHA256 on EVM)
     // Here we simulate a call to precompile address with input data
-    let storage = Arc::new(blockchain_node::storage::memmap_storage::MemMapStorage::new("memory://".to_string(), 1024 * 1024).unwrap());
+    let storage = Arc::new(arthachain_node::storage::hybrid_storage::HybridStorage::new("memory://".to_string(), 1024 * 1024).unwrap());
     let runtime = Arc::new(Mutex::new(EvmRuntime::new(storage, EvmConfig::default())));
 
     let data = hex::decode("48656c6c6f20576f726c64").unwrap(); // "Hello World"
@@ -30,5 +30,3 @@ async fn test_sha256_precompile() {
     // Ensure correct output length for sha256 digest (32 bytes)
     assert_eq!(res.return_data.len(), 32);
 }
-
-

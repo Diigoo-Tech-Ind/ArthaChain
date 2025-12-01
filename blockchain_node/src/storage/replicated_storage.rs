@@ -408,11 +408,11 @@ impl ReplicatedStorage {
         }
 
         // Return the most common result
-        Ok(results
+        results
             .into_iter()
             .max_by_key(|(_, count)| *count)
             .map(|(value, _)| value)
-            .ok_or_else(|| StorageError::Other("Read quorum failed".to_string()))?)
+            .ok_or_else(|| StorageError::Other("Read quorum failed".to_string()))
     }
 
     /// Perform quorum write

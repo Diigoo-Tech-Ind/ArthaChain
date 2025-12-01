@@ -1,6 +1,7 @@
 use crate::consensus::cross_shard::coordinator::CoordinatorMessage;
 use crate::consensus::cross_shard::{coordinator, CrossShardCoordinator};
 use crate::ledger::transaction::TransactionStatus;
+use crate::consensus::cross_shard::key_registry::{InMemoryKeyRegistry, KeyRegistry};
 use crate::network::cross_shard::{
     CrossShardConfig, CrossShardManager, CrossShardTransaction, ParticipantHandler, TxPhase,
 };
@@ -28,19 +29,22 @@ pub struct EnhancedCrossShardManager {
     #[allow(dead_code)]
     coord_receiver: mpsc::Receiver<CoordinatorMessage>,
     /// Network service
-    network: Arc<crate::network::p2p::Libp2pService>,
+    network: Arc<crate::network::p2p::P2PNetwork>,
     /// Config
     #[allow(dead_code)]
     config: CrossShardConfig,
 }
 
+use crate::network::p2p::P2PNetwork;
+
 impl EnhancedCrossShardManager {
-use crate::network::p2p::Libp2pService;
+    // use crate::network::p2p::Libp2pService; // Moved to top level or removed if unused
+
 
     /// Create a new enhanced cross-shard manager
     pub async fn new(
         config: CrossShardConfig,
-        network: Arc<Libp2pService>,
+        network: Arc<P2PNetwork>,
     ) -> Result<Self> {
         // Create base manager
         let manager = CrossShardManager::new(config.clone());
@@ -52,9 +56,25 @@ use crate::network::p2p::Libp2pService;
         let (coord_sender, coord_receiver) = mpsc::channel(100);
         let participant_sender = coord_sender.clone();
 
-        // Create coordinator - remove the receiver argument since it only takes 3 parameters
+        // Create key registry
+        let key_registry = Arc::new(InMemoryKeyRegistry::new()) as Arc<dyn KeyRegistry + Send + Sync>;
+
+        // Create coordinator config from network config
+        let coordinator_config = crate::consensus::cross_shard::coordinator::CrossShardConfig {
+            local_shard: config.local_shard,
+            connected_shards: config.connected_shards.clone(),
+            transaction_timeout_ms: config.transaction_timeout.as_millis() as u64,
+            retry_count: config.retry_count as usize,
+            coordinator_config: crate::consensus::cross_shard::coordinator::CoordinatorConfig {
+                timeout_ms: config.message_timeout.as_millis() as u64,
+                retry_attempts: config.max_retries,
+                ..Default::default()
+            },
+        };
+
+        // Create coordinator - needs 4 args: config, private_key, sender, key_registry
         let coordinator =
-            CrossShardCoordinator::new(config.clone(), private_key.clone(), coord_sender.clone());
+            CrossShardCoordinator::new(coordinator_config, private_key.clone(), coord_sender.clone(), key_registry).await?;
 
         // Create participant handler (network layer version expects shard_id and address)
         let participant =
@@ -73,21 +93,18 @@ use crate::network::p2p::Libp2pService;
     }
 
     /// Start the enhanced manager
-    pub fn start(&mut self) -> Result<()> {
+    pub async fn start(&mut self) -> Result<()> {
         // Coordinator start only; base manager has no start
-        self.coordinator.start()?;
+        self.coordinator.start().await?;
         info!("Enhanced cross-shard manager started with quantum-resistant 2PC");
         Ok(())
     }
 
     /// Stop the enhanced manager
-    pub fn stop(&mut self) -> Result<()> {
+    pub async fn stop(&mut self) -> Result<()> {
         // Stop the coordinator
-        let result = self.coordinator.stop();
-        if let Err(e) = result {
-            return Err(anyhow!("Coordinator stop error: {}", e));
-        }
-
+        self.coordinator.stop().await;
+        
         info!("Enhanced cross-shard manager stopped");
 
         Ok(())
@@ -170,9 +187,9 @@ use crate::network::p2p::Libp2pService;
     }
 
     /// Get transaction status
-    pub fn get_transaction_status(&self, tx_id: &str) -> Result<(TxPhase, TransactionStatus)> {
+    pub async fn get_transaction_status(&self, tx_id: &str) -> Result<(TxPhase, TransactionStatus)> {
         // Get status from coordinator
-        if let Some(state) = self.coordinator.get_transaction_status(tx_id) {
+        if let Some(state) = self.coordinator.get_transaction_status(tx_id).await {
             let status = match state.0 {
                 coordinator::TxPhase::Prepare => TransactionStatus::Pending,
                 coordinator::TxPhase::Commit => TransactionStatus::Confirmed,
@@ -193,7 +210,7 @@ use crate::network::p2p::Libp2pService;
         // to properly abort the transaction
 
         // For now, just check with coordinator (manager doesn't have get_transaction method)
-        if self.coordinator.get_transaction_status(tx_id).is_none() {
+        if self.coordinator.get_transaction_status(tx_id).await.is_none() {
             return Err(anyhow!("Transaction not found: {}", tx_id));
         }
 

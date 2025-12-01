@@ -123,7 +123,7 @@ impl CustodyProvider for HybridCustodyProvider {
         let parts: Vec<&str> = key_id.strip_prefix("hybrid:").unwrap_or(key_id).split(':').collect();
         
         if parts.len() < 2 {
-            return Err(anyhm!("Invalid hybrid key ID"));
+            return Err(anyhow!("Invalid hybrid key ID"));
         }
         
         let mpc_key_id = parts[0];

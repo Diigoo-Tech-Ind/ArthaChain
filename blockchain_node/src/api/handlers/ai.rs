@@ -1,30 +1,28 @@
 use axum::{
-    extract::{Extension, Json, Path, Query},
+    extract::Json,
     http::StatusCode,
     response::Json as AxumJson,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
 
 use crate::ai_engine::{
     data_chunking::{
-        ChunkingConfig, CompressionType, DataChunk, DataChunkingAI, FileReconstruction,
+        DataChunk, DataChunkingAI,
     },
-    device_health::{DeviceHealthAI, DeviceHealthMetrics, DeviceHealthScore, DeviceHealthStatus},
+    device_health::{DeviceHealthAI, DeviceHealthMetrics, DeviceHealthScore},
     fraud_detection::{
-        FraudDetectionAI, SecurityEvent, SecurityEventSeverity, SecurityEventType, SecurityScore,
+        FraudDetectionAI, SecurityEvent, SecurityEventSeverity, SecurityScore,
     },
     models::{
-        bci_interface::{BCIModel, BCIOutput, SignalParams},
-        neural_base::{NeuralBase, NeuralConfig},
+        neural_base::NeuralConfig,
         registry::{ModelRegistry, RegistryConfig},
-        self_learning::{SelfLearningConfig, SelfLearningSystem},
+        self_learning::SelfLearningConfig,
     },
     user_identification::{
-        BiometricFeatures, IdentificationConfidence, IdentificationResult, SecureBiometricTemplate,
+        IdentificationConfidence, IdentificationResult,
         UserIdentificationAI,
     },
 };
@@ -173,6 +171,12 @@ pub struct AIService {
     data_chunking_ai: Arc<RwLock<DataChunkingAI>>,
     fraud_detection_ai: Arc<RwLock<FraudDetectionAI>>,
     model_registry: Arc<RwLock<ModelRegistry>>,
+}
+
+impl Default for AIService {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl AIService {
@@ -590,7 +594,6 @@ pub async fn train_neural_network(
     let (inputs, targets): (Vec<Vec<f32>>, Vec<Vec<f32>>) = request
         .training_data
         .into_iter()
-        .map(|(input, target)| (input, target))
         .unzip();
 
     // Train the model with real data

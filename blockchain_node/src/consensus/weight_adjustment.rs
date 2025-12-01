@@ -221,7 +221,7 @@ impl DynamicWeightAdjuster {
 
         // Fallback: Use netstat to count active connections
         if let Ok(output) = tokio::process::Command::new("netstat")
-            .args(&["-an"])
+            .args(["-an"])
             .output()
             .await
         {

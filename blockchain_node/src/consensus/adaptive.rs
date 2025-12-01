@@ -704,7 +704,7 @@ impl Clone for AdaptiveConsensusManager {
                 self.config
                     .try_read()
                     .map(|guard| (*guard).clone())
-                    .unwrap_or(AdaptiveConsensusConfig::default()),
+                    .unwrap_or_default(),
             ),
             current_algorithm: RwLock::new(
                 self.current_algorithm

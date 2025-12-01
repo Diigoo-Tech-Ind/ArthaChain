@@ -9,6 +9,12 @@ pub struct StateStorage {
     storage: RwLock<HashMap<String, Vec<u8>>>,
 }
 
+impl Default for StateStorage {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl StateStorage {
     /// Create a new state storage
     pub fn new() -> Self {

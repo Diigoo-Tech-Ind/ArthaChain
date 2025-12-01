@@ -9,13 +9,13 @@ use crate::native_token::{ArthaCoinNative, BalanceBridge};
 use crate::storage::RocksDbStorage;
 use anyhow::Result;
 use log::{debug, info};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json;
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, RwLock};
 
 /// ArthaCoin-integrated blockchain state
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize)]
 pub struct ArthaCoinState {
     /// ArthaCoin native integration
     #[serde(skip)]
@@ -298,7 +298,7 @@ impl ArthaCoinState {
         let mut history = self.tx_history.write().unwrap();
         history
             .entry(account.to_string())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(tx_hash.to_string());
         Ok(())
     }
@@ -310,7 +310,7 @@ impl ArthaCoinState {
     }
 
     /// Add block
-    pub fn add_block(&self, block: Block) -> Result<()> {
+    pub async fn add_block(&self, block: Block) -> Result<()> {
         let height = block.header.height;
         let hash = block.hash()?;
         let hash_str = hex::encode(hash.as_ref());
@@ -369,3 +369,5 @@ let _ = self.rocksdb.put(hash_key.as_bytes(), &serde_json::to_vec(&block).unwrap
         Ok(())
     }
 }
+
+

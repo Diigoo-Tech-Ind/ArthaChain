@@ -187,6 +187,12 @@ pub struct DIDManager {
     documents: HashMap<String, ArthaDIDDocument>,
 }
 
+impl Default for DIDManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DIDManager {
     pub fn new() -> Self {
         Self {

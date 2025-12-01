@@ -277,7 +277,7 @@ impl DataChunkingAI {
             let metadata = ChunkMetadata {
                 file_id: file_id.clone(),
                 chunk_index,
-                total_chunks: (data.len() + chunk_size - 1) / chunk_size, // Calculate total chunks
+                total_chunks: data.len().div_ceil(chunk_size), // Calculate total chunks
                 original_filename: filename.to_string(),
                 mime_type: "application/octet-stream".to_string(), // Default MIME type
                 created_at: std::time::SystemTime::now(),

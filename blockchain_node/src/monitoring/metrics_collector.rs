@@ -80,6 +80,12 @@ pub struct MetricsCollector {
     current_metrics: Arc<Mutex<SystemMetrics>>,
 }
 
+impl Default for MetricsCollector {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MetricsCollector {
     /// Create new metrics collector
     pub fn new() -> Self {
@@ -504,14 +510,11 @@ impl MetricsCollector {
 
         // Check if there's a peers file or network state
         if Path::new("/tmp/arthachain_peers.count").exists() {
-            match fs::read_to_string("/tmp/arthachain_peers.count") {
-                Ok(content) => {
-                    if let Ok(count) = content.trim().parse::<usize>() {
-                        info!("Connected peers: {}", count);
-                        return Ok(count);
-                    }
+            if let Ok(content) = fs::read_to_string("/tmp/arthachain_peers.count") {
+                if let Ok(count) = content.trim().parse::<usize>() {
+                    info!("Connected peers: {}", count);
+                    return Ok(count);
                 }
-                Err(_) => {}
             }
         }
 
@@ -523,8 +526,8 @@ impl MetricsCollector {
 
     async fn get_network_bandwidth() -> Result<u64> {
         // Measure actual network bandwidth using system metrics
-        use std::fs;
-        use std::time::{Duration, Instant};
+        
+        use std::time::Instant;
 
         static mut LAST_BYTES: Option<(u64, Instant)> = None;
 

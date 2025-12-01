@@ -68,7 +68,7 @@ async fn test_view_change_manager() {
 #[tokio::test]
 async fn test_cross_shard_coordinator() {
     use arthachain_node::consensus::cross_shard::coordinator::CrossShardCoordinator;
-    use arthachain_node::network::cross_shard::CrossShardConfig;
+    use arthachain_node::consensus::cross_shard::coordinator::CrossShardConfig;
     use tokio::sync::mpsc;
 
     let config = CrossShardConfig {
@@ -78,18 +78,22 @@ async fn test_cross_shard_coordinator() {
     };
 
     let (tx, _rx) = mpsc::channel(100);
-    let coordinator = CrossShardCoordinator::new(
+    let key_registry = std::sync::Arc::new(arthachain_node::consensus::cross_shard::key_registry::InMemoryKeyRegistry::new());
+    let coordinator = arthachain_node::consensus::cross_shard::coordinator::CrossShardCoordinator::new(
         config,
         vec![1, 2, 3, 4], // Mock quantum key
         tx,
-    );
+        key_registry,
+    ).await.unwrap();
 
     // Test cache functionality
-    let (cache_size, _) = coordinator.get_proof_cache_stats();
-    assert_eq!(cache_size, 0, "Cache should be empty initially");
+    let (cache_size, _) = coordinator.get_proof_cache_stats().await;
+    assert_eq!(cache_size, 0, "Initial cache should be empty");
+
+    coordinator.clear_proof_cache().await;
 
     // Test cache clearing
-    coordinator.clear_proof_cache();
+    coordinator.clear_proof_cache().await;
 
     println!(" Cross-shard coordinator test passed");
 }

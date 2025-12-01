@@ -2,7 +2,7 @@ use anyhow::Result;
 use arthachain_node::{config::Config, ledger::state::State, transaction::Mempool};
 use axum::{
     extract::Path,
-    routing::{get, post},
+    routing::get,
     Json, Router,
 };
 use serde_json::Value;

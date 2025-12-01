@@ -1,6 +1,6 @@
 //! Request validation utilities for ArthaChain API
 
-use crate::api::errors::{ApiError, ValidationError, ValidationErrors};
+use crate::api::errors::ValidationError;
 use regex::Regex;
 use serde_json::Value;
 

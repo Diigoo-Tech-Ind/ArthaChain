@@ -4,7 +4,7 @@
 //! for smart contracts, integrating with the Wasmtime engine. It includes
 //! advanced gas metering, memory management, and debugging capabilities.
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tokio::sync::RwLock;
@@ -167,7 +167,7 @@ impl WasmRuntime {
         let start_time = std::time::Instant::now();
 
         // Create gas meter
-        let mut gas_meter = GasMeter::new(gas_limit);
+        let gas_meter = GasMeter::new(gas_limit);
         
         // Validate WASM bytecode
         if contract_code.len() < 8 {

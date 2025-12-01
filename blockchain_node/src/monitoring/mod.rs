@@ -4,13 +4,12 @@ pub mod health_check;
 pub mod metrics_collector;
 
 use anyhow::Result;
-use log::{error, info, warn};
+use log::info;
 use prometheus::{Counter, Encoder, Gauge, Histogram, HistogramOpts, Registry, TextEncoder};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Once};
 use std::time::{Duration, Instant, SystemTime};
-use tokio::sync::RwLock;
 
 // Import ComponentHealth from health_check module
 use health_check::ComponentHealth;

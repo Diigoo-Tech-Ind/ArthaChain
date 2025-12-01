@@ -39,6 +39,19 @@ pub enum CrossShardStatus {
     Failed(String),
 }
 
+/// Phase of the Two-Phase Commit protocol
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TxPhase {
+    /// Initial phase, waiting for prepare
+    Init,
+    /// Prepare phase, participants are voting
+    Prepare,
+    /// Commit phase, decision to commit reached
+    Commit,
+    /// Abort phase, decision to abort reached
+    Abort,
+}
+
 /// Transaction coordination protocol for cross-shard transactions
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TransactionCoordination {

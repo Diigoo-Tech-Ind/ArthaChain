@@ -1,7 +1,7 @@
 use crate::consensus::validation::{ValidationEngine, ValidationRequest, ValidationResult};
 use crate::ledger::transaction::Transaction;
 use anyhow::{anyhow, Result};
-use log::{debug, info, warn};
+use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -160,7 +160,7 @@ impl BatchValidator {
                 }
 
                 // Add transaction to pending queue
-                self_clone.add_transaction(tx).await;
+                let _ = self_clone.add_transaction(tx).await;
 
                 // Check if we should process a batch
                 let should_process = {
@@ -389,7 +389,7 @@ impl BatchValidator {
         batch_result.status = status;
         batch_result.valid_count = valid_count;
         batch_result.invalid_count = invalid_count;
-        batch_result.results = results.into_iter().map(|(k, v)| (k, v)).collect();
+        batch_result.results = results.into_iter().collect();
         batch_result.error = error;
         batch_result.duration_ms = start_time.elapsed().as_millis() as u64;
 
@@ -476,7 +476,7 @@ impl Clone for BatchValidator {
                 self.config
                     .try_read()
                     .map(|guard| (*guard).clone())
-                    .unwrap_or(BatchValidationConfig::default()),
+                    .unwrap_or_default(),
             ),
             validation_engine: self.validation_engine.clone(),
             pending_transactions: RwLock::new(Vec::new()),

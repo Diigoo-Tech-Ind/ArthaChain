@@ -14,6 +14,12 @@ pub struct DynamicLoadBalancer {
     shard_performance: Arc<RwLock<HashMap<ShardId, f64>>>,
 }
 
+impl Default for DynamicLoadBalancer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DynamicLoadBalancer {
     pub fn new() -> Self {
         Self {
@@ -125,7 +131,7 @@ impl DynamicLoadBalancer {
         // Calculate network locality score based on latency and topology
         // This is a simplified version - in production we would use actual network metrics
         let performance = self.shard_performance.read().await;
-        performance.get(&shard).unwrap_or(&0.5).clone()
+        *performance.get(&shard).unwrap_or(&0.5)
     }
 
     pub async fn record_transaction_latency(&self, shard: ShardId, latency: f64) {

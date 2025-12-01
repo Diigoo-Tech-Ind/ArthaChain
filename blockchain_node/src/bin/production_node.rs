@@ -2,22 +2,13 @@ use anyhow::Result;
 use arthachain_node::{
     config::Config,
     consensus::validator_set::ValidatorSetManager,
-    ledger::{
-        block::{Block, Transaction},
-        state::State,
-    },
+    ledger::state::State,
     network::p2p::P2PNetwork,
     transaction::Mempool,
-    types::{Address, Hash},
     api::arthachain_router::{create_arthachain_api_router, AppState as ArthaChainAppState},
 };
-use axum::{
-    extract::State as AxumState,
-    routing::{get, post},
-    Json, Router,
-};
 use clap::Parser;
-use log::{info, error};
+use log::info;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -59,7 +50,7 @@ async fn main() -> Result<()> {
 
     // Load configuration
     let config = if args.config_path.exists() {
-        Config::from_file(&args.config_path)?
+        Config::from_file(args.config_path.to_str().unwrap())?
     } else {
         info!("Config file not found, using defaults");
         Config::default()
@@ -70,33 +61,39 @@ async fn main() -> Result<()> {
     info!("State initialized");
 
     // Initialize P2P network
-    let network = Arc::new(P2PNetwork::new(config.clone()).await?);
+    let (shutdown_tx, _shutdown_rx) = tokio::sync::mpsc::channel(1);
+    let network = Arc::new(P2PNetwork::new(config.clone(), state.clone(), shutdown_tx).await?);
     info!("P2P network initialized on port {}", args.p2p_port);
 
     // Initialize consensus
-    let validator_set = Arc::new(ValidatorSetManager::new(config.clone())?);
+    let validator_config = arthachain_node::consensus::validator_set::ValidatorSetConfig {
+        min_validators: 1,
+        max_validators: 100,
+        rotation_interval: 1000,
+    };
+    let validator_set = Arc::new(ValidatorSetManager::new(validator_config));
     info!("Consensus initialized");
 
     // Initialize mempool
-    let mempool = Arc::new(RwLock::new(Mempool::new()));
+    let mempool = Arc::new(RwLock::new(Mempool::new(10000)));
     info!("Mempool initialized");
 
     // Create API router
     let app_state = ArthaChainAppState {
         state: state.clone(),
-        network: network.clone(),
         mempool: mempool.clone(),
+        validator_manager: validator_set.clone(),
         config: config.clone(),
     };
 
-    let app = create_arthachain_api_router(app_state);
+    let app = create_arthachain_api_router().with_state(app_state);
 
     // Start API server
     let api_addr = format!("0.0.0.0:{}", args.api_port);
     info!("Starting API server on {}", api_addr);
     
     let listener = tokio::net::TcpListener::bind(&api_addr).await?;
-    axum::serve(listener, app).await?;
+    axum::serve(listener, app.into_make_service()).await?;
 
     Ok(())
 }

@@ -2,14 +2,14 @@
 //! Tests end-to-end functionality with real implementations
 
 use anyhow::Result;
-use blockchain_node::ai_engine::{RealFraudDetector, RealInferenceEngine, TransactionHistory};
-use blockchain_node::consensus::{AiReputationCalculator, SvcpAiIntegration};
-use blockchain_node::crypto::{MerklePatriciaTrie, RealZKProof, ZKPSystem};
-use blockchain_node::custody::production_tss::{ProductionTss, TssConfig};
-use blockchain_node::evm::real_executor::RealEvmExecutor;
-use blockchain_node::evm::types::{EvmAddress, EvmTransaction};
-use blockchain_node::evm::tx_executor::TransactionExecutor;
-use blockchain_node::storage::RocksDbStorage;
+use arthachain_node::ai_engine::{RealFraudDetector, RealInferenceEngine, TransactionHistory};
+use arthachain_node::consensus::{AiReputationCalculator, SvcpAiIntegration};
+use arthachain_node::crypto::{MerklePatriciaTrie, RealZKProof, ZKPSystem};
+use arthachain_node::custody::production_tss::{ProductionTss, TssConfig};
+use arthachain_node::evm::real_executor::RealEvmExecutor;
+use arthachain_node::evm::types::{EvmAddress, EvmTransaction};
+use arthachain_node::evm::tx_executor::TransactionExecutor;
+use arthachain_node::storage::RocksDbStorage;
 use ethereum_types::U256;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -22,24 +22,26 @@ async fn test_evm_execution_integration() -> Result<()> {
     let test_dir = "/tmp/integration_test_evm";
     let _ = std::fs::remove_dir_all(test_dir);
 
-    let storage = Arc::new(RwLock::new(RocksDbStorage::new(test_dir)?));
+    let storage = Arc::new(RwLock::new(RocksDbStorage::new_with_path(std::path::Path::new(test_dir))?));
     let executor = TransactionExecutor::new(storage.clone(), 201766);
 
     // Update block context
     executor.update_block_context(1, 1234567890).await;
 
     // Create and execute transaction
-    let sender = EvmAddress([1u8; 20]);
-    let recipient = EvmAddress([2u8; 20]);
+    let sender = EvmAddress::from_slice(&[1u8; 20]);
+    let recipient = EvmAddress::from_slice(&[2u8; 20]);
 
     let tx = EvmTransaction {
         from: sender,
         to: Some(recipient),
         value: U256::from(1000),
         data: vec![],
-        gas_limit: 21000,
-        gas_price: 20_000_000_000,
-        nonce: 0,
+        gas_limit: U256::from(21000),
+        gas_price: U256::from(20_000_000_000u64),
+        nonce: U256::from(0),
+        chain_id: Some(1),
+        signature: None,
     };
 
     let result = executor.execute(tx).await?;
@@ -139,12 +141,12 @@ async fn test_validator_reputation_integration() -> Result<()> {
         .calculate_node_score("validator_bob")
         .await?;
 
-    println!("Alice reputation: {:.3}", alice_score.total_score);
-    println!("Bob reputation: {:.3}", bob_score.total_score);
+    println!("Alice reputation: {:.3}", alice_score.overall_score);
+    println!("Bob reputation: {:.3}", bob_score.overall_score);
 
     // Alice should have higher reputation (better performance)
     assert!(
-        alice_score.total_score > bob_score.total_score,
+        alice_score.overall_score > bob_score.overall_score,
         "Alice should have higher reputation"
     );
 
@@ -258,22 +260,24 @@ async fn test_end_to_end_transaction_flow() -> Result<()> {
     let _ = std::fs::remove_dir_all(test_dir);
 
     // 1. Setup components
-    let storage = Arc::new(RwLock::new(RocksDbStorage::new(test_dir)?));
+    let storage = Arc::new(RwLock::new(RocksDbStorage::new_with_path(std::path::Path::new(test_dir))?));
     let tx_executor = TransactionExecutor::new(storage.clone(), 201766);
     let fraud_detector = RealFraudDetector::new();
 
     // 2. Create transaction
-    let sender = EvmAddress([10u8; 20]);
-    let recipient = EvmAddress([20u8; 20]);
+    let sender = EvmAddress::from_slice(&[10u8; 20]);
+    let recipient = EvmAddress::from_slice(&[20u8; 20]);
 
     let tx = EvmTransaction {
         from: sender,
         to: Some(recipient),
         value: U256::from(5000),
         data: vec![],
-        gas_limit: 21000,
-        gas_price: 20_000_000_000,
-        nonce: 0,
+        gas_limit: U256::from(21000),
+        gas_price: U256::from(20_000_000_000u64),
+        nonce: U256::from(0),
+        chain_id: Some(1),
+        signature: None,
     };
 
     // 3. Fraud detection
@@ -308,23 +312,4 @@ async fn test_end_to_end_transaction_flow() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
-async fn test_all_production_components() -> Result<()> {
-    println!("\n🚀 RUNNING ALL PRODUCTION COMPONENT TESTS\n");
-    println!("==========================================\n");
 
-    // Run all integration tests
-    test_evm_execution_integration().await?;
-    test_ai_fraud_detection_integration().await?;
-    test_validator_reputation_integration().await?;
-    test_threshold_signatures_integration().await?;
-    test_zkp_integration().await?;
-    test_merkle_trie_integration().await?;
-    test_end_to_end_transaction_flow().await?;
-
-    println!("\n==========================================");
-    println!("✅ ALL PRODUCTION COMPONENTS TESTED!");
-    println!("==========================================\n");
-
-    Ok(())
-}

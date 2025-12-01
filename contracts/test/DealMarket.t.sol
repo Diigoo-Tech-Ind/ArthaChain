@@ -48,6 +48,7 @@ contract DealMarketTest is Test {
         bytes32[] memory branch = new bytes32[](0);
         uint256 index = 0;
 
+        vm.warp(block.timestamp + 100);
         vm.prank(provider);
         market.streamPayout(root, leaf, branch, index);
     }
@@ -64,10 +65,9 @@ contract DealMarketTest is Test {
         bytes32 leaf = keccak256("leaf");
         bytes32[] memory branch = new bytes32[](0);
         uint256 index = 0;
-
+        
+        vm.warp(block.timestamp + 100);
         vm.prank(provider);
         market.streamPayoutV2(root, salt, leaf, branch, index);
     }
 }
-
-

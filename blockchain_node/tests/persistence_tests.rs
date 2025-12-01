@@ -6,9 +6,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::evm::real_executor::RealEvmExecutor;
-use crate::evm::types::{EvmAddress, EvmTransaction};
-use crate::storage::RocksDbStorage;
+use arthachain_node::evm::real_executor::RealEvmExecutor;
+use arthachain_node::evm::types::{EvmAddress, EvmTransaction};
+use arthachain_node::storage::RocksDbStorage;
 use ethereum_types::U256;
 
 /// Test persistence of EVM state across restarts
@@ -21,21 +21,23 @@ async fn test_evm_state_persistence() -> Result<()> {
     
     // Phase 1: Execute transaction and persist state
     {
-        let storage = Arc::new(RwLock::new(RocksDbStorage::new(test_dir)?));
+        let storage = Arc::new(RwLock::new(RocksDbStorage::new_with_path(std::path::Path::new(test_dir))?));
         let executor = RealEvmExecutor::new(storage.clone(), 201766);
         
         // Create a test transaction
-        let sender = EvmAddress([1u8; 20]);
-        let recipient = EvmAddress([2u8; 20]);
+        let sender = EvmAddress::from_slice(&[1u8; 20]);
+        let recipient = EvmAddress::from_slice(&[2u8; 20]);
         
         let tx = EvmTransaction {
             from: sender,
             to: Some(recipient),
             value: U256::from(1000),
             data: vec![],
-            gas_limit: 21000,
-            gas_price: 20_000_000_000,
-            nonce: 0,
+            gas_limit: U256::from(21000),
+            gas_price: U256::from(20_000_000_000u64),
+            nonce: U256::from(0),
+            chain_id: Some(1),
+            signature: None,
         };
         
         // Execute transaction
@@ -48,7 +50,7 @@ async fn test_evm_state_persistence() -> Result<()> {
     
     // Phase 2: Restart - create new executor with same database
     {
-        let storage = Arc::new(RwLock::new(RocksDbStorage::new(test_dir)?));
+        let storage = Arc::new(RwLock::new(RocksDbStorage::new_with_path(std::path::Path::new(test_dir))?));
         let _executor = RealEvmExecutor::new(storage.clone(), 201766);
         
         // Verify state persisted by checking database
@@ -56,7 +58,7 @@ async fn test_evm_state_persistence() -> Result<()> {
         let test_key = b"test_persistence";
         storage_read.put(test_key, b"test_value").await?;
         
-        let retrieved = storage_read.get(test_key).await?;
+        let retrieved = storage_read.get(test_key).await;
         assert_eq!(retrieved, Some(b"test_value".to_vec()));
         
         println!("✅ State persistence verified across restart!");
@@ -79,16 +81,16 @@ async fn test_rocksdb_balance_persistence() -> Result<()> {
     
     // Write balance
     {
-        let storage = RocksDbStorage::new(test_dir)?;
+        let storage = RocksDbStorage::new_with_path(std::path::Path::new(test_dir))?;
         let key = format!("balance:{}", test_address);
         storage.put(key.as_bytes(), &test_balance.to_be_bytes()).await?;
     }
     
     // Read balance after "restart"
     {
-        let storage = RocksDbStorage::new(test_dir)?;
+        let storage = RocksDbStorage::new_with_path(std::path::Path::new(test_dir))?;
         let key = format!("balance:{}", test_address);
-        let value = storage.get(key.as_bytes()).await?;
+        let value = storage.get(key.as_bytes()).await;
         
         assert!(value.is_some(), "Balance should persist");
         let retrieved_balance = u64::from_be_bytes(value.unwrap().try_into().unwrap());
@@ -112,16 +114,16 @@ async fn test_block_persistence() -> Result<()> {
     
     // Store block
     {
-        let storage = RocksDbStorage::new(test_dir)?;
+        let storage = RocksDbStorage::new_with_path(std::path::Path::new(test_dir))?;
         let key = format!("blockhash:{}", block_number);
         storage.put(key.as_bytes(), block_hash).await?;
     }
     
     // Retrieve after restart
     {
-        let storage = RocksDbStorage::new(test_dir)?;
+        let storage = RocksDbStorage::new_with_path(std::path::Path::new(test_dir))?;
         let key = format!("blockhash:{}", block_number);
-        let retrieved = storage.get(key.as_bytes()).await?;
+        let retrieved = storage.get(key.as_bytes()).await;
         
         assert_eq!(retrieved.as_deref(), Some(block_hash as &[u8]));
         println!("✅ Block hash persisted for block {}", block_number);
@@ -134,7 +136,7 @@ async fn test_block_persistence() -> Result<()> {
 /// Test Merkle trie state root persistence
 #[tokio::test]
 async fn test_state_root_persistence() -> Result<()> {
-    use crate::crypto::merkle_trie::MerklePatriciaTrie;
+    use arthachain_node::crypto::merkle_trie::MerklePatriciaTrie;
     
     let test_dir = "/tmp/arthachain_trie_test";
     let _ = std::fs::remove_dir_all(test_dir);
@@ -151,7 +153,7 @@ async fn test_state_root_persistence() -> Result<()> {
         state_root.copy_from_slice(root.as_bytes());
         
         // Store in RocksDB
-        let storage = RocksDbStorage::new(test_dir)?;
+        let storage = RocksDbStorage::new_with_path(std::path::Path::new(test_dir))?;
         storage.put(b"state_root:latest", &state_root).await?;
         
         println!("Stored state root: {:?}", hex::encode(&state_root));
@@ -159,8 +161,8 @@ async fn test_state_root_persistence() -> Result<()> {
     
     // Retrieve after restart
     {
-        let storage = RocksDbStorage::new(test_dir)?;
-        let retrieved = storage.get(b"state_root:latest").await?;
+        let storage = RocksDbStorage::new_with_path(std::path::Path::new(test_dir))?;
+        let retrieved = storage.get(b"state_root:latest").await;
         
         assert!(retrieved.is_some());
         assert_eq!(retrieved.unwrap().as_slice(), &state_root);
@@ -181,9 +183,9 @@ mod e2e_tests {
     async fn test_e2e_persistence_flow() -> Result<()> {
         println!("\n🧪 Running E2E Persistence Test...\n");
         
-        test_rocksdb_balance_persistence().await?;
-        test_block_persistence().await?;
-        test_state_root_persistence().await?;
+        test_rocksdb_balance_persistence()?;
+        test_block_persistence()?;
+        test_state_root_persistence()?;
         
         println!("\n✅ All persistence tests passed!\n");
         Ok(())

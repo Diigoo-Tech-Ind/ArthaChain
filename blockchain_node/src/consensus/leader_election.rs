@@ -788,12 +788,10 @@ impl LeaderElectionManager {
     /// Verify leader health before confirmation
     async fn verify_leader_health(&self, leader: &NodeId) -> Result<bool> {
         // Comprehensive health check
-        let health_checks = vec![
-            self.check_network_connectivity(leader).await?,
+        let health_checks = [self.check_network_connectivity(leader).await?,
             self.check_resource_availability(leader).await?,
             self.check_consensus_capability(leader).await?,
-            self.check_security_status(leader).await?,
-        ];
+            self.check_security_status(leader).await?];
 
         Ok(health_checks.iter().all(|&check| check))
     }

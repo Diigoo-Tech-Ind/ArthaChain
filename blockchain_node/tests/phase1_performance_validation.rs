@@ -12,7 +12,7 @@ use arthachain_node::consensus::cross_shard::{
 use arthachain_node::consensus::view_change::{
     ViewChangeConfig, ViewChangeManager, ViewChangeMessage,
 };
-use arthachain_node::network::cross_shard::CrossShardConfig;
+use arthachain_node::consensus::cross_shard::coordinator::CrossShardConfig;
 use arthachain_node::types::Address;
 
 /// Validate claim: Cross-shard transactions complete in <5 seconds
@@ -21,12 +21,13 @@ async fn validate_cross_shard_latency_claim() {
     let config = CrossShardConfig {
         local_shard: 1,
         connected_shards: vec![1, 2, 3],
-        transaction_timeout: Duration::from_millis(500),
+        transaction_timeout_ms: 500,
         ..Default::default()
     };
 
     let (tx, _rx) = mpsc::channel(100);
-    let coordinator = CrossShardCoordinator::new(config, vec![1, 2, 3, 4], tx);
+    let key_registry = std::sync::Arc::new(arthachain_node::consensus::cross_shard::key_registry::InMemoryKeyRegistry::new());
+    let coordinator = CrossShardCoordinator::new(config, vec![1, 2, 3, 4], tx, key_registry).await.unwrap();
 
     let num_transactions = 10;
     let mut latencies = Vec::new();
@@ -290,7 +291,8 @@ async fn stress_test_concurrent_operations() {
     };
 
     let (tx, _rx) = mpsc::channel(1000);
-    let coordinator = Arc::new(CrossShardCoordinator::new(config, vec![1, 2, 3, 4], tx));
+    let key_registry = std::sync::Arc::new(arthachain_node::consensus::cross_shard::key_registry::InMemoryKeyRegistry::new());
+    let coordinator = Arc::new(CrossShardCoordinator::new(config, vec![1, 2, 3, 4], tx, key_registry).await.unwrap());
 
     let num_concurrent_operations = 100;
     let start = Instant::now();

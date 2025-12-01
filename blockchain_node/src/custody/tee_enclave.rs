@@ -47,16 +47,20 @@ impl TEECustodyProvider {
         
         match algorithm {
             "Ed25519" => {
-                use ed25519_dalek::Keypair;
+                use ed25519_dalek::SigningKey;
                 use rand::rngs::OsRng;
                 
                 let mut csprng = OsRng;
-                let keypair = Keypair::generate(&mut csprng);
+                let mut seed = [0u8; 32];
+                use rand::RngCore;
+                csprng.fill_bytes(&mut seed);
+                let signing_key = SigningKey::from_bytes(&seed);
+                let verifying_key = signing_key.verifying_key();
                 
                 // In real TEE: private key stays in enclave, only public key exported
-                Ok((keypair.secret.to_bytes().to_vec(), keypair.public.to_bytes().to_vec()))
+                Ok((signing_key.to_bytes().to_vec(), verifying_key.to_bytes().to_vec()))
             }
-            _ => Err(anyhm!("Unsupported algorithm in TEE: {}", algorithm)),
+            _ => Err(anyhow!("Unsupported algorithm in TEE: {}", algorithm)),
         }
     }
 
@@ -158,30 +162,5 @@ impl CustodyProvider for TEECustodyProvider {
     }
 }
 
-pub mod custody_config {
-    use serde::{Deserialize, Serialize};
-    
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    pub struct CustodyConfig {
-        pub default_mode: String, // "mpc", "tee", "hybrid"
-        pub mpc_threshold: u8,
-        pub mpc_parties: u8,
-        pub tee_attestation_required: bool,
-        pub key_rotation_days: u32,
-        pub backup_enabled: bool,
-    }
-    
-    impl Default for CustodyConfig {
-        fn default() -> Self {
-            CustodyConfig {
-                default_mode: "hybrid".to_string(),
-                mpc_threshold: 2,
-                mpc_parties: 3,
-                tee_attestation_required: true,
-                key_rotation_days: 90,
-                backup_enabled: true,
-            }
-        }
-    }
-}
+
 

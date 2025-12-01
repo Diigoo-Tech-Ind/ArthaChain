@@ -234,6 +234,12 @@ pub struct RemediationRecord {
     pub effectiveness: f64,
 }
 
+impl Default for HealthChecker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl HealthChecker {
     /// Create new health checker with enhanced capabilities
     pub fn new() -> Self {
@@ -546,6 +552,12 @@ impl HealthChecker {
         }
 
         Ok(())
+    }
+}
+
+impl Default for PredictiveHealthAnalytics {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -867,6 +879,12 @@ impl PredictiveHealthAnalytics {
     }
 }
 
+impl Default for AutoRemediation {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AutoRemediation {
     pub fn new() -> Self {
         Self {
@@ -926,6 +944,12 @@ impl AutoRemediation {
         let mut strategies = self.strategies.write().await;
         let key = format!("{}:{}", component, strategy.name);
         strategies.insert(key, strategy);
+    }
+}
+
+impl Default for PredictionEngine {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -1086,6 +1110,12 @@ pub struct ConsensusHealthChecker {
     last_block_time: Arc<RwLock<Option<Instant>>>,
 }
 
+impl Default for ConsensusHealthChecker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ConsensusHealthChecker {
     pub fn new() -> Self {
         Self {
@@ -1094,10 +1124,10 @@ impl ConsensusHealthChecker {
         }
     }
 
-    pub fn update_round(&self, round: u64) {
-        let mut rounds = self.consensus_rounds.write().blocking_lock();
+    pub async fn update_round(&self, round: u64) {
+        let mut rounds = self.consensus_rounds.write().await;
         *rounds = round;
-        let mut last_time = self.last_block_time.write().blocking_lock();
+        let mut last_time = self.last_block_time.write().await;
         *last_time = Some(Instant::now());
     }
 }
@@ -1152,6 +1182,12 @@ pub struct AIEngineHealthChecker {
     last_inference_time: Arc<RwLock<Option<Instant>>>,
 }
 
+impl Default for AIEngineHealthChecker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AIEngineHealthChecker {
     pub fn new() -> Self {
         Self {
@@ -1161,10 +1197,10 @@ impl AIEngineHealthChecker {
         }
     }
 
-    pub fn update_models(&self, count: usize, accuracy: f64) {
-        *self.active_models.write().blocking_lock() = count;
-        *self.model_accuracy.write().blocking_lock() = accuracy;
-        *self.last_inference_time.write().blocking_lock() = Some(Instant::now());
+    pub async fn update_models(&self, count: usize, accuracy: f64) {
+        *self.active_models.write().await = count;
+        *self.model_accuracy.write().await = accuracy;
+        *self.last_inference_time.write().await = Some(Instant::now());
     }
 }
 
@@ -1213,6 +1249,12 @@ impl ComponentChecker for AIEngineHealthChecker {
 
 /// System resource health checker
 pub struct SystemResourceChecker;
+
+impl Default for SystemResourceChecker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl SystemResourceChecker {
     pub fn new() -> Self {

@@ -4,12 +4,12 @@
 
 use crate::ai_engine::online_learning::OnlineLearner;
 use crate::ai_engine::real_inference::FraudDetectionModel;
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::sync::Arc;
-use std::time::{Duration, SystemTime};
+use std::time::SystemTime;
 use tokio::sync::RwLock;
 
 /// Configuration for self-healing system

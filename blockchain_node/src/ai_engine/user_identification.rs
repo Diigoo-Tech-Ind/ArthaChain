@@ -1,9 +1,9 @@
 use crate::config::Config;
 use anyhow::{anyhow, Result};
-use base64::{engine::general_purpose, Engine as _};
+use base64::Engine as _;
 use blake3;
 use hex;
-use log::{debug, info, warn};
+use log::{info, warn};
 use num_cpus;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -296,6 +296,7 @@ pub enum ConnectionQuality {
 
 /// System activity monitor for tracking node operations
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct SystemActivityMonitor {
     /// Current system state
     pub current_state: SystemState,
@@ -373,6 +374,7 @@ pub struct SystemActivity {
 
 /// Performance tracker
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct PerformanceTracker {
     /// Historical performance data
     pub performance_history: Vec<PerformanceRecord>,
@@ -550,16 +552,6 @@ impl Default for HardwareSpecs {
     }
 }
 
-impl Default for SystemActivityMonitor {
-    fn default() -> Self {
-        Self {
-            current_state: SystemState::default(),
-            activity_timeline: Vec::new(),
-            performance_tracker: PerformanceTracker::default(),
-            social_scoring: SocialScoringEngine::default(),
-        }
-    }
-}
 
 impl Default for SystemState {
     fn default() -> Self {
@@ -585,15 +577,6 @@ impl Default for ResourceUtilization {
     }
 }
 
-impl Default for PerformanceTracker {
-    fn default() -> Self {
-        Self {
-            performance_history: Vec::new(),
-            performance_trends: PerformanceTrends::default(),
-            anomaly_detector: AnomalyDetector::default(),
-        }
-    }
-}
 
 impl Default for PerformanceTrends {
     fn default() -> Self {
@@ -919,7 +902,7 @@ impl UserIdentificationAI {
 
         // Create activity record
         let activity = SystemActivity {
-            activity_type: activity_type.clone(),
+            activity_type: activity_type,
             start_time: monitor.current_state.operation_start_time,
             end_time: now,
             duration,
@@ -927,7 +910,7 @@ impl UserIdentificationAI {
             performance,
             resource_usage: monitor.current_state.resource_utilization.clone(),
             social_score_impact: self.calculate_social_score_impact(
-                activity_type.clone(),
+                activity_type,
                 success,
                 performance,
             ),
@@ -1003,7 +986,7 @@ impl UserIdentificationAI {
         activity: &SystemActivity,
     ) -> Result<()> {
         let score_change = activity.social_score_impact;
-        let mut social_scoring = &mut monitor.social_scoring;
+        let social_scoring = &mut monitor.social_scoring;
 
         // Update current score
         social_scoring.current_score = (social_scoring.current_score + score_change)
@@ -1015,7 +998,7 @@ impl UserIdentificationAI {
             timestamp: SystemTime::now(),
             score_change,
             reason: format!("Activity: {:?}", activity.activity_type),
-            activity: Some(activity.activity_type.clone()),
+            activity: Some(activity.activity_type),
         };
 
         social_scoring.score_history.push(score_record);

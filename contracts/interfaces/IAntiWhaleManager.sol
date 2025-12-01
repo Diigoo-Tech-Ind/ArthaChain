@@ -25,14 +25,14 @@ interface IAntiWhaleManager {
      * @param totalSupply Current total supply
      * @return Maximum transfer amount
      */
-    function getMaxTransferAmount(uint256 totalSupply) external pure returns (uint256);
+    function getMaxTransferAmount(uint256 totalSupply) external view returns (uint256);
     
     /**
      * @notice Gets maximum holding amount (1.5% of total supply)
      * @param totalSupply Current total supply
      * @return Maximum holding amount
      */
-    function getMaxHoldingAmount(uint256 totalSupply) external pure returns (uint256);
+    function getMaxHoldingAmount(uint256 totalSupply) external view returns (uint256);
     
     /**
      * @notice Checks if address is exempt from anti-whale rules

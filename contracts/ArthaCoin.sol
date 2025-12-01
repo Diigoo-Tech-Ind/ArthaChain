@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlEnumerableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "./interfaces/ICycleManager.sol";
@@ -24,7 +24,7 @@ import "./interfaces/IAntiWhaleManager.sol";
 contract ArthaCoin is 
     Initializable,
     ERC20Upgradeable, 
-    AccessControlUpgradeable, 
+    AccessControlEnumerableUpgradeable, 
     UUPSUpgradeable 
 {
     // ==================== ROLES ====================
@@ -120,7 +120,6 @@ contract ArthaCoin is
     ) public initializer {
         __ERC20_init("ArthaCoin", "ARTHA");
         __AccessControl_init();
-        __UUPSUpgradeable_init();
 
         // Grant roles to admin
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
@@ -230,26 +229,25 @@ contract ArthaCoin is
     // ==================== TRANSFER OVERRIDES ====================
 
     /**
-     * @notice Override transfer to implement anti-whale checks
+     * @notice Override _update to implement anti-whale checks
      * @dev Burn mechanism removed from transfers - burns only apply to gas fees
      * @param from Sender address
      * @param to Recipient address
      * @param amount Transfer amount
      */
-    function _transfer(address from, address to, uint256 amount) internal override {
+    function _update(address from, address to, uint256 amount) internal override {
         // Skip checks for minting/burning or if managers not set
         if (from == address(0) || to == address(0) || 
             address(antiWhaleManager) == address(0)) {
-            super._transfer(from, to, amount);
+            super._update(from, to, amount);
             return;
         }
 
         // Anti-whale checks only - no burn on transfer amount
         antiWhaleManager.validateTransfer(from, to, amount, totalSupply());
 
-        // Execute full transfer - no burn on transfer amount
-        // Burns only apply to gas fees, not transfer amounts
-        super._transfer(from, to, amount);
+        // Execute full update
+        super._update(from, to, amount);
     }
 
     // ==================== MANAGER FUNCTIONS ====================

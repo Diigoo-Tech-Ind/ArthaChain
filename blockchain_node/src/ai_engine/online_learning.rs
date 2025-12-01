@@ -5,8 +5,6 @@
 use anyhow::{anyhow, Result};
 use ndarray::{Array1, Array2, Axis};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use tokio::sync::RwLock;
 
 /// Configuration for the online learner
 #[derive(Clone, Debug, Serialize, Deserialize)]

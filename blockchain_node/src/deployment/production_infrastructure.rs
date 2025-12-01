@@ -4,9 +4,8 @@
 //! Docker containerization, CI/CD pipelines, and monitoring.
 
 use anyhow::{anyhow, Result};
-use log::{debug, error, info, warn};
+use log::{info, warn};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use tokio::process::Command;
 
@@ -194,6 +193,7 @@ pub enum DeploymentStrategy {
 
 /// Monitoring configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct MonitoringConfig {
     /// Prometheus configuration
     pub prometheus: PrometheusConfig,
@@ -205,16 +205,6 @@ pub struct MonitoringConfig {
     pub logging: LoggingConfig,
 }
 
-impl Default for MonitoringConfig {
-    fn default() -> Self {
-        Self {
-            prometheus: PrometheusConfig::default(),
-            grafana: GrafanaConfig::default(),
-            alerting: AlertingConfig::default(),
-            logging: LoggingConfig::default(),
-        }
-    }
-}
 
 /// Prometheus configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -605,7 +595,7 @@ CMD ["target/release/blockchain_node"]
         let image_tag = format!("{}:{}", self.config.registry, self.config.tag);
 
         let output = Command::new("docker")
-            .args(&["build", "-t", &image_tag, "."])
+            .args(["build", "-t", &image_tag, "."])
             .output()
             .await?;
 
@@ -628,7 +618,7 @@ CMD ["target/release/blockchain_node"]
 
         // Use Trivy for security scanning
         let output = Command::new("trivy")
-            .args(&["image", "--exit-code", "1", &image_tag])
+            .args(["image", "--exit-code", "1", &image_tag])
             .output()
             .await?;
 
@@ -647,7 +637,7 @@ CMD ["target/release/blockchain_node"]
         let image_tag = format!("{}:{}", self.config.registry, self.config.tag);
 
         let output = Command::new("docker")
-            .args(&["push", &image_tag])
+            .args(["push", &image_tag])
             .output()
             .await?;
 

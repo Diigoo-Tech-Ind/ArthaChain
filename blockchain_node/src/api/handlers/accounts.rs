@@ -3,17 +3,13 @@ use axum::{
     Json,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::api::{handlers::transactions::TransactionResponse, ApiError};
 #[cfg(feature = "evm")]
 use crate::evm::backend::EvmBackend;
-use crate::evm::types::EvmAddress;
 use crate::ledger::state::State;
-use crate::storage::hybrid_storage::HybridStorage;
 
 // EVM types for compatibility
 #[cfg(feature = "evm")]

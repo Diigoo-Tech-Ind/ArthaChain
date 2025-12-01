@@ -1,32 +1,26 @@
 use blake2::{Blake2b512, Digest as Blake2Digest};
 
 use elliptic_curve::sec1::ToEncodedPoint;
-use k256::{
-    ecdsa::{RecoveryId, Signature},
-    PublicKey, SecretKey,
-};
-use log::{debug, error, info, warn};
+use k256::ecdsa::{RecoveryId, Signature};
+use log::{debug, error, info};
 use num_bigint::BigUint;
 use num_traits::Zero;
 // Advanced BLS12-381 cryptography using blst for quantum-resistant operations
 use blst::{
-    blst_bendian_from_scalar, blst_hash_to_g1, blst_hash_to_g2, blst_p1, blst_p1_add,
-    blst_p1_affine, blst_p1_compress, blst_p1_deserialize, blst_p1_from_affine, blst_p1_mult,
-    blst_p1_serialize, blst_p1_to_affine, blst_p2, blst_p2_add, blst_p2_affine, blst_p2_compress,
-    blst_p2_deserialize, blst_p2_from_affine, blst_p2_mult, blst_p2_serialize, blst_p2_to_affine,
+    blst_p1, blst_p1_add,
+    blst_p1_affine, blst_p1_compress, blst_p1_deserialize, blst_p1_from_affine, blst_p1_mult, blst_p1_to_affine, blst_p2, blst_p2_affine,
+    blst_p2_deserialize, blst_p2_from_affine,
     blst_scalar, blst_scalar_from_bendian,
-    min_pk::{PublicKey as BlstPublicKey, SecretKey as BlstSecretKey, Signature as BlstSignature},
     BLST_ERROR,
 };
 use ripemd::Ripemd160;
 use serde::{Deserialize, Serialize};
-use sha3::{Digest, Keccak256, Sha3_256};
+use sha3::{Digest, Sha3_256};
 use std::sync::Arc;
 use thiserror::Error;
 use zstd::{decode_all, encode_all};
 
-use crate::crypto::hash::Hash;
-use crate::evm::types::{EvmAddress, EvmError, EvmExecutionResult};
+use crate::evm::types::{EvmAddress, EvmExecutionResult};
 use crate::storage::Storage;
 
 /// Precompiled contract error
@@ -133,6 +127,7 @@ impl PrecompiledContract {
         Ok(EvmExecutionResult {
             success: true,
             gas_used,
+            gas_refunded: 0,
             return_data: output,
             contract_address: None,
             logs: vec![],
@@ -142,7 +137,7 @@ impl PrecompiledContract {
 
     /// Calculate gas cost
     fn calculate_gas_cost(&self, input_size: usize) -> u64 {
-        let words = (input_size + 31) / 32;
+        let words = input_size.div_ceil(32);
         self.config.base_gas + (words as u64 * self.config.word_gas)
     }
 
@@ -501,7 +496,7 @@ impl PrecompiledContract {
         hasher.update(m);
         hasher.update(t);
         if f {
-            hasher.update(&[1]);
+            hasher.update([1]);
         }
 
         let result = hasher.finalize();
@@ -531,6 +526,12 @@ impl PrecompiledContract {
 pub struct PrecompiledRegistry {
     /// Registered contracts
     contracts: Vec<PrecompiledContract>,
+}
+
+impl Default for PrecompiledRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl PrecompiledRegistry {

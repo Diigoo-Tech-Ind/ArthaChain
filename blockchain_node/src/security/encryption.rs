@@ -1,15 +1,12 @@
 use aes_gcm::{
-    aead::{Aead, AeadCore, KeyInit, OsRng},
+    aead::{Aead, AeadCore, KeyInit},
     Aes256Gcm, Key, Nonce,
 };
-use aes::Aes256;
 use anyhow::{anyhow, Result};
 use argon2::{
     password_hash::{rand_core::OsRng as ArgonOsRng, SaltString},
     Argon2, PasswordHash, PasswordHasher,
 };
-use block_modes::{BlockMode, Cbc};
-use block_padding::Pkcs7;
 use hmac::{Hmac, Mac};
 use rand::{rngs::OsRng, Rng, RngCore};
 use serde::{Deserialize, Serialize};
@@ -18,7 +15,6 @@ use sha3::{Digest, Sha3_256};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use zeroize::{Zeroize, ZeroizeOnDrop};
 
 /// Encryption manager for all sensitive data
 #[derive(Debug, Clone)]
@@ -230,6 +226,12 @@ pub struct DecryptedData {
     pub decrypted_at: u64,
 }
 
+impl Default for EncryptionManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EncryptionManager {
     /// Create new encryption manager
     pub fn new() -> Self {
@@ -323,9 +325,7 @@ impl EncryptionManager {
         keys.insert(key_id.clone(), encrypted_key);
 
         // Clear sensitive data
-        for byte in &mut key_material {
-            *byte = 0;
-        }
+        key_material.fill(0);
 
         Ok(key_id)
     }
@@ -415,7 +415,7 @@ impl EncryptionManager {
                     .map_err(|e| anyhow!("Data encryption failed: {}", e))?;
 
                 // Calculate HMAC for integrity
-                let mut mac = Hmac::<Sha256>::new_from_slice(&encryption_key[..32])
+                let mut mac = <Hmac::<Sha256> as Mac>::new_from_slice(&encryption_key[..32])
                     .map_err(|e| anyhow!("HMAC initialization failed: {}", e))?;
                 mac.update(&encrypted_data);
                 mac.update(&nonce);
@@ -429,7 +429,7 @@ impl EncryptionManager {
                     algorithm,
                     aad: None,
                     encrypted_at: current_timestamp(),
-                    integrity_hash,
+                    integrity_hash: hex::encode(integrity_hash),
                 })
             }
         }
@@ -470,11 +470,13 @@ impl EncryptionManager {
             }
             EncryptionAlgorithm::Aes256CtrHmac => {
                 // Verify HMAC first
-                let mut mac = Hmac::<Sha256>::new_from_slice(&decryption_key[..32])
+                let mut mac = <Hmac::<Sha256> as Mac>::new_from_slice(&decryption_key[..32])
                     .map_err(|e| anyhow!("HMAC initialization failed: {}", e))?;
                 mac.update(&encrypted_data.data);
                 mac.update(&encrypted_data.nonce);
-                mac.verify_slice(&encrypted_data.integrity_hash)
+                let integrity_hash_bytes = hex::decode(&encrypted_data.integrity_hash)
+                    .map_err(|_| anyhow!("Invalid integrity hash format"))?;
+                mac.verify_slice(&integrity_hash_bytes)
                     .map_err(|_| anyhow!("HMAC verification failed"))?;
 
                 // Decrypt using AES-GCM (same as encryption)
@@ -596,7 +598,7 @@ impl EncryptionManager {
                 let decrypted_key = self.decrypt_master_key(encrypted_key).await?;
                 return Ok((
                     key_id.clone(),
-                    Key::<Aes256Gcm>::from_slice(&decrypted_key).clone(),
+                    *Key::<Aes256Gcm>::from_slice(&decrypted_key),
                 ));
             }
         }
@@ -612,7 +614,7 @@ impl EncryptionManager {
             let decrypted_key = self.decrypt_master_key(encrypted_key).await?;
             return Ok((
                 key_id.to_string(),
-                Key::<Aes256Gcm>::from_slice(&decrypted_key).clone(),
+                *Key::<Aes256Gcm>::from_slice(&decrypted_key),
             ));
         }
 
@@ -723,7 +725,7 @@ impl EncryptionManager {
                     interval: 7 * 24 * 60 * 60, // 7 days
                     max_usage: 10_000,
                     auto_rotate: true,
-                    grace_period: 1 * 24 * 60 * 60, // 1 day
+                    grace_period: 24 * 60 * 60, // 1 day
                 },
             ),
         ]);
@@ -748,7 +750,7 @@ impl EncryptionManager {
 
         // Take first 32 bytes for AES-256
         if key_bytes.len() >= 32 {
-            Ok(Key::<Aes256Gcm>::from_slice(&key_bytes[..32]).clone())
+            Ok(*Key::<Aes256Gcm>::from_slice(&key_bytes[..32]))
         } else {
             Err(anyhow!("Insufficient key material"))
         }

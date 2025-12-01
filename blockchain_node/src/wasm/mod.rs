@@ -15,8 +15,6 @@ pub use gas::GasMeter;
 pub use storage::WasmStorage;
 
 use anyhow::Result;
-use std::sync::Arc;
-use tokio::sync::RwLock;
 #[cfg(feature = "wasm-runtime")]
 use wasmtime::*;
 

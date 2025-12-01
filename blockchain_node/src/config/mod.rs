@@ -2,7 +2,6 @@ use crate::ai_engine::data_chunking::ChunkingConfig;
 use crate::ledger::state::ShardConfig;
 use anyhow::Result;
 use log::{debug, info, warn};
-use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -220,6 +219,7 @@ pub struct ApiConfig {
     pub max_request_body_size: usize,
     pub max_connections: u32,
     pub enable_websocket: bool,
+    pub websocket_port: u16,
     pub enable_graphql: bool,
 }
 
@@ -302,7 +302,8 @@ impl Config {
                 allow_origin: vec!["*".to_string()],
                 max_request_body_size: 10 * 1024 * 1024, // 10MB
                 max_connections: 100,
-                enable_websocket: false,
+                enable_websocket: true,
+                websocket_port: 8546,
                 enable_graphql: false,
             },
             sharding: ShardingConfig {
@@ -382,7 +383,8 @@ impl Default for ApiConfig {
             allow_origin: vec!["*".to_string()],
             max_request_body_size: 10 * 1024 * 1024, // 10MB
             max_connections: 100,
-            enable_websocket: false,
+            enable_websocket: true,
+            websocket_port: 8546,
             enable_graphql: false,
         }
     }
@@ -572,7 +574,7 @@ impl DistributedConfigManager {
         local_config: &Arc<RwLock<Config>>,
     ) {
         let config = local_config.read().await;
-        let config_hash = Self::calculate_config_hash(&*config);
+        let config_hash = Self::calculate_config_hash(&config);
 
         let mut replicas_map = replicas.write().await;
 

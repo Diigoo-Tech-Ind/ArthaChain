@@ -7,7 +7,6 @@
 use anyhow::Result;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
 
 /// Gas meter for WASM execution
 #[derive(Debug)]

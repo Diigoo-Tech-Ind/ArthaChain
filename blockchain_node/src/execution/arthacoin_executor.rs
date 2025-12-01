@@ -63,7 +63,7 @@ impl ArthaCoinExecutor {
                 self.execute_transfer(transaction, state, gas_to_use)
                     .await?
             }
-            TransactionType::ContractCreate | TransactionType::Deploy => {
+            TransactionType::ContractCreate | TransactionType::Deploy | TransactionType::ContractDeployment => {
                 self.execute_deploy(transaction, state, gas_to_use).await?
             }
             TransactionType::Call | TransactionType::ContractCall => {

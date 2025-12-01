@@ -3,7 +3,7 @@ use crate::monitoring::health_check::{ComponentHealth, HealthChecker};
 use crate::network::partition_healer::NetworkPartitionHealer;
 use crate::storage::disaster_recovery::{BackupMetadata, DisasterRecoveryManager};
 use anyhow::{anyhow, Result};
-use log::{error, info, warn};
+use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -508,7 +508,7 @@ impl RecoveryAPI {
 
     /// Get health check results
     pub async fn get_health_status(&self) -> Result<HashMap<String, ComponentHealth>> {
-        Ok(self.health_checker.check_all_components().await?)
+        self.health_checker.check_all_components().await
     }
 }
 

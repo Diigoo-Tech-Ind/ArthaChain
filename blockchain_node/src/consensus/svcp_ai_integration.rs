@@ -43,12 +43,14 @@ impl SvcpAiIntegration {
 
         // Convert AI reputation to NodeScore format
         Ok(NodeScore {
-            device_score: reputation as f32, // Use reputation for device
-            network_score: reputation as f32, // Use reputation for network
-            storage_score: reputation as f32, // Use reputation for storage
-            engagement_score: reputation as f32, // Use reputation for engagement
-            ai_behavior_score: reputation as f32, // Direct AI score
-            total_score: reputation as f32,
+            overall_score: reputation as f32,
+            device_health_score: reputation as f32,
+            network_score: reputation as f32,
+            storage_score: reputation as f32,
+            engagement_score: reputation as f32,
+            ai_behavior_score: reputation as f32,
+            last_updated: std::time::SystemTime::now(),
+            history: Vec::new(),
         })
     }
 
@@ -149,7 +151,7 @@ mod tests {
             .calculate_node_score("validator_1")
             .await
             .unwrap();
-        assert!(score.total_score >= 0.0 && score.total_score <= 1.0);
+        assert!(score.overall_score >= 0.0 && score.overall_score <= 1.0);
 
         // Get cached score
         let cached = integration.get_cached_score("validator_1").await;

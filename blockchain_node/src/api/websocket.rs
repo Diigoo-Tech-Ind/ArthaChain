@@ -2,14 +2,11 @@ use axum::{
     extract::{Extension, WebSocketUpgrade},
     response::IntoResponse,
 };
-use futures::stream::BoxStream;
 use futures::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::pin::Pin;
 use std::sync::Arc;
 use tokio::sync::{broadcast, mpsc, RwLock};
-use tokio_stream::wrappers::BroadcastStream;
 use uuid::Uuid;
 
 use crate::ledger::block::Block;
@@ -692,21 +689,20 @@ async fn handle_socket(socket: axum::extract::ws::WebSocket, state: Arc<RwLock<S
                                     let mut subscribed_events = Vec::new();
 
                                     for event_type in events {
-                                        if !subscriptions.contains_key(&event_type) {
-                                            if event_type.as_str() == "new_block"
+                                        if !subscriptions.contains_key(&event_type)
+                                            && (event_type.as_str() == "new_block"
                                                 || event_type.as_str() == "new_transaction"
                                                 || event_type.as_str() == "transaction_confirmed"
                                                 || event_type.as_str() == "mempool_update"
                                                 || event_type.as_str() == "consensus_update"
                                                 || event_type.as_str() == "chain_reorg"
                                                 || event_type.as_str() == "validator_update"
-                                                || event_type.as_str() == "network_status"
+                                                || event_type.as_str() == "network_status")
                                             {
                                                 subscriptions
                                                     .insert(event_type.clone(), event_type.clone());
                                                 subscribed_events.push(event_type);
                                             }
-                                        }
                                     }
 
                                     // Send subscription confirmation

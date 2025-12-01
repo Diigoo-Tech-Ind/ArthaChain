@@ -1,25 +1,18 @@
 use anyhow::Result;
 use axum::{
-    extract::{Path, Query, State},
-    http::{HeaderValue, Method, StatusCode},
+    extract::{Path, State},
+    http::{Method, StatusCode},
     response::Json,
-    routing::{get, post},
-    serve, Router, ServiceExt,
+    routing::{get, post}, Router, ServiceExt,
 };
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, net::IpAddr, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 use tokio::sync::RwLock;
-use tower::Service;
 use tower_http::cors::{Any, CorsLayer};
-use uuid::Uuid;
 
-use crate::api::errors::ApiError;
 
-use crate::api::handlers::faucet::{self, FaucetConfig};
-use crate::config::Config;
 use crate::consensus::cross_shard::EnhancedCrossShardManager;
-use crate::gas_free::GasFreeManager;
-use crate::network::cross_shard::{CrossShardConfig, CrossShardTransaction, ShardStats, TxPhase};
+use crate::network::cross_shard::{CrossShardConfig, CrossShardTransaction, ShardStats};
 
 // App State for dependency injection will be defined below
 
@@ -161,7 +154,7 @@ pub async fn get_transaction_status(
 ) -> Result<Json<TransactionStatusResponse>, StatusCode> {
     let manager = state.cross_shard_manager.read().await;
 
-    match manager.get_transaction_status(&tx_id) {
+    match manager.get_transaction_status(&tx_id).await {
         Ok((phase, _status)) => Ok(Json(TransactionStatusResponse {
             transaction_id: tx_id,
             phase: format!("{:?}", phase),
@@ -180,7 +173,7 @@ pub async fn get_network_stats(State(state): State<AppState>) -> Json<NetworkSta
     
     // Calculate real network health based on actual metrics
     let network_health = if stats.active_nodes > 0 {
-        let health_factor = (stats.active_nodes as f64) / (stats.active_nodes + stats.pending_transactions as u32) as f64;
+        let health_factor = (stats.active_nodes as f64) / (stats.active_nodes + stats.pending_transactions) as f64;
         health_factor.min(1.0).max(0.0)
     } else {
         0.0
@@ -222,7 +215,7 @@ pub async fn get_shard_info(
     };
 
     Json(ShardInfoResponse {
-        shard_id: shard_id.into(),
+        shard_id: shard_id,
         status: shard_stats.status,
         transaction_count: shard_stats.transaction_count,
         last_block_height: shard_stats.last_block_height,
@@ -316,8 +309,14 @@ pub fn create_router(state: AppState) -> Router {
 pub async fn start_api_server(port: u16) -> Result<()> {
     println!("🚀 Starting ArthaChain API Server on port {}", port);
 
+    // Create the blockchain state
+    let config = crate::config::Config::default();
+    let blockchain_state = Arc::new(RwLock::new(
+        crate::ledger::state::State::new(&config).unwrap(),
+    ));
+
     // Initialize cross-shard manager
-    let config = CrossShardConfig {
+    let cross_shard_config = CrossShardConfig {
         max_retries: 3,
         retry_interval: Duration::from_millis(100),
         message_timeout: Duration::from_secs(30),
@@ -335,16 +334,15 @@ pub async fn start_api_server(port: u16) -> Result<()> {
     };
 
     // Use real network manager for cross-shard functionality
-    let network = Arc::new(crate::network::TestNetworkManager::new());
+    let (shutdown_tx, _shutdown_rx) = tokio::sync::mpsc::channel(1);
+    let network = Arc::new(crate::network::p2p::P2PNetwork::new(
+        config.clone(),
+        blockchain_state.clone(),
+        shutdown_tx,
+    ).await?);
 
-    let mut manager = EnhancedCrossShardManager::new(config, network).await?;
-    manager.start()?;
-
-    // Create the blockchain state
-    let config = crate::config::Config::default();
-    let blockchain_state = Arc::new(RwLock::new(
-        crate::ledger::state::State::new(&config).unwrap(),
-    ));
+    let mut manager = EnhancedCrossShardManager::new(cross_shard_config, network).await?;
+    manager.start().await?;
 
     // Create validator manager
     let validator_config = crate::consensus::validator_set::ValidatorSetConfig::default();

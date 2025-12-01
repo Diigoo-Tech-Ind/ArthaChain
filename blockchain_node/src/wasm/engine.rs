@@ -4,7 +4,7 @@
 //! handling module compilation, instantiation, function calls, and
 //! resource management.
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tokio::sync::RwLock;
@@ -192,7 +192,7 @@ impl WasmEngine {
         }
         
         // Consume gas for function call
-        let mut gas_meter = instance.gas_meter.lock().unwrap();
+        let gas_meter = instance.gas_meter.lock().unwrap();
         gas_meter.consume_gas(10)?;
         drop(gas_meter);
         

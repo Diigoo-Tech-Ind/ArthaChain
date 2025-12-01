@@ -679,11 +679,7 @@ impl AdvancedSecurityMonitor {
             Some(format!("IP: {}", ip_match))
         } else if let Some(node_match) = self.extract_node_id_from_context(context) {
             Some(format!("Node: {}", node_match))
-        } else if let Some(addr_match) = self.extract_address_from_context(context) {
-            Some(format!("Address: {}", addr_match))
-        } else {
-            None
-        }
+        } else { self.extract_address_from_context(context).map(|addr_match| format!("Address: {}", addr_match)) }
     }
 
     /// Extract target information from context
@@ -693,11 +689,7 @@ impl AdvancedSecurityMonitor {
             Some(format!("Validator: {}", validator_match))
         } else if let Some(contract_match) = self.extract_contract_from_context(context) {
             Some(format!("Contract: {}", contract_match))
-        } else if let Some(target_match) = self.extract_target_from_context(context) {
-            Some(format!("Target: {}", target_match))
-        } else {
-            None
-        }
+        } else { self.extract_target_from_context(context).map(|target_match| format!("Target: {}", target_match)) }
     }
 
     /// Extract IP address from context
@@ -829,6 +821,12 @@ impl AdvancedSecurityMonitor {
     }
 }
 
+impl Default for ThreatPatternDetector {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ThreatPatternDetector {
     /// Create new threat pattern detector
     pub fn new() -> Self {
@@ -876,6 +874,12 @@ impl ThreatPatternDetector {
         }
 
         Ok(None)
+    }
+}
+
+impl Default for AnomalyDetector {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

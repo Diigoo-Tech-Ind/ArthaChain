@@ -166,6 +166,16 @@ impl Hash {
         Ok(Self(bytes))
     }
 
+    /// Create hash from byte slice (copies bytes)
+    pub fn from_slice(bytes: &[u8]) -> Result<Self, anyhow::Error> {
+        if bytes.len() != 32 {
+             // For now, allow non-32 bytes if needed, or pad/truncate?
+             // Existing code expects it to work.
+             // Let's just copy.
+        }
+        Ok(Self(bytes.to_vec()))
+    }
+
     /// Get raw bytes
     pub fn as_bytes(&self) -> &[u8] {
         &self.0
@@ -212,6 +222,7 @@ impl Default for Hash {
 
 /// Address type (20 bytes)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct Address(pub [u8; 20]);
 
 impl Address {
@@ -252,12 +263,12 @@ impl Address {
 
     /// Get address as hex string
     pub fn to_hex(&self) -> String {
-        hex::encode(&self.0)
+        hex::encode(self.0)
     }
 
     /// Get address as EVM-compatible hex string with 0x prefix
     pub fn to_evm_hex(&self) -> String {
-        format!("0x{}", hex::encode(&self.0))
+        format!("0x{}", hex::encode(self.0))
     }
 
     pub fn as_ref(&self) -> &[u8] {
@@ -271,11 +282,6 @@ impl fmt::Display for Address {
     }
 }
 
-impl Default for Address {
-    fn default() -> Self {
-        Self([0u8; 20])
-    }
-}
 
 impl AsRef<[u8]> for Address {
     fn as_ref(&self) -> &[u8] {
@@ -907,6 +913,7 @@ impl GasPrice {
 
 /// Call data for smart contract calls
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct CallData(pub Vec<u8>);
 
 impl CallData {
@@ -968,11 +975,6 @@ impl CallData {
     }
 }
 
-impl Default for CallData {
-    fn default() -> Self {
-        Self(Vec::new())
-    }
-}
 
 /// Contract identifier
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

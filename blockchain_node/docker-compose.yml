@@ -1,299 +1,44 @@
-# ArthaChain Docker Compose Configuration
-# Multi-service architecture with 19xx port scheme
-
 version: '3.8'
 
 services:
-  # Main Blockchain Node (Port 1900)
+  # Main Blockchain Node
   arthachain-node:
     build:
       context: ..
       dockerfile: blockchain_node/Dockerfile
+    image: arthachain/node:latest
     container_name: arthachain-node
     ports:
-      - "1900:1900"
+      - "8545:8545"  # API
+      - "30303:30303" # P2P
     volumes:
-      - ./data:/arthachain/data
-      - ./logs:/arthachain/logs
-      - ./config:/arthachain/config
+      - node_data:/app/data
+      - ./config:/app/config
     environment:
       - RUST_LOG=info
-      - API_PORT=1900
-      - NETWORK=testnet
-    command: ["arthachain_node", "--port", "1900", "--testnet"]
+      - API_PORT=8545
+      - P2P_PORT=30303
+    command: ["arthachain_node", "--api-port", "8545", "--p2p-port", "30303"]
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:1900/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+      test: ["CMD", "curl", "-f", "http://localhost:8545/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  # Global API Service (Port 1910)
-  arthachain-global-api:
-    build:
-      context: ..
-      dockerfile: blockchain_node/Dockerfile
-    container_name: arthachain-global-api
+  # Metrics (Prometheus)
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: arthachain-prometheus
     ports:
-      - "1910:1910"
+      - "9090:9090"
     volumes:
-      - ./logs:/arthachain/logs
-      - ./config:/arthachain/config
-    environment:
-      - RUST_LOG=info
-      - API_PORT=1910
-    command: ["arthachain_global_node", "--port", "1910"]
-    restart: unless-stopped
-    depends_on:
-      arthachain-node:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:1910/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-
-  # Real-Time API Server (Port 1920)
-  arthachain-realtime-api:
-    build:
-      context: ..
-      dockerfile: blockchain_node/Dockerfile
-    container_name: arthachain-realtime-api
-    ports:
-      - "1920:1920"
-    volumes:
-      - ./logs:/arthachain/logs
-      - ./config:/arthachain/config
-    environment:
-      - RUST_LOG=info
-      - API_PORT=1920
-    command: ["real_time_api_server", "--port", "1920"]
-    restart: unless-stopped
-    depends_on:
-      arthachain-node:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:1920/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-
-  # Block Explorer API (Port 1930)
-  arthachain-explorer-api:
-    build:
-      context: ..
-      dockerfile: blockchain_node/Dockerfile
-    container_name: arthachain-explorer-api
-    ports:
-      - "1930:1930"
-    volumes:
-      - ./logs:/arthachain/logs
-      - ./config:/arthachain/config
-    environment:
-      - RUST_LOG=info
-      - API_PORT=1930
-    command: ["api_server", "--port", "1930"]
-    restart: unless-stopped
-    depends_on:
-      arthachain-node:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:1930/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-
-  # Documentation Server (Port 1940)
-  arthachain-docs:
-    image: nginx:1.27-alpine
-    container_name: arthachain-docs
-    ports:
-      - "1940:80"
-    volumes:
-      - ./docs:/usr/share/nginx/html:ro
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    security_opt:
-      - no-new-privileges:true
-    read_only: true
-    tmpfs:
-      - /tmp
-      - /var/cache/nginx
-      - /var/run
-
-  # Metrics Server (Port 1950)
-  arthachain-metrics:
-    image: prom/prometheus:v2.52.0
-    container_name: arthachain-metrics
-    ports:
-      - "1950:9090"
-    volumes:
-      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-      - '--storage.tsdb.retention.time=200h'
-      - '--web.enable-lifecycle'
-      - '--web.enable-admin-api'
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    user: "nobody"
-    security_opt:
-      - no-new-privileges:true
-
-  # Faucet Service (Port 1960)
-  arthachain-faucet:
-    image: nginx:1.27-alpine
-    container_name: arthachain-faucet
-    ports:
-      - "1960:80"
-    volumes:
-      - ./faucet:/usr/share/nginx/html:ro
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    security_opt:
-      - no-new-privileges:true
-    read_only: true
-    tmpfs:
-      - /tmp
-      - /var/cache/nginx
-      - /var/run
-
-  # RPC Service (Port 1970)
-  arthachain-rpc:
-    build:
-      context: ..
-      dockerfile: blockchain_node/Dockerfile
-    container_name: arthachain-rpc
-    ports:
-      - "1970:1970"
-    volumes:
-      - ./logs:/arthachain/logs
-      - ./config:/arthachain/config
-    environment:
-      - RUST_LOG=info
-      - API_PORT=1970
-    command: ["arthachain_node", "--port", "1970", "--rpc"]
-    restart: unless-stopped
-    depends_on:
-      arthachain-node:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:1970/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-
-  # Load Balancer (HAProxy)
-  haproxy:
-    image: haproxy:2.10-alpine
-    container_name: arthachain-haproxy
-    volumes:
-      - ./config/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
-    ports:
-      - "1900:1900"  # Main API
-      - "1970:1970"  # RPC
-      - "1980:1980"  # Wallet API
-    networks:
-      - arthachain-network
-    restart: unless-stopped
-    depends_on:
-      - arthachain-node
-      - arthachain-rpc
-    security_opt:
-      - no-new-privileges:true
-    read_only: true
-    tmpfs:
-      - /var/run
-      - /tmp
-
-  # Node Exporter for System Metrics
-  node-exporter:
-    image: prom/node-exporter:v1.7.0
-    container_name: arthachain-node-exporter
-    ports:
-      - "9100:9100"
-    volumes:
-      - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
-      - /:/rootfs:ro
-    command:
-      - '--path.procfs=/host/proc'
-      - '--path.rootfs=/rootfs'
-      - '--path.sysfs=/host/sys'
-      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    user: "nobody"
-
-  # cAdvisor for Container Metrics
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.49.1
-    container_name: arthachain-cadvisor
-    ports:
-      - "8080:8080"
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
-      - /dev/disk/:/dev/disk:ro
-    privileged: true
-    devices:
-      - /dev/kmsg
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-
-  # Cloudflare Tunnel
-  cloudflared:
-    image: cloudflare/cloudflared:2024.12.0
-    container_name: arthachain-cloudflared
-    command: tunnel --config /etc/cloudflared/config.yml run arthachain-testnet
-    volumes:
-      - ./cloudflared/config.yml:/etc/cloudflared/config.yml:ro
-      - ~/.cloudflared:/root/.cloudflared:ro
-    restart: unless-stopped
-    depends_on:
-      - arthachain-node
-      - arthachain-global-api
-      - arthachain-realtime-api
-      - arthachain-explorer-api
-      - arthachain-docs
-      - arthachain-metrics
-      - arthachain-faucet
-      - arthachain-rpc
-    security_opt:
-      - no-new-privileges:true
-    user: "nobody"
 
 volumes:
+  node_data:
   prometheus_data:
-
-networks:
-  default:
-    name: arthachain-network

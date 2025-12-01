@@ -5,7 +5,7 @@ use crate::evm::types::{
 use crate::storage::HybridStorage;
 use chrono::Timelike;
 use ethereum_types::{H160, H256, U256};
-use log::{debug, error, info, warn};
+use log::{debug, info, warn};
 use sha3::Digest;
 
 use std::sync::Arc;
@@ -117,6 +117,7 @@ impl EvmRuntime {
         Ok(EvmExecutionResult {
             success,
             gas_used,
+            gas_refunded: 0,
             return_data,
             contract_address: None,
             logs,
@@ -146,7 +147,7 @@ impl EvmRuntime {
         // Generate contract address (this is a simplified version)
         let mut hasher = sha3::Keccak256::new();
         hasher.update(sender.as_ref());
-        hasher.update(&nonce.to_be_bytes());
+        hasher.update(nonce.to_be_bytes());
         let hash_result = hasher.finalize();
 
         let mut address_bytes = [0u8; 20];
@@ -178,6 +179,7 @@ impl EvmRuntime {
         Ok(EvmExecutionResult {
             success: true,
             gas_used,
+            gas_refunded: 0,
             return_data: Vec::new(),
             contract_address: Some(contract_address),
             logs: self.logs.clone(),
@@ -295,12 +297,12 @@ impl EvmRuntime {
         let current_hour = chrono::Utc::now().hour();
 
         // Off-peak hours (2 AM to 6 AM UTC) get maximum discount
-        if current_hour >= 2 && current_hour <= 6 {
+        if (2..=6).contains(&current_hour) {
             return 85; // Additional 15% discount during off-peak (up to 85% total savings)
         }
 
         // Peak hours get standard discount
-        if current_hour >= 12 && current_hour <= 18 {
+        if (12..=18).contains(&current_hour) {
             return 95; // Standard optimization during peak hours
         }
 
@@ -325,6 +327,7 @@ impl EvmRuntime {
             return Ok(EvmExecutionResult {
                 success: false,
                 gas_used: 6300, // ArthaChain optimized: 70% cheaper than standard 21000
+                gas_refunded: 0,
                 return_data: Vec::new(),
                 contract_address: None,
                 logs: Vec::new(),
@@ -357,6 +360,7 @@ impl EvmRuntime {
             Err(e) => Ok(EvmExecutionResult {
                 success: false,
                 gas_used: context.gas_used(),
+                gas_refunded: 0,
                 return_data: Vec::new(),
                 contract_address: None,
                 logs: context.logs.clone(),
@@ -415,6 +419,7 @@ impl EvmRuntime {
             Err(e) => Ok(EvmExecutionResult {
                 success: false,
                 gas_used: context.gas_used(),
+                gas_refunded: 0,
                 return_data: Vec::new(),
                 contract_address: None,
                 logs: context.logs.clone(),
@@ -432,7 +437,7 @@ impl EvmRuntime {
         use sha3::{Digest, Keccak256};
         let mut hasher = Keccak256::new();
         hasher.update(creator.as_ref());
-        hasher.update(&nonce.to_be_bytes());
+        hasher.update(nonce.to_be_bytes());
         let hash_result = hasher.finalize();
 
         // Take the last 20 bytes as the address
@@ -489,6 +494,7 @@ impl EvmRuntime {
                 return Ok(EvmExecutionResult {
                     success: false,
                     gas_used: context.gas_limit,
+                    gas_refunded: 0,
                     return_data: Vec::new(),
                     contract_address: None,
                     logs: context.logs.clone(),
@@ -502,6 +508,7 @@ impl EvmRuntime {
                     return Ok(EvmExecutionResult {
                         success: true,
                         gas_used: interpreter.gas_used(),
+                        gas_refunded: 0,
                         return_data: data,
                         contract_address: None,
                         logs: context.logs.clone(),
@@ -512,6 +519,7 @@ impl EvmRuntime {
                     return Ok(EvmExecutionResult {
                         success: false,
                         gas_used: interpreter.gas_used(),
+                        gas_refunded: 0,
                         return_data: data,
                         contract_address: None,
                         logs: context.logs.clone(),
@@ -522,6 +530,7 @@ impl EvmRuntime {
                     return Ok(EvmExecutionResult {
                         success: false,
                         gas_used: interpreter.gas_used(),
+                        gas_refunded: 0,
                         return_data: Vec::new(),
                         contract_address: None,
                         logs: context.logs.clone(),
@@ -535,6 +544,7 @@ impl EvmRuntime {
         Ok(EvmExecutionResult {
             success: true,
             gas_used: interpreter.gas_used(),
+            gas_refunded: 0,
             return_data: Vec::new(),
             contract_address: None,
             logs: context.logs.clone(),
@@ -642,8 +652,8 @@ impl EvmExecutionContext {
     pub fn expand_memory(&mut self, offset: usize, length: usize) -> Result<(), EvmError> {
         let needed_size = offset + length;
         if needed_size > self.memory.len() {
-            let additional_words = (needed_size + 31) / 32 - (self.memory.len() + 31) / 32;
-            let gas_cost = additional_words * 1; // ArthaChain optimized: 70% cheaper (was 3 gas per word)
+            let additional_words = needed_size.div_ceil(32) - self.memory.len().div_ceil(32);
+            let gas_cost = additional_words; // ArthaChain optimized: 70% cheaper (was 3 gas per word)
             self.consume_gas(gas_cost as u64)?;
             self.memory.resize(needed_size, 0);
         }

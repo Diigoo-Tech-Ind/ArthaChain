@@ -1,7 +1,6 @@
 use super::runtime::{EvmInterpreter, StepResult};
 use super::types::{EvmAddress, EvmError, EvmLog};
 use ethereum_types::{H256, U256};
-use log::debug;
 use sha3::{Digest, Keccak256};
 
 impl<'a> EvmInterpreter<'a> {
@@ -384,7 +383,7 @@ impl<'a> EvmInterpreter<'a> {
         let length = self.context.pop_stack()?.as_usize();
 
         // Dynamic gas cost
-        let gas_cost = 30 + 6 * ((length + 31) / 32);
+        let gas_cost = 30 + 6 * length.div_ceil(32);
         self.context.consume_gas(gas_cost as u64)?;
 
         self.context.expand_memory(offset, length)?;
@@ -479,7 +478,7 @@ impl<'a> EvmInterpreter<'a> {
         let data_offset = self.context.pop_stack()?.as_usize();
         let length = self.context.pop_stack()?.as_usize();
 
-        let gas_cost = 3 + 3 * ((length + 31) / 32);
+        let gas_cost = 3 + 3 * length.div_ceil(32);
         self.context.consume_gas(gas_cost as u64)?;
 
         self.context.expand_memory(dest_offset, length)?;
@@ -508,7 +507,7 @@ impl<'a> EvmInterpreter<'a> {
         let code_offset = self.context.pop_stack()?.as_usize();
         let length = self.context.pop_stack()?.as_usize();
 
-        let gas_cost = 3 + 3 * ((length + 31) / 32);
+        let gas_cost = 3 + 3 * length.div_ceil(32);
         self.context.consume_gas(gas_cost as u64)?;
 
         self.context.expand_memory(dest_offset, length)?;
@@ -556,7 +555,7 @@ impl<'a> EvmInterpreter<'a> {
         let code_offset = self.context.pop_stack()?.as_usize();
         let length = self.context.pop_stack()?.as_usize();
 
-        let gas_cost = 700 + 3 * ((length + 31) / 32);
+        let gas_cost = 700 + 3 * length.div_ceil(32);
         self.context.consume_gas(gas_cost as u64)?;
 
         let mut address_bytes = [0u8; 20];
@@ -591,7 +590,7 @@ impl<'a> EvmInterpreter<'a> {
         let data_offset = self.context.pop_stack()?.as_usize();
         let length = self.context.pop_stack()?.as_usize();
 
-        let gas_cost = 3 + 3 * ((length + 31) / 32);
+        let gas_cost = 3 + 3 * length.div_ceil(32);
         self.context.consume_gas(gas_cost as u64)?;
 
         if data_offset + length > self.context.return_data.len() {
@@ -623,7 +622,7 @@ impl<'a> EvmInterpreter<'a> {
                 // Generate a deterministic hash based on block number
                 let mut hasher = Keccak256::new();
                 hasher.update(b"block_hash");
-                hasher.update(&block_number.as_u64().to_be_bytes());
+                hasher.update(block_number.as_u64().to_be_bytes());
                 let hash = hasher.finalize();
                 U256::from_big_endian(&hash)
             };

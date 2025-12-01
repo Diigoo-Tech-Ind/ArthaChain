@@ -321,7 +321,7 @@ impl CallOptimizer {
         }
 
         // Apply optimization strategies
-        let mut optimized_data = data.clone();
+        let optimized_data = data.clone();
         for strategy in &self.strategies {
             match strategy {
                 OptimizationStrategy::BatchCalls => {
@@ -417,7 +417,7 @@ impl BatchProcessor {
         // Group transactions by target contract
         let mut by_target: HashMap<Address, Vec<&BatchableTransaction>> = HashMap::new();
         for tx in batch {
-            by_target.entry(tx.target).or_insert_with(Vec::new).push(tx);
+            by_target.entry(tx.target).or_default().push(tx);
         }
 
         // Optimize each group

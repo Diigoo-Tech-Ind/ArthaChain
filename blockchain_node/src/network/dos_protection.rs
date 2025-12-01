@@ -7,7 +7,7 @@ use crate::ai_engine::online_learning::{OnlineLearner, OnlineLearnerConfig};
 use anyhow;
 use libp2p::PeerId;
 use log;
-use ndarray::{Array1, Array2};
+use ndarray::Array2;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::net::IpAddr;
 use std::sync::Arc;
@@ -537,7 +537,7 @@ impl DOSProtector {
                 
                 // Update model in background (don't block request processing too long)
                 // In production, this would be batched
-                let mut learner = self.ai_learner.write().await;
+                let learner = self.ai_learner.write().await;
                 // We need to access the internal weights to update. 
                 // Since OnlineLearner manages its own state, we'd need a public method to get weights or 
                 // move the update logic inside OnlineLearner. 

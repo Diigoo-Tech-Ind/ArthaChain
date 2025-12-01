@@ -445,11 +445,7 @@ impl DagManager {
         let highest_finalized_height = *self.highest_finalized_height.read().await;
 
         // Only keep a certain number of finalized heights
-        let prune_below_height = if highest_finalized_height > 100 {
-            highest_finalized_height - 100
-        } else {
-            0
-        };
+        let prune_below_height = highest_finalized_height.saturating_sub(100);
 
         // Collect vertices to prune
         let vertex_hashes_to_prune = {
@@ -650,7 +646,7 @@ impl DagManager {
             .unwrap()
             .as_secs();
 
-        hasher.update(&timestamp.to_be_bytes());
+        hasher.update(timestamp.to_be_bytes());
 
         let hash = hasher.finalize().to_vec();
 

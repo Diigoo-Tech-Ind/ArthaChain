@@ -1,7 +1,6 @@
 //! Transaction types and utilities
 
 use serde::{Deserialize, Serialize};
-use crate::types::Address;
 
 /// Transaction status
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

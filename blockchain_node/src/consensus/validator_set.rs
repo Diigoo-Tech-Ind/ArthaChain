@@ -158,7 +158,7 @@ impl ValidatorSetManager {
     /// Register a new validator
     pub async fn register_validator(&self, address: Vec<u8>, public_key: Vec<u8>) -> Result<()> {
         let mut state = self.state.write().await;
-        let addr = Address::from_bytes(&address).map_err(|e| ValidatorError::Internal(e))?;
+        let addr = Address::from_bytes(&address).map_err(ValidatorError::Internal)?;
 
         let current_height = state.current_height;
 
@@ -169,7 +169,7 @@ impl ValidatorSetManager {
             metrics: ValidatorMetrics::default(),
         };
 
-        state.validators.insert(addr.clone(), info);
+        state.validators.insert(addr, info);
         state.active_validators.insert(addr);
 
         Ok(())
@@ -178,7 +178,7 @@ impl ValidatorSetManager {
     /// Remove a validator
     pub async fn remove_validator(&self, address: Vec<u8>) -> Result<()> {
         let mut state = self.state.write().await;
-        let addr = Address::from_bytes(&address).map_err(|e| ValidatorError::Internal(e))?;
+        let addr = Address::from_bytes(&address).map_err(ValidatorError::Internal)?;
 
         state.validators.remove(&addr);
         state.active_validators.remove(&addr);
@@ -189,7 +189,7 @@ impl ValidatorSetManager {
     /// Update validator performance
     pub async fn update_performance(&self, address: &Vec<u8>, score: u64) -> Result<()> {
         let mut state = self.state.write().await;
-        let addr = Address::from_bytes(address).map_err(|e| ValidatorError::Internal(e))?;
+        let addr = Address::from_bytes(address).map_err(ValidatorError::Internal)?;
 
         let info = state
             .validators
@@ -221,7 +221,7 @@ impl ValidatorSetManager {
             .iter()
             .map(|(addr, info)| {
                 let social_score = info.metrics.reputation_score as u128;
-                (addr.clone(), social_score, info.registration_block)
+                (*addr, social_score, info.registration_block)
             })
             .collect();
 
@@ -242,7 +242,7 @@ impl ValidatorSetManager {
         let active_addresses: HashSet<Address> = sorted_validators
             .iter()
             .take(num_active)
-            .map(|(addr, _, _)| addr.clone())
+            .map(|(addr, _, _)| *addr)
             .collect();
 
         // Get current height to avoid borrow checker issues
@@ -304,7 +304,7 @@ impl ValidatorSetManager {
         _missed_validation: bool,
         response_time_ms: Option<u64>,
     ) -> Result<()> {
-        let addr = Address::from_bytes(address).map_err(|e| ValidatorError::Internal(e))?;
+        let addr = Address::from_bytes(address).map_err(ValidatorError::Internal)?;
 
         // First get the current height
         let current_height = {
@@ -317,7 +317,7 @@ impl ValidatorSetManager {
         let info = state
             .validators
             .get_mut(&addr)
-            .ok_or_else(|| ValidatorError::ValidatorNotFound(addr.clone()))?;
+            .ok_or_else(|| ValidatorError::ValidatorNotFound(addr))?;
 
         if proposed {
             info.metrics.total_blocks_proposed += 1;
@@ -350,7 +350,7 @@ impl ValidatorSetManager {
     /// Get validator metrics
     pub async fn get_metrics(&self, address: &Vec<u8>) -> Result<ValidatorMetrics> {
         let state = self.state.read().await;
-        let addr = Address::from_bytes(address).map_err(|e| ValidatorError::Internal(e))?;
+        let addr = Address::from_bytes(address).map_err(ValidatorError::Internal)?;
 
         let info = state
             .validators

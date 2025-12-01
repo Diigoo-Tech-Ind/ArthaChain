@@ -4,7 +4,7 @@
 use super::ArthaCoinNative;
 use crate::ledger::transaction::Transaction;
 use anyhow::{anyhow, Result};
-use log::{debug, warn};
+use log::debug;
 use std::sync::Arc;
 
 /// Gas handler for ArthaCoin transactions

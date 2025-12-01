@@ -80,6 +80,7 @@ pub struct MemMapStorage {
 }
 
 // Internal statistics for monitoring (distinct from crate::storage::StorageStats)
+#[derive(Default)]
 struct MemMapInternalStats {
     reads: u64,
     writes: u64,
@@ -92,21 +93,6 @@ struct MemMapInternalStats {
     uncompressed_blocks: u64,
 }
 
-impl Default for MemMapInternalStats {
-    fn default() -> Self {
-        Self {
-            reads: 0,
-            writes: 0,
-            deletes: 0,
-            cache_hits: 0,
-            compression_saved: 0,
-            read_time_ns: 0,
-            write_time_ns: 0,
-            compressed_blocks: 0,
-            uncompressed_blocks: 0,
-        }
-    }
-}
 
 impl Default for MemMapStorage {
     fn default() -> Self {
@@ -329,7 +315,7 @@ impl MemMapStorage {
                         hash: hash_array,
                         offset: (index_offset + entry_size) as u64, // Data follows entry
                         size: data_len as u32,
-                        compression: 0 | 0x80, // High bit indicates inline
+                        compression: 0x80, // High bit indicates inline
                         flags: 0,              // 0 = active
                         _padding: [0; 2],
                     };
@@ -1101,7 +1087,7 @@ impl MemMapStorage {
         // Access the entire memory map to force pages into memory
         let data_len = data_map.as_ref().unwrap().len();
         let chunk_size = 1024 * 1024; // 1MB chunks
-        let chunks = (data_len + chunk_size - 1) / chunk_size;
+        let chunks = data_len.div_ceil(chunk_size);
 
         // Use rayon to parallelize the preloading
         (0..chunks).into_par_iter().for_each(|i| {

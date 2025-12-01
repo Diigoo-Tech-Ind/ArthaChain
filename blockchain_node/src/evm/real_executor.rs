@@ -2,13 +2,12 @@
 //! Replaces the simulated EVM execution with actual EVM bytecode processing
 
 use anyhow::{anyhow, Result};
-use ethereum_types::{H160, H256, U256};
+use ethereum_types::{H256, U256};
 use revm::{
     primitives::{
-        Address as RevmAddress, B256, Bytes, ExecutionResult, Output, TransactTo,
+        Address as RevmAddress, Bytes, ExecutionResult, Output, TransactTo,
         TxEnv, U256 as RevmU256,
-    },
-    Evm, EvmBuilder,
+    }, EvmBuilder,
 };
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -48,17 +47,26 @@ impl RealEvmExecutor {
         // Build the transaction environment
         let tx_env = TxEnv {
             caller,
-            gas_limit: tx.gas_limit,
-            gas_price: RevmU256::from(tx.gas_price),
+            gas_limit: tx.gas_limit.as_u64(),
+            gas_price: {
+                let mut bytes = [0u8; 32];
+                tx.gas_price.to_big_endian(&mut bytes);
+                RevmU256::from_be_bytes(bytes)
+            },
             transact_to,
-            value: RevmU256::from_be_bytes(tx.value.to_be_bytes()),
+            value: {
+                let mut bytes = [0u8; 32];
+                tx.value.to_big_endian(&mut bytes);
+                RevmU256::from_be_bytes(bytes)
+            },
             data: Bytes::from(tx.data.clone()),
-            nonce: Some(RevmU256::ZERO),
+            nonce: Some(0),
             chain_id: Some(self.chain_id),
             access_list: vec![],
             gas_priority_fee: None,
             blob_hashes: vec![],
             max_fee_per_blob_gas: None,
+            authorization_list: None,
             #[cfg(feature = "optimism")]
             optimism: Default::default(),
         };
@@ -78,9 +86,9 @@ impl RealEvmExecutor {
 
         // Execute transaction
         let result = evm.transact().map_err(|e| anyhow!("EVM execution failed: {:?}", e))?;
-
+        
         // Convert revm result to our format
-        self.convert_result(result, tx)
+        self.convert_result(result.result, tx)
     }
 
     /// Convert revm ExecutionResult to EvmExecutionResult
@@ -102,8 +110,8 @@ impl RealEvmExecutor {
                     Output::Create(data, addr) => {
                         let address = addr.map(|a| {
                             let mut bytes = [0u8; 20];
-                            bytes.copy_from_slice(a.as_bytes());
-                            crate::evm::types::EvmAddress(bytes)
+                            bytes.copy_from_slice(a.as_slice());
+                            crate::evm::types::EvmAddress::from_slice(&bytes)
                         });
                         (data.to_vec(), address)
                     }
@@ -114,16 +122,16 @@ impl RealEvmExecutor {
                     .map(|log| EvmLog {
                         address: {
                             let mut bytes = [0u8; 20];
-                            bytes.copy_from_slice(log.address.as_bytes());
-                            crate::evm::types::EvmAddress(bytes)
+                            bytes.copy_from_slice(log.address.as_slice());
+                            crate::evm::types::EvmAddress::from_slice(&bytes)
                         },
                         topics: log
                             .topics()
                             .iter()
                             .map(|t| {
                                 let mut bytes = [0u8; 32];
-                                bytes.copy_from_slice(t.as_bytes());
-                                bytes
+                                bytes.copy_from_slice(t.as_slice());
+                                H256::from(bytes)
                             })
                             .collect(),
                         data: log.data.data.to_vec(),
@@ -173,13 +181,15 @@ impl RealEvmExecutor {
         block_timestamp: u64,
     ) -> Result<EvmExecutionResult> {
         let tx = EvmTransaction {
-            from: deployer.clone(),
+            from: *deployer,
             to: None, // Contract creation
             value,
             data: [bytecode, constructor_args].concat(),
-            gas_limit,
-            gas_price: 20_000_000_000, // 20 gwei default
-            nonce: U256::from(0), // Will be fetched from state
+            gas_limit: U256::from(gas_limit),
+            gas_price: U256::from(20_000_000_000u64),
+            nonce: U256::from(0),
+            chain_id: Some(self.chain_id),
+            signature: None,
         };
 
         self.execute_transaction(&tx, block_number, block_timestamp)
@@ -194,7 +204,7 @@ mod tests {
     #[tokio::test]
     async fn test_real_evm_executor_creation() {
         let storage = Arc::new(RwLock::new(
-            RocksDbStorage::new("/tmp/test_revm_db").unwrap(),
+            RocksDbStorage::new_with_path(std::path::Path::new("/tmp/test_revm_db")).unwrap(),
         ));
         let executor = RealEvmExecutor::new(storage, 201766);
         assert_eq!(executor.chain_id, 201766);

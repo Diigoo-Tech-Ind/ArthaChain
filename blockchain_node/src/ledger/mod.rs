@@ -140,7 +140,7 @@ pub struct Ledger {
 impl Ledger {
     /// Create a new ledger instance
     pub fn new(config: Arc<Config>, storage: Arc<dyn Storage>) -> Self {
-        let state = State::new(&*config).expect("Failed to create blockchain state");
+        let state = State::new(&config).expect("Failed to create blockchain state");
         Self {
             state,
             config,

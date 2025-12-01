@@ -489,7 +489,7 @@ impl RedundantNetworkManager {
             interface: String::new(), // Will be filled by caller
             is_active: true,
             packet_loss,
-            avg_latency_ms: stats.avg_latency_ms as f64,
+            avg_latency_ms: stats.avg_latency_ms,
             bandwidth_usage: stats.bandwidth_usage as f64,
             last_check: Instant::now(),
             failure_count: 0,

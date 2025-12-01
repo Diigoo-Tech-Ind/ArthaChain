@@ -1,11 +1,10 @@
-use crate::api::websocket::{EventManager, WebSocketManager};
+use crate::api::websocket::WebSocketManager;
 use crate::consensus::consensus_manager::ConsensusManager;
 use crate::ledger::state::State;
 use crate::monitoring::metrics_collector::MetricsCollector;
 use crate::network::p2p::P2PNetwork;
 use crate::transaction::mempool::Mempool;
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
 use tokio::time::{self, Duration};
 

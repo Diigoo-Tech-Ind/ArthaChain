@@ -3,8 +3,8 @@
 //! Advanced performance optimization with adaptive scaling, resource management,
 //! and real-time performance analytics for production blockchain deployment.
 
-use anyhow::{anyhow, Result};
-use log::{debug, error, info, warn};
+use anyhow::Result;
+use log::info;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex, RwLock};
@@ -699,6 +699,12 @@ impl ScalabilityOptimizer {
 
         info!("Scaling completed to {:?}", target_level);
         Ok(())
+    }
+}
+
+impl Default for PerformanceCollector {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

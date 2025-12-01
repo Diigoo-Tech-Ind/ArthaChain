@@ -7,10 +7,10 @@
 use crate::evm::EvmExecutionResult;
 use crate::types::{Address, Hash};
 
-use anyhow::{anyhow, Result};
-use log::{debug, info, warn};
+use anyhow::Result;
+use log::{debug, info};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::time::sleep;
@@ -138,6 +138,12 @@ pub struct GasPredictionModel {
     accuracy: f64,
     /// Last training timestamp
     last_trained: Instant,
+}
+
+impl Default for GasPredictionModel {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl GasPredictionModel {
@@ -466,7 +472,7 @@ impl GasOptimizationEngine {
         pattern: &ExecutionPattern,
         gas_limit: u64,
     ) -> Result<OptimizationResult> {
-        let mut model = self.prediction_model.lock().unwrap();
+        let model = self.prediction_model.lock().unwrap();
 
         // Prepare features for ML model
         let features = vec![
@@ -621,7 +627,7 @@ impl GasOptimizationEngine {
             if success {
                 pattern.optimization_success_rate = pattern.optimization_success_rate * 0.95 + 0.05;
             } else {
-                pattern.optimization_success_rate = pattern.optimization_success_rate * 0.95;
+                pattern.optimization_success_rate *= 0.95;
             }
 
             // Train ML model with new data
@@ -681,7 +687,7 @@ impl GasOptimizationEngine {
         patterns
             .entry(pattern_key.to_string())
             .or_insert_with(|| ExecutionPattern {
-                contract_address: contract_address.clone(),
+                contract_address: *contract_address,
                 function_name: function_name.to_string(),
                 gas_usage_history: VecDeque::new(),
                 execution_frequency: 0.0,
@@ -730,7 +736,7 @@ impl GasOptimizationEngine {
         if result.savings > 0 {
             metrics.success_rate = metrics.success_rate * 0.99 + 0.01;
         } else {
-            metrics.success_rate = metrics.success_rate * 0.99;
+            metrics.success_rate *= 0.99;
         }
 
         // Update strategy-specific metrics
@@ -747,7 +753,7 @@ impl GasOptimizationEngine {
         if result.savings > 0 {
             strategy_metrics.success_rate = strategy_metrics.success_rate * 0.99 + 0.01;
         } else {
-            strategy_metrics.success_rate = strategy_metrics.success_rate * 0.99;
+            strategy_metrics.success_rate *= 0.99;
         }
     }
 

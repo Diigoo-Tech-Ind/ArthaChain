@@ -15,13 +15,12 @@ use crate::api::arthachain::{
     enterprise::create_enterprise_router,
 };
 use axum::{
-    extract::{Extension, Query},
+    extract::Extension,
     response::Json,
-    routing::{get, post},
+    routing::get,
     Router,
 };
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use serde::Serialize;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use crate::ledger::state::State;

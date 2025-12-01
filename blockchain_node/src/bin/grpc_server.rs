@@ -12,7 +12,7 @@ use arthachain_node::ledger::state::State;
 #[command(about = "ArthaChain gRPC API Server")]
 struct Args {
     /// Port to run the gRPC server on
-    #[arg(short, long, default_value = "50051")]
+    #[arg(short, long, default_value = "9944")]
     port: u16,
 }
 

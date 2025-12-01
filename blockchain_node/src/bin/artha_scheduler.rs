@@ -1,7 +1,6 @@
 // ArthaChain SVDB Background Scheduler Daemon
 // Autonomous service for automated proof challenges and submissions
 
-use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::interval;
 use anyhow::Result;

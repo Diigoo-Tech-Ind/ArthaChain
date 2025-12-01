@@ -1,12 +1,11 @@
 use crate::ledger::block::Block;
-use crate::ledger::transaction::Transaction;
 use crate::network::types::NodeId;
 use anyhow::Result;
-use log::{debug, info, warn};
+use log::info;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use tokio::sync::RwLock;
 
 /// Configuration for the incentive system

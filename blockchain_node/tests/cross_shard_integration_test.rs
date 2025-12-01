@@ -9,11 +9,11 @@ use arthachain_node::consensus::cross_shard::{
     coordinator::{CoordinatorMessage, CrossShardCoordinator, TxPhase},
     merkle_proof::{MerkleTree, ProofCache, ProvenTransaction},
 };
-use arthachain_node::network::cross_shard::CrossShardConfig;
+use arthachain_node::consensus::cross_shard::coordinator::CrossShardConfig;
 
 /// Generate a proper Dilithium keypair for testing
 fn generate_test_quantum_key() -> Vec<u8> {
-    use pqcrypto_dilithium::dilithium2::*;
+    use pqcrypto_mldsa::mldsa65::*;
     use pqcrypto_traits::sign::SecretKey;
     let keypair = keypair();
     keypair.1.as_bytes().to_vec() // Return private key bytes
@@ -25,17 +25,18 @@ async fn test_cross_shard_transaction_with_proof() {
     let config = CrossShardConfig {
         local_shard: 1,
         connected_shards: vec![1, 2],
-        validation_threshold: 0.67,
-        transaction_timeout: Duration::from_secs(30),
+        transaction_timeout_ms: 30000,
         ..Default::default()
     };
 
     let (tx, _rx) = mpsc::channel(100);
+    let key_registry = std::sync::Arc::new(arthachain_node::consensus::cross_shard::key_registry::InMemoryKeyRegistry::new());
     let coordinator = CrossShardCoordinator::new(
         config,
         generate_test_quantum_key(), // Proper quantum key
         tx,
-    );
+        key_registry,
+    ).await.unwrap();
 
     // Create test transactions for Merkle tree
     let tx_data_1 = b"transfer_100_from_alice_to_bob".to_vec();
@@ -75,7 +76,7 @@ async fn test_cross_shard_transaction_with_proof() {
         .unwrap();
 
     // Verify transaction is tracked
-    let status = coordinator.get_transaction_status(&tx_id);
+    let status = coordinator.get_transaction_status(&tx_id).await;
     assert!(status.is_some(), "Transaction should be tracked");
 
     let (phase, _is_complete) = status.unwrap();
@@ -93,7 +94,8 @@ async fn test_cross_shard_transaction_with_proof() {
 async fn test_merkle_proof_caching() {
     let config = CrossShardConfig::default();
     let (tx, _rx) = mpsc::channel(100);
-    let coordinator = CrossShardCoordinator::new(config, generate_test_quantum_key(), tx);
+    let key_registry = std::sync::Arc::new(arthachain_node::consensus::cross_shard::key_registry::InMemoryKeyRegistry::new());
+    let coordinator = CrossShardCoordinator::new(config, generate_test_quantum_key(), tx, key_registry).await.unwrap();
 
     // Create multiple transactions
     let mut tx_hashes = Vec::new();
@@ -138,7 +140,7 @@ async fn test_merkle_proof_caching() {
     }
 
     // Verify cache statistics
-    let (cache_count, cached_hashes) = coordinator.get_proof_cache_stats();
+    let (cache_count, cached_hashes) = coordinator.get_proof_cache_stats().await;
     assert_eq!(cache_count, 10, "All proofs should be cached");
     assert_eq!(
         cached_hashes.len(),
@@ -155,15 +157,16 @@ async fn test_atomic_transaction_rollback() {
     let config = CrossShardConfig {
         local_shard: 1,
         connected_shards: vec![1, 2, 3],
-        transaction_timeout: Duration::from_millis(100), // Short timeout for testing
+        transaction_timeout_ms: 100, // Short timeout for testing
         ..Default::default()
     };
 
     let (tx, mut rx) = mpsc::channel(100);
-    let mut coordinator = CrossShardCoordinator::new(config, generate_test_quantum_key(), tx);
+    let key_registry = std::sync::Arc::new(arthachain_node::consensus::cross_shard::key_registry::InMemoryKeyRegistry::new());
+    let mut coordinator = CrossShardCoordinator::new(config, generate_test_quantum_key(), tx, key_registry).await.unwrap();
 
     // Start coordinator
-    coordinator.start().unwrap();
+    coordinator.start().await.unwrap();
 
     // Create a transaction that will timeout
     let tx_data = b"failing_transaction".to_vec();
@@ -186,7 +189,7 @@ async fn test_atomic_transaction_rollback() {
     tokio::time::sleep(Duration::from_millis(150)).await;
 
     // Check that transaction moves to abort phase due to timeout
-    if let Some((phase, _)) = coordinator.get_transaction_status(&tx_id) {
+    if let Some((phase, _)) = coordinator.get_transaction_status(&tx_id).await {
         // In a real implementation, this would be TxPhase::Abort
         // For now, we verify the transaction is still being tracked
         println!("Transaction phase after timeout: {:?}", phase);
@@ -196,7 +199,7 @@ async fn test_atomic_transaction_rollback() {
     let message_count = rx.try_recv().is_ok() as usize;
     println!("Messages sent during test: {}", message_count);
 
-    coordinator.stop().unwrap();
+    coordinator.stop().await.unwrap();
     println!(" Atomic transaction rollback test passed");
 }
 
@@ -210,7 +213,8 @@ async fn test_concurrent_cross_shard_transactions() {
     };
 
     let (tx, _rx) = mpsc::channel(1000);
-    let coordinator = Arc::new(CrossShardCoordinator::new(config, generate_test_quantum_key(), tx));
+    let key_registry = std::sync::Arc::new(arthachain_node::consensus::cross_shard::key_registry::InMemoryKeyRegistry::new());
+    let coordinator = Arc::new(CrossShardCoordinator::new(config, generate_test_quantum_key(), tx, key_registry).await.unwrap());
 
     let num_concurrent_txs = 50;
     let mut handles = Vec::new();
@@ -264,7 +268,8 @@ async fn test_concurrent_cross_shard_transactions() {
 async fn test_malicious_proof_detection() {
     let config = CrossShardConfig::default();
     let (tx, _rx) = mpsc::channel(100);
-    let coordinator = CrossShardCoordinator::new(config, generate_test_quantum_key(), tx);
+    let key_registry = std::sync::Arc::new(arthachain_node::consensus::cross_shard::key_registry::InMemoryKeyRegistry::new());
+    let coordinator = CrossShardCoordinator::new(config, generate_test_quantum_key(), tx, key_registry).await.unwrap();
 
     // Create legitimate transaction
     let tx_data = b"legitimate_transaction".to_vec();
@@ -314,7 +319,8 @@ async fn test_multi_shard_atomic_transaction() {
     };
 
     let (tx, _rx) = mpsc::channel(100);
-    let coordinator = CrossShardCoordinator::new(config, generate_test_quantum_key(), tx);
+    let key_registry = std::sync::Arc::new(arthachain_node::consensus::cross_shard::key_registry::InMemoryKeyRegistry::new());
+    let coordinator = CrossShardCoordinator::new(config, generate_test_quantum_key(), tx, key_registry).await.unwrap();
 
     // Create transaction involving multiple shards
     let tx_data = b"multi_shard_atomic_transfer".to_vec();
@@ -341,7 +347,7 @@ async fn test_multi_shard_atomic_transaction() {
         .unwrap();
 
     // Verify transaction state
-    let status = coordinator.get_transaction_status(&tx_id);
+    let status = coordinator.get_transaction_status(&tx_id).await;
     assert!(
         status.is_some(),
         "Multi-shard transaction should be tracked"

@@ -7,7 +7,7 @@ use std::io::Write;
 #[command(name = "arthai", version, about = "ArthaChain CLI for SVDB public storage")] 
 struct Cli {
     /// Base URL of the node HTTP API
-    #[arg(long, env = "ARTHA_NODE", default_value = "http://127.0.0.1:8080")] 
+    #[arg(long, default_value = "http://127.0.0.1:8080")] 
     node: String,
 
     #[command(subcommand)]
@@ -600,7 +600,7 @@ fn main() {
         Commands::StorageGet { cid, output } => {
             let cid_b64 = cid.trim_start_matches("artha://").to_string();
             let url = format!("{}/svdb/download/{}", cli.node, cid_b64);
-            let mut resp = client.get(url).send().expect("download");
+            let resp = client.get(url).send().expect("download");
             if !resp.status().is_success() && resp.status().as_u16() != 206 { panic!("download failed: {}", resp.status()); }
             let mut file = fs::File::create(&output).expect("create output");
             let bytes = resp.bytes().expect("bytes");
@@ -1009,13 +1009,8 @@ fn main() {
                 println!("   Estimated Duration: {}s", duration);
             }
             
-            if let Some(output_path) = output {
-                println!("\n⏳ Polling for completion (Ctrl+C to stop)...");
-                poll_job_status(&client, &cli.node, job_id, Some(&output_path));
-            } else {
-                println!("\nMonitor with: arthai job-status {}", job_id);
-                println!("Get logs with: arthai job-logs {}", job_id);
-            }
+            println!("\n⏳ Polling for completion (Ctrl+C to stop)...");
+            poll_job_status(&client, &cli.node, job_id, Some(&output));
         }
         
         Commands::Infer { model, input, mode, max_tokens, budget, out } => {
@@ -1052,13 +1047,8 @@ fn main() {
                 println!("   Status: {}", status);
             }
             
-            if let Some(output_path) = out {
-                println!("\n⏳ Waiting for inference result...");
-                poll_job_status(&client, &cli.node, job_id, Some(&output_path));
-            } else {
-                println!("\nMonitor with: arthai job-status {}", job_id);
-                println!("Get logs with: arthai job-logs {}", job_id);
-            }
+            println!("\n⏳ Waiting for inference result...");
+            poll_job_status(&client, &cli.node, job_id, Some(&out));
         }
         
         Commands::AgentRun { aiid, goal, tools, memory, budget } => {

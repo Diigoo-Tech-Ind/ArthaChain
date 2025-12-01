@@ -7,7 +7,7 @@ use crate::api::errors::ApiError;
 use crate::ledger::state::State;
 use crate::sharding::ShardManager;
 use axum::{
-    extract::{Extension, Path, Query},
+    extract::{Extension, Query},
     response::Json,
     routing::{get, post},
     Router,
@@ -374,7 +374,7 @@ pub async fn get_shard_performance(
         let memory_usage_mb = 64 + (shard_id as u64 * 4);
         let cpu_usage_percent = 70.0 + (shard_id as f64 * 2.0);
         let network_io_mbps = 50.0 + (shard_id as f64 * 10.0);
-        let queue_size = 5 + (shard_id as u32 % 10);
+        let queue_size = 5 + (shard_id % 10);
         let avg_processing_time_ms = 80 + (shard_id as u64 * 5);
         let error_rate_percent = 0.1 + (shard_id as f64 * 0.01);
         let last_activity = chrono::Utc::now().timestamp() as u64;

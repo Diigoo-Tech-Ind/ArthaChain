@@ -312,10 +312,9 @@ impl Faucet {
 
 // API endpoints for the faucet
 use axum::{
-    extract::{Extension, Json, Path, Query, ConnectInfo},
+    extract::{Extension, Json, ConnectInfo},
     http::StatusCode,
     response::{Html, IntoResponse},
-    routing::{get, post},
 };
 use std::net::SocketAddr;
 // Remove duplicate import - already imported at top
@@ -599,6 +598,7 @@ fn create_test_config() -> Config {
         max_connections: 100,
         enable_websocket: false,
         enable_graphql: false,
+        websocket_port: 9090,
     };
 
     config

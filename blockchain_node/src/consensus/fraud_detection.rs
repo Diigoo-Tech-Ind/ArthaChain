@@ -4,7 +4,7 @@ use crate::ledger::block::Block;
 use crate::ledger::transaction::Transaction;
 use crate::network::types::NodeId;
 use anyhow::{anyhow, Result};
-use log::{debug, info, warn};
+use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
@@ -794,7 +794,7 @@ impl FraudDetectionEngine {
 
         detected
             .iter()
-            .filter(|e| e.suspect_node.as_ref().map_or(false, |n| n.0 == node_id))
+            .filter(|e| e.suspect_node.as_ref().is_some_and(|n| n.0 == node_id))
             .cloned()
             .collect()
     }

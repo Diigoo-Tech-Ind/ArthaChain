@@ -2,7 +2,7 @@ use crate::ledger::state::State;
 use crate::security::advanced_monitoring::AdvancedSecurityMonitor as ThreatDetector;
 use crate::security::SecurityManager;
 use axum::{extract::Extension, http::StatusCode, response::Json as AxumJson};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;

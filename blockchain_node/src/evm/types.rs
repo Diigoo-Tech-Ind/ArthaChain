@@ -96,6 +96,8 @@ pub struct EvmExecutionResult {
     pub success: bool,
     /// Gas used during execution
     pub gas_used: u64,
+    /// Gas refunded after execution
+    pub gas_refunded: u64,
     /// Return data
     pub return_data: Vec<u8>,
     /// Contract address (if created)

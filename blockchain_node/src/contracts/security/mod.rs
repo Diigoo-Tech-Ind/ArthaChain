@@ -442,7 +442,7 @@ impl AccessControl {
     fn grant_role(&mut self, account: Address, role: Role) -> anyhow::Result<()> {
         self.roles
             .entry(account)
-            .or_insert_with(HashSet::new)
+            .or_default()
             .insert(role);
         Ok(())
     }
@@ -610,6 +610,12 @@ impl CallValidator {
 }
 
 // Advanced security component implementations
+impl Default for StaticAnalyzer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl StaticAnalyzer {
     /// Create a new advanced static analyzer
     pub fn new() -> Self {
@@ -649,6 +655,12 @@ impl StaticAnalyzer {
     }
 }
 
+impl Default for QuantumVerifier {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl QuantumVerifier {
     pub fn new() -> Self {
         Self {
@@ -656,6 +668,12 @@ impl QuantumVerifier {
             entanglement_matrix: vec![vec![0.0; 4]; 4],
             verification_proofs: HashMap::new(),
         }
+    }
+}
+
+impl Default for ThreatDetector {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

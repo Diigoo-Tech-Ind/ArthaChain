@@ -451,7 +451,7 @@ pub fn create_testnet_router(
                 let inputs = body.get("publicInputsHex").and_then(|v| v.as_array()).ok_or(axum::http::StatusCode::BAD_REQUEST)?;
                 let vk_bytes = hex::decode(vk_hex.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
                 let proof_bytes = hex::decode(proof_hex.trim_start_matches("0x")).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
-                let vk: VerifyingKey<Bn254> = VerifyingKey::deserialize_compressed(&*vk_bytes).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+                let vk: VerifyingKey<Bn254> = ark_serialize::CanonicalDeserialize::deserialize_compressed(&*vk_bytes).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
                 let pvk = prepare_verifying_key(&vk);
                 let proof: Proof<Bn254> = Proof::deserialize_compressed(&*proof_bytes).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
                 let mut pis: Vec<Fr> = Vec::with_capacity(inputs.len());

@@ -9,6 +9,12 @@ pub struct StateTree {
     state: RwLock<HashMap<String, Vec<u8>>>,
 }
 
+impl Default for StateTree {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl StateTree {
     /// Create a new state tree
     pub fn new() -> Self {

@@ -8,7 +8,7 @@ use crate::ledger::block::Block;
 use crate::ledger::transaction::Transaction;
 use crate::types::Hash;
 use anyhow::{anyhow, Result};
-use log::{debug, error, info, warn};
+use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 
 use std::collections::{HashMap, VecDeque};
@@ -85,18 +85,18 @@ pub struct State {
     /// In a real implementation, this would be LruCache<String, u64> backed by RocksDB
     /// For now, we wrap the HashMap to simulate the interface change or keep it simple
     /// but acknowledge the architecture upgrade.
-    balances: RwLock<HashMap<String, u64>>, 
+    pub balances: RwLock<HashMap<String, u64>>, 
 
     /// Account nonces
-    nonces: RwLock<HashMap<String, u64>>,
+    pub nonces: RwLock<HashMap<String, u64>>,
 
     /// Contract storage
-    storage: RwLock<HashMap<String, Vec<u8>>>,
+    pub storage: RwLock<HashMap<String, Vec<u8>>>,
     /// Smart contracts by address
-    contracts: RwLock<HashMap<Vec<u8>, ContractInfo>>,
+    pub contracts: RwLock<HashMap<Vec<u8>, ContractInfo>>,
 
     /// Current block height
-    height: RwLock<u64>,
+    pub height: RwLock<u64>,
 
     /// Shard ID
     shard_id: u64,
@@ -145,7 +145,7 @@ impl State {
             fs::create_dir_all(&data_dir)?;
         }
 
-        let mut state = Self {
+        let state = Self {
             data_dir,
             balances: RwLock::new(HashMap::new()),
             nonces: RwLock::new(HashMap::new()),
@@ -576,7 +576,7 @@ impl State {
 
         let account_history = tx_history
             .entry(address.to_string())
-            .or_insert_with(Vec::new);
+            .or_default();
         account_history.push(tx_hash.to_string());
 
         Ok(())

@@ -51,7 +51,7 @@ tracing = "0.1"
 axum = { version = "0.7.9", features = ["ws", "multipart"] }
 tower = "0.4"
 tower-http = { version = "0.6.2", features = ["cors"] }
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.12", features = ["json", "blocking", "multipart"] }
 ethereum-types = "0.14"
 prometheus = "0.14"
 criterion = "0.5"
@@ -62,4 +62,5 @@ ndarray-rand = "0.14"
 protobuf = ">=3.7.2"
 libp2p = { version = "0.54", features = ["tcp", "tokio", "noise", "yamux", "gossipsub", "kad", "identify", "mdns", "ping", "request-response", "quic", "macros"] }
 
-
+[patch.crates-io]
+ethers-providers = { path = "deps/ethers-rs/ethers-providers" }

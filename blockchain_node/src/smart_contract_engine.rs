@@ -5,12 +5,11 @@
 
 #[cfg(feature = "evm")]
 use crate::evm::{types::EvmConfig, EvmAddress, EvmExecutor, EvmRuntime, EvmTransaction};
-use crate::ledger::state::State;
 use crate::storage::Storage;
-use crate::types::{Address, Hash, Transaction};
+use crate::types::{Address, Hash};
 
 use anyhow::{anyhow, Result};
-use log::{debug, error, info, warn};
+use log::info;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex, RwLock};
@@ -362,10 +361,10 @@ impl SmartContractEngine {
         // Register contract if deployment successful
         if result.success {
             let contract_info = ContractInfo {
-                address: contract_address.clone(),
+                address: contract_address,
                 runtime: runtime.clone(),
                 bytecode_hash: Hash::from_data(blake3::hash(&final_bytecode).as_bytes()),
-                creator: deployer.clone(),
+                creator: *deployer,
                 deployment_block: 0, // Will be set by caller
                 version: "1.0.0".to_string(),
                 metadata: HashMap::new(),
@@ -373,7 +372,7 @@ impl SmartContractEngine {
             };
 
             let mut contracts = self.contracts.write().unwrap();
-            contracts.insert(contract_address.clone(), contract_info);
+            contracts.insert(contract_address, contract_info);
 
             info!(
                 "Contract deployed successfully: address={:?}, runtime={:?}, gas_used={}",
@@ -463,7 +462,7 @@ impl SmartContractEngine {
             ContractRuntime::Native => {
                 // Native contracts are optimized Rust implementations
                 // They execute directly without VM overhead
-                info!("Deploying native contract: {:?}", contract_address);
+                // info!("Deploying native contract: {:?}", contract_address);
                 
                 // For native contracts, bytecode is actually compiled Rust code metadata
                 // In production, this would load and validate the native contract module
@@ -604,7 +603,7 @@ impl SmartContractEngine {
         if result.success {
             analytics.success_rate = analytics.success_rate * 0.99 + 0.01;
         } else {
-            analytics.success_rate = analytics.success_rate * 0.99;
+            analytics.success_rate *= 0.99;
         }
 
         analytics.optimization_savings += result.optimization_savings;
@@ -619,7 +618,7 @@ impl SmartContractEngine {
         runtime_metrics.throughput = 1_000_000.0 / runtime_metrics.avg_execution_time_us; // executions per second
 
         if result.success {
-            runtime_metrics.error_rate = runtime_metrics.error_rate * 0.99;
+            runtime_metrics.error_rate *= 0.99;
         } else {
             runtime_metrics.error_rate = runtime_metrics.error_rate * 0.99 + 0.01;
         }

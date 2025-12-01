@@ -8,7 +8,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::types::Address;
-use crate::storage::{Storage, StorageError};
+use crate::storage::Storage;
 
 /// WASM contract storage interface
 pub struct WasmStorage {
@@ -32,7 +32,7 @@ impl WasmStorage {
     /// Set a value in storage
     pub async fn set(&self, contract_address: &Address, key: &[u8], value: &[u8]) -> Result<()> {
         let prefixed_key = self.prefixed_key(contract_address, key);
-        let mut storage = self.storage.write().await;
+        let storage = self.storage.write().await;
         storage.put(&prefixed_key, value).await.map_err(|e| e.into())
     }
 
@@ -50,7 +50,7 @@ impl WasmStorage {
     /// Delete a key from storage
     pub async fn delete(&self, contract_address: &Address, key: &[u8]) -> Result<()> {
         let prefixed_key = self.prefixed_key(contract_address, key);
-        let mut storage = self.storage.write().await;
+        let storage = self.storage.write().await;
         storage.delete(&prefixed_key).await.map_err(|e| e.into())
     }
 
@@ -64,7 +64,7 @@ impl WasmStorage {
     /// Set contract code
     pub async fn set_code(&self, contract_address: &Address, code: &[u8]) -> Result<()> {
         let code_key = self.code_key(contract_address);
-        let mut storage = self.storage.write().await;
+        let storage = self.storage.write().await;
         storage.put(&code_key, code).await.map_err(|e| e.into())
     }
 
@@ -78,14 +78,14 @@ impl WasmStorage {
     /// Set contract metadata
     pub async fn set_metadata(&self, contract_address: &Address, metadata: &[u8]) -> Result<()> {
         let metadata_key = self.metadata_key(contract_address);
-        let mut storage = self.storage.write().await;
+        let storage = self.storage.write().await;
         storage.put(&metadata_key, metadata).await.map_err(|e| e.into())
     }
 
     /// Create a prefixed key for contract storage
     fn prefixed_key(&self, contract_address: &Address, key: &[u8]) -> Vec<u8> {
         let mut prefixed = b"contract:".to_vec();
-        prefixed.extend_from_slice(&contract_address.as_bytes());
+        prefixed.extend_from_slice(contract_address.as_bytes());
         prefixed.push(b':');
         prefixed.extend_from_slice(key);
         prefixed
@@ -94,14 +94,14 @@ impl WasmStorage {
     /// Create a key for contract code
     fn code_key(&self, contract_address: &Address) -> Vec<u8> {
         let mut key = b"contract_code:".to_vec();
-        key.extend_from_slice(&contract_address.as_bytes());
+        key.extend_from_slice(contract_address.as_bytes());
         key
     }
 
     /// Create a key for contract metadata
     fn metadata_key(&self, contract_address: &Address) -> Vec<u8> {
         let mut key = b"contract_metadata:".to_vec();
-        key.extend_from_slice(&contract_address.as_bytes());
+        key.extend_from_slice(contract_address.as_bytes());
         key
     }
 }

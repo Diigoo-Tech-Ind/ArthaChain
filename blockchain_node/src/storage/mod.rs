@@ -38,6 +38,7 @@ impl fmt::Display for StorageError {
 impl std::error::Error for StorageError {}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct StorageStats {
     pub total_size: u64,
     pub used_size: u64,
@@ -46,17 +47,6 @@ pub struct StorageStats {
     pub write_operations: u64,
 }
 
-impl Default for StorageStats {
-    fn default() -> Self {
-        Self {
-            total_size: 0,
-            used_size: 0,
-            num_entries: 0,
-            read_operations: 0,
-            write_operations: 0,
-        }
-    }
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StorageConfig {
@@ -259,10 +249,12 @@ pub mod memmap_storage;
 pub mod memory;
 pub mod replicated_storage;
 pub mod rocksdb_storage;
+// pub mod svdb_storage;
+pub mod secure_storage;
 
 pub use rocksdb_storage::RocksDbStorage;
 pub use memmap_storage::MemMapStorage;
 pub use hybrid_storage::HybridStorage;
 pub use replicated_storage::ReplicatedStorage;
-// pub use svdb_storage::*;  // Commented out - external module not available
+// pub use svdb_storage::*;
 // pub use transaction::*;   // Commented out - transaction is a separate crate module

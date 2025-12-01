@@ -12,15 +12,11 @@ use arthachain_node::{
     api::arthachain_router::{create_arthachain_api_router, AppState as ArthaChainAppState},
 };
 use axum::{
-    extract::State as AxumState,
     routing::{get, post},
     Json, Router,
 };
 use clap::Parser;
-use hex;
-use log;
 use rand::Rng;
-use serde_json::json;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -517,7 +513,7 @@ async fn submit_transaction(
         }
     };
 
-    let mut mempool_write = mempool.write().await;
+    let mempool_write = mempool.write().await;
     let mut processed_count = 0;
     let mut errors = Vec::new();
 

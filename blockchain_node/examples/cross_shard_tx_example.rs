@@ -14,7 +14,7 @@ async fn main() -> Result<()> {
 
     println!("Starting Cross-Shard Transaction Example with Quantum Support");
 
-    // Create configuration with shorter timeouts for demo purposes
+    // Create configuration
     let config = CrossShardConfig {
         max_retries: 3,
         retry_interval: Duration::from_secs(5),
@@ -32,14 +32,17 @@ async fn main() -> Result<()> {
         connected_shards: vec![1, 2, 3],
     };
 
-    // Create network mock
-    let network = Arc::new(MockNetwork);
+    // Create real P2PNetwork for the manager (MockNetwork doesn't work with concrete types)
+    let node_config = arthachain_node::config::Config::default();
+    let state = Arc::new(tokio::sync::RwLock::new(arthachain_node::ledger::state::State::new(&node_config)?));
+    let (shutdown_tx, _shutdown_rx) = tokio::sync::mpsc::channel(1);
+    let network = Arc::new(arthachain_node::network::p2p::P2PNetwork::new(node_config, state, shutdown_tx).await?);
 
     // Create enhanced cross-shard manager
     let mut manager = EnhancedCrossShardManager::new(config, network).await?;
 
     // Start the manager
-    manager.start()?;
+    manager.start().await?;
     println!("Enhanced cross-shard manager started");
 
     // Generate a sample cross-shard transaction
@@ -61,7 +64,7 @@ async fn main() -> Result<()> {
     tokio::time::sleep(Duration::from_secs(3)).await;
 
     // Get transaction status
-    match manager.get_transaction_status(&tx_id) {
+    match manager.get_transaction_status(&tx_id).await {
         Ok((phase, status)) => {
             println!(
                 "Transaction {} status: {:?}, Status: {:?}",

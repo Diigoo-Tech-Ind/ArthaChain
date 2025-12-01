@@ -838,7 +838,7 @@ impl SVCPMiner {
         }
 
         // Add patterns for consensus participation levels
-        for participation in vec![10, 25, 50, 75, 90] {
+        for participation in [10, 25, 50, 75, 90] {
             let mut pattern = [0u8; 32];
             pattern[0] = 0xFF; // Mark as participation pattern
             pattern[1] = participation;
@@ -860,7 +860,7 @@ impl SVCPMiner {
 
         let patterns_data = patterns
             .iter()
-            .map(|p| hex::encode(p))
+            .map(hex::encode)
             .collect::<Vec<String>>()
             .join("\n");
 

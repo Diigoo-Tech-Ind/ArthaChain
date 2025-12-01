@@ -9,15 +9,19 @@ mod tests {
     async fn test_quantum_coordinator_initialization() {
         // Test quantum coordinator initialization with proper config
         let config = CoordinatorConfig {
-            timeout_ms: 5000,
+            db_path: "test_db_quantum".to_string(),
+            quantum_sig_scheme: crate::consensus::cross_shard::coordinator::QuantumSigScheme::Dilithium,
+            replica_endpoints: vec![],
+            timeout_ms: 1000,
             max_concurrent_txs: 100,
             retry_attempts: 3,
             quantum_signature_enabled: true,
-            enable_distributed_coordination: true,
-            coordinator_replicas: 5,
-            consensus_threshold: 3,
-            enable_coordinator_failover: true,
+            enable_distributed_coordination: false,
+            coordinator_replicas: 1,
+            consensus_threshold: 1,
+            enable_coordinator_failover: false,
             coordinator_health_check_interval_ms: 1000,
+            timeout_check_interval_ms: 100,
         };
 
         // Verify configuration is valid

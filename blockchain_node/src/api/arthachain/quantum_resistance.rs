@@ -5,9 +5,8 @@
 
 use crate::api::errors::ApiError;
 use crate::ledger::state::State;
-use crate::utils::crypto::PostQuantumCrypto;
 use axum::{
-    extract::{Extension, Path, Query},
+    extract::{Extension, Query},
     response::Json,
     routing::{get, post},
     Router,

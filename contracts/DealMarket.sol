@@ -45,6 +45,7 @@ contract DealMarket {
     constructor(address proofManager_, uint256 priceWei) {
         proofManager = ISVDBProofManager(proofManager_);
         pricePerGBMonthWei = priceWei;
+        governance = msg.sender;
     }
 
     address public governance;

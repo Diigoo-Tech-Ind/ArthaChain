@@ -4,6 +4,8 @@ pragma solidity ^0.8.20;
 import "forge-std/Test.sol";
 import {AntiWhaleManager} from "../AntiWhaleManager.sol";
 
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+
 contract AntiWhaleExemptionsTest is Test {
     AntiWhaleManager internal anti;
     address internal admin = address(0xA11CE);
@@ -17,8 +19,14 @@ contract AntiWhaleExemptionsTest is Test {
     address internal treasuryReserve = address(0x7777);
 
     function setUp() public {
-        anti = new AntiWhaleManager();
-        anti.initialize(admin, address(0xT0C0));
+        AntiWhaleManager implementation = new AntiWhaleManager();
+        bytes memory initData = abi.encodeWithSelector(
+            AntiWhaleManager.initialize.selector,
+            admin,
+            address(0x70C0)
+        );
+        ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
+        anti = AntiWhaleManager(address(proxy));
     }
 
     function testSetExemptionsForSystemPools() public {

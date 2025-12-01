@@ -3,7 +3,7 @@ use crate::monitoring::alerting::AlertManager;
 use crate::monitoring::health_check::HealthChecker;
 use crate::monitoring::MonitoringConfig;
 use axum::{extract::Extension, http::StatusCode, response::Json as AxumJson};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;

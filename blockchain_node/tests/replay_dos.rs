@@ -6,13 +6,13 @@ use tokio::sync::RwLock;
 
 #[tokio::test]
 async fn test_replay_and_dos_submit_transactions() {
-    use blockchain_node::api::handlers::transactions::{submit_transaction, SubmitTransactionRequest};
-    use blockchain_node::ledger::state::State;
-    use blockchain_node::transaction::mempool::Mempool;
+    use arthachain_node::api::handlers::transactions::{submit_transaction, SubmitTransactionRequest};
+    use arthachain_node::ledger::state::State;
+    use arthachain_node::transaction::mempool::Mempool;
 
-    let state = Arc::new(RwLock::new(State::new(&blockchain_node::config::Config::default()).unwrap()));
-    let mempool = Arc::new(RwLock::new(Mempool::new()))
-        as Arc<RwLock<blockchain_node::transaction::mempool::Mempool>>;
+    let state = Arc::new(RwLock::new(State::new(&arthachain_node::config::Config::default()).unwrap()));
+    let mempool = Arc::new(RwLock::new(Mempool::new(10000)))
+        as Arc<RwLock<arthachain_node::transaction::mempool::Mempool>>;
 
     // Seed sender balance
     state.write().await.set_balance("0x1111111111111111111111111111111111111111", 10_000_000_000).unwrap();
@@ -47,29 +47,30 @@ async fn test_replay_and_dos_submit_transactions() {
 
 #[tokio::test]
 async fn test_contract_call_spam() {
-    use blockchain_node::api::handlers::contracts::{call_evm_contract, CallRequest};
-    use blockchain_node::ledger::state::State;
+    use arthachain_node::api::handlers::contracts::{call_evm_contract, CallRequest};
+    use arthachain_node::ledger::state::State;
 
-    let state = Arc::new(RwLock::new(State::new(&blockchain_node::config::Config::default()).unwrap()));
+    let state = Arc::new(RwLock::new(State::new(&arthachain_node::config::Config::default()).unwrap()));
 
     // Spam calls to contract endpoint with arbitrary data
     for _ in 0..100 {
         let req = CallRequest {
-            address: "0x0000000000000000000000000000000000000000".to_string(),
-            function: "0x".to_string(),
-            args: vec![],
-            caller: "0x1111111111111111111111111111111111111111".to_string(),
-            value: 0,
-            gas_limit: 500000,
-            gas_price: 1,
-            priority: None,
+            contract_address: "0x0000000000000000000000000000000000000000".to_string(),
+            function_name: "0x".to_string(),
+            function_args: vec![],
+            value: Some(0),
+            gas_limit: Some(500000),
+            gas_price: Some(1),
         };
         let res = call_evm_contract(
             axum::extract::State(state.clone()),
             Json(req),
         )
         .await;
-        assert!(res.is_ok() || res == Err(StatusCode::BAD_REQUEST));
+        match res {
+            Ok(_) => {},
+            Err(code) => assert_eq!(code, StatusCode::BAD_REQUEST),
+        }
     }
 }
 

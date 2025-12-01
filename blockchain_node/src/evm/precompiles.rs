@@ -4,8 +4,8 @@ use sha2::{Digest, Sha256};
 use sha3::Keccak256;
 use ripemd::{Ripemd160, Digest as RipemdDigest};
 use std::collections::HashMap;
-use num_bigint::{BigUint, BigInt};
-use num_traits::{Zero, One};
+use num_bigint::BigUint;
+use num_traits::Zero;
 
 /// Initialize standard precompiled contracts
 pub fn init_precompiles() -> HashMap<EvmAddress, PrecompileFunction> {
@@ -43,7 +43,7 @@ fn ecrecover(input: &[u8], gas_limit: u64) -> Result<(Vec<u8>, u64), EvmError> {
 
     // Input must be at least 128 bytes (32 bytes each for hash, r, s, v)
     if input.len() < 128 {
-        let mut output = vec![0; 32];
+        let output = vec![0; 32];
         return Ok((output, gas_cost));
     }
 
@@ -56,7 +56,7 @@ fn ecrecover(input: &[u8], gas_limit: u64) -> Result<(Vec<u8>, u64), EvmError> {
     // Parse v value (should be 27 or 28)
     let v_byte = v[31];
     if v_byte != 27 && v_byte != 28 {
-        let mut output = vec![0; 32];
+        let output = vec![0; 32];
         return Ok((output, gas_cost));
     }
 
@@ -66,7 +66,7 @@ fn ecrecover(input: &[u8], gas_limit: u64) -> Result<(Vec<u8>, u64), EvmError> {
     hasher.update(hash);
     hasher.update(r);
     hasher.update(s);
-    hasher.update(&[v_byte]);
+    hasher.update([v_byte]);
     let recovery_hash = hasher.finalize();
 
     // Use first 20 bytes as the recovered address, pad to 32 bytes
@@ -80,7 +80,7 @@ fn ecrecover(input: &[u8], gas_limit: u64) -> Result<(Vec<u8>, u64), EvmError> {
 fn sha256(input: &[u8], gas_limit: u64) -> Result<(Vec<u8>, u64), EvmError> {
     // Base cost is 60 gas
     // Additional cost is 12 gas per word (32 bytes)
-    let words = (input.len() + 31) / 32;
+    let words = input.len().div_ceil(32);
     let gas_cost = 60 + (12 * words) as u64;
 
     if gas_limit < gas_cost {
@@ -99,7 +99,7 @@ fn sha256(input: &[u8], gas_limit: u64) -> Result<(Vec<u8>, u64), EvmError> {
 fn ripemd160(input: &[u8], gas_limit: u64) -> Result<(Vec<u8>, u64), EvmError> {
     // Base cost is 600 gas
     // Additional cost is 120 gas per word (32 bytes)
-    let words = (input.len() + 31) / 32;
+    let words = input.len().div_ceil(32);
     let gas_cost = 600 + (120 * words) as u64;
 
     if gas_limit < gas_cost {
@@ -122,7 +122,7 @@ fn ripemd160(input: &[u8], gas_limit: u64) -> Result<(Vec<u8>, u64), EvmError> {
 fn identity(input: &[u8], gas_limit: u64) -> Result<(Vec<u8>, u64), EvmError> {
     // Base cost is 15 gas
     // Additional cost is 3 gas per word (32 bytes)
-    let words = (input.len() + 31) / 32;
+    let words = input.len().div_ceil(32);
     let gas_cost = 15 + (3 * words) as u64;
 
     if gas_limit < gas_cost {

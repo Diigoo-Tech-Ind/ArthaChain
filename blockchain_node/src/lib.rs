@@ -206,6 +206,7 @@ pub mod network;
 // Cryptography and security
 pub mod crypto;
 pub mod security;
+pub mod custody;
 
 // Smart contract runtimes
 pub mod evm;

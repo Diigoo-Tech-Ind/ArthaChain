@@ -2,8 +2,11 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
+import "forge-std/console.sol";
 import {BountyBoard} from "../BountyBoard.sol";
 import {ArthaCoin} from "../ArthaCoin.sol";
+
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract BountyBoardTest is Test {
     BountyBoard board;
@@ -16,11 +19,26 @@ contract BountyBoardTest is Test {
     address developersPool = address(0x5555);
     address daoGovernancePool = address(0x6666);
     address treasuryReserve = address(0x7777);
+    address ecosystemPool = address(0xEC05);
+    address claimer = address(0xC1A1);
 
     function setUp() public {
         board = new BountyBoard();
-        token = new ArthaCoin();
-        token.initialize(admin, validatorsPool, stakingRewardsPool, ecosystemGrantsPool, marketingWallet, developersPool, daoGovernancePool, treasuryReserve);
+        
+        ArthaCoin implementation = new ArthaCoin();
+        bytes memory initData = abi.encodeWithSelector(
+            ArthaCoin.initialize.selector,
+            admin,
+            validatorsPool,
+            stakingRewardsPool,
+            ecosystemGrantsPool,
+            marketingWallet,
+            developersPool,
+            daoGovernancePool,
+            treasuryReserve
+        );
+        ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
+        token = ArthaCoin(address(proxy));
         // fund this contract with some ETH
         vm.deal(address(this), 10 ether);
     }
@@ -54,28 +72,12 @@ contract BountyBoardTest is Test {
         uint256 bal = abi.decode(data, (uint256));
         assertEq(bal, 1e18);
     }
-}
-
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
-
-import "forge-std/Test.sol";
-import {BountyBoard} from "../BountyBoard.sol";
-
-contract BountyBoardTest is Test {
-    BountyBoard internal board;
-    address ecosystemPool = address(0xECO5);
-    address claimer = address(0xC1A1);
-
-    function setUp() public {
-        board = new BountyBoard();
-    }
 
     function testCreateAndClaim() public {
-        vm.deal(address(this), 1 ether);
+        // vm.deal(address(this), 1 ether); // Already dealt in setUp
         uint256 id = board.create{value: 0.5 ether}("Fix bug", "Details");
-        vm.deal(address(board), 0);
-        vm.deal(claimer, 0);
+        // vm.deal(address(board), 0); // Reset board balance for this specific test
+        vm.deal(claimer, 0); // Reset claimer balance for this specific test
         board.claim(id, payable(claimer));
         assertGt(claimer.balance, 0);
     }
@@ -86,10 +88,10 @@ contract BountyBoardTest is Test {
         (bool ok,) = address(board).call{value: 0.25 ether}("");
         assertTrue(ok);
         // New bounty should exist at id 0
-        (address sponsor,,,,uint256 reward,,) = board.bounties(0);
-        assertEq(sponsor, ecosystemPool);
-        assertEq(reward, 0.25 ether);
+        (address sponsor,,,uint256 reward,,) = board.bounties(0);
+        console.log("Sponsor:", sponsor);
+        console.log("Expected:", ecosystemPool);
+        assertEq(sponsor, ecosystemPool, "sponsor mismatch");
+        assertEq(reward, 0.25 ether, "reward mismatch");
     }
 }
-
-

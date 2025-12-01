@@ -141,7 +141,7 @@ pub async fn get_real_latest_block(
             hash: hex::encode(block_hash.as_bytes()),
             actual_tx_count: block.transactions.len(),
             timestamp: block.header.timestamp,
-            real_proposer: hex::encode(&block.header.producer.to_bytes()), // Real producer, not "Validator-01"
+            real_proposer: hex::encode(block.header.producer.to_bytes()), // Real producer, not "Validator-01"
             gas_used: 0, // Gas not tracked in this block header
             size_bytes: bincode::serialize(&block).unwrap_or_default().len(),
         };
@@ -177,7 +177,7 @@ pub async fn get_real_recent_blocks(
                 timestamp: block.header.timestamp,
                 real_proposer: format!(
                     "0x{}...",
-                    &hex::encode(&block.header.producer.to_bytes())[0..8]
+                    &hex::encode(block.header.producer.to_bytes())[0..8]
                 ),
                 gas_used: 0, // Gas not tracked in this block header
                 size_bytes: bincode::serialize(&block).unwrap_or_default().len(),

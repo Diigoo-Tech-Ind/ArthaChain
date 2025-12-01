@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlEnumerableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "./interfaces/IBurnManager.sol";
@@ -24,7 +24,7 @@ import "./interfaces/IBurnManager.sol";
  */
 contract BurnManager is 
     Initializable,
-    AccessControlUpgradeable, 
+    AccessControlEnumerableUpgradeable, 
     UUPSUpgradeable,
     IBurnManager 
 {
@@ -70,7 +70,6 @@ contract BurnManager is
      */
     function initialize(address _admin) public initializer {
         __AccessControl_init();
-        __UUPSUpgradeable_init();
 
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
         _grantRole(GOVERNANCE_ROLE, _admin);

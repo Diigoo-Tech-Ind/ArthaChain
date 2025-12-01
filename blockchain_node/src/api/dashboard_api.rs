@@ -2,14 +2,12 @@
 //! Provides REST endpoints for dashboard data aggregation
 
 use axum::{
-    extract::{Path, Query, State},
     http::StatusCode,
     response::Json,
     routing::get,
     Router,
 };
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use serde::Serialize;
 
 #[derive(Debug, Serialize)]
 pub struct DashboardStats {
@@ -21,7 +19,7 @@ pub struct DashboardStats {
     pub policy: PolicyStats,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Default)]
 pub struct JobStats {
     pub total: u64,
     pub running: u64,
@@ -30,7 +28,7 @@ pub struct JobStats {
     pub queued: u64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Default)]
 pub struct ModelStats {
     pub total: u64,
     pub deployed: u64,
@@ -38,14 +36,14 @@ pub struct ModelStats {
     pub published: u64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Default)]
 pub struct DatasetStats {
     pub total: u64,
     pub total_size_gb: f64,
     pub active_streams: u64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Default)]
 pub struct ComputeStats {
     pub active_gpus: u64,
     pub total_gpu_hours: f64,
@@ -53,7 +51,7 @@ pub struct ComputeStats {
     pub jobs_per_hour: f64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Default)]
 pub struct StorageStats {
     pub total_gb: f64,
     pub used_gb: f64,
@@ -61,7 +59,7 @@ pub struct StorageStats {
     pub active_providers: u64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Default)]
 pub struct PolicyStats {
     pub checks_today: u64,
     pub allowed: u64,
@@ -108,7 +106,7 @@ pub async fn get_dashboard_stats() -> Result<Json<DashboardStats>, StatusCode> {
 
 async fn fetch_job_stats(client: &reqwest::Client, jobd_url: &str) -> Result<JobStats, StatusCode> {
     let response = client
-        .get(&format!("{}/job/stats", jobd_url))
+        .get(format!("{}/job/stats", jobd_url))
         .send()
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -176,7 +174,7 @@ async fn fetch_policy_stats(
     policy_url: &str,
 ) -> Result<PolicyStats, StatusCode> {
     let response = client
-        .get(&format!("{}/policy/stats", policy_url))
+        .get(format!("{}/policy/stats", policy_url))
         .send()
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;

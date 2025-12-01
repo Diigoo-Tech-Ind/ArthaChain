@@ -267,7 +267,7 @@ pub async fn sync_block_from_other_node(
     Extension(state): Extension<Arc<RwLock<State>>>,
     Json(sync_request): Json<BlockSyncRequest>,
 ) -> Result<Json<BlockSyncResponse>, ApiError> {
-    let mut state = state.write().await;
+    let state = state.write().await;
 
     // Check if we already have this block
     if let Some(existing_block) = state.get_block_by_height(sync_request.height) {
@@ -339,11 +339,7 @@ pub async fn sync_blocks(
     let current_height = state_guard.get_height().unwrap_or(0);
     
     let sync_end = end_height.unwrap_or(current_height);
-    let blocks_to_sync = if sync_end > start_height {
-        sync_end - start_height
-    } else {
-        0
-    };
+    let blocks_to_sync = sync_end.saturating_sub(start_height);
     
     Ok(Json(serde_json::json!({
         "sync_id": format!("sync_{}", chrono::Utc::now().timestamp()),

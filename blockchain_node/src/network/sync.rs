@@ -310,6 +310,12 @@ pub struct PeerTracker {
     peers: HashMap<PeerId, PeerState>,
 }
 
+impl Default for PeerTracker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PeerTracker {
     pub fn new() -> Self {
         Self {
@@ -654,7 +660,7 @@ impl SyncManager {
         // Calculate speed and estimated time
         if elapsed.as_secs() > 0 {
             status.speed = (status.current_height
-                - status.last_update.instant.elapsed().as_secs() as u64)
+                - status.last_update.instant.elapsed().as_secs())
                 as f64
                 / elapsed.as_secs() as f64;
 
@@ -992,19 +998,16 @@ impl SyncManager {
 }
 
 #[allow(dead_code)]
+#[allow(dead_code)]
 struct MockStorage {
-    blocks: HashMap<Hash, Block>,
-    height_map: HashMap<u64, Hash>,
-    latest_height: u64,
+    data: RwLock<HashMap<Vec<u8>, Vec<u8>>>,
 }
 
 impl MockStorage {
     #[allow(dead_code)]
     fn new() -> Self {
         Self {
-            blocks: HashMap::new(),
-            height_map: HashMap::new(),
-            latest_height: 0,
+            data: RwLock::new(HashMap::new()),
         }
     }
 }
@@ -1012,48 +1015,35 @@ impl MockStorage {
 #[async_trait]
 impl Storage for MockStorage {
     async fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, crate::storage::StorageError> {
-        let hash = Hash::new(key.to_vec());
-        let blocks = self.blocks.read().await;
-        if let Some(value) = blocks.get(&hash) {
-            Ok(Some(value.clone()))
-        } else {
-            Ok(None)
-        }
+        let data = self.data.read().await;
+        Ok(data.get(key).cloned())
     }
 
     async fn put(&self, key: &[u8], value: &[u8]) -> Result<(), crate::storage::StorageError> {
-        // Store key-value pair in blocks map
-        let hash = Hash::new(key.to_vec());
-        let mut blocks = self.blocks.write().await;
-        // Use the hash as key and store the value
-        // In production, this would use actual storage backend
-        blocks.insert(hash, value.to_vec());
+        let mut data = self.data.write().await;
+        data.insert(key.to_vec(), value.to_vec());
         Ok(())
     }
-
     async fn delete(&self, key: &[u8]) -> Result<(), crate::storage::StorageError> {
-        // Remove key from blocks map
-        let hash = Hash::new(key.to_vec());
-        let mut blocks = self.blocks.write().await;
-        blocks.remove(&hash);
+        let mut data = self.data.write().await;
+        data.remove(key);
         Ok(())
     }
 
     async fn exists(&self, key: &[u8]) -> Result<bool, crate::storage::StorageError> {
-        let hash = Hash::new(key.to_vec());
-        Ok(self.blocks.contains_key(&hash))
+        let data = self.data.read().await;
+        Ok(data.contains_key(key))
     }
 
     async fn list_keys(
         &self,
         prefix: &[u8],
     ) -> Result<Vec<Vec<u8>>, crate::storage::StorageError> {
-        let blocks = self.blocks.read().await;
+        let data = self.data.read().await;
         let mut keys = Vec::new();
-        for (hash, _) in blocks.iter() {
-            let hash_bytes = hash.0.as_slice();
-            if prefix.is_empty() || hash_bytes.starts_with(prefix) {
-                keys.push(hash_bytes.to_vec());
+        for key in data.keys() {
+            if prefix.is_empty() || key.starts_with(prefix) {
+                keys.push(key.clone());
             }
         }
         Ok(keys)

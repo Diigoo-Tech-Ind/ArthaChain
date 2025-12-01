@@ -156,6 +156,12 @@ pub struct SocialGraph {
     cache: Arc<RwLock<AnalysisCache>>,
 }
 
+impl Default for SocialGraph {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SocialGraph {
     /// Create a new social graph analyzer
     pub fn new() -> Self {

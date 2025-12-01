@@ -197,7 +197,7 @@ impl NetworkPartitionHealer {
                 }
 
                 // Check for partitions
-                let mut contacts = peer_contacts.write().await;
+                let contacts = peer_contacts.write().await;
                 let mut partitioned_nodes = HashSet::new();
 
                 for (peer, last_contact) in contacts.iter() {
@@ -367,8 +367,8 @@ impl NetworkPartitionHealer {
             }
         }
 
-        if partition.status != PartitionStatus::Healed {
-            if partition.healing_attempts >= config.max_healing_attempts {
+        if partition.status != PartitionStatus::Healed
+            && partition.healing_attempts >= config.max_healing_attempts {
                 partition.status = PartitionStatus::Failed;
                 let _ = event_sender.send(PartitionEvent::HealingFailed(
                     partition_id.to_string(),
@@ -379,7 +379,6 @@ impl NetworkPartitionHealer {
                     config.max_healing_attempts, partition_id
                 );
             }
-        }
 
         // Update partition in storage
         partitions

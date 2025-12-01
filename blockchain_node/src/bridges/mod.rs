@@ -17,13 +17,13 @@ pub mod polkadot;
 /// Supported blockchain networks
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Network {
-    External1,
-    External2,
+    Ethereum,
+    Bitcoin,
     External3,
     External4,
     External5,
-    External6,
-    External7,
+    Cosmos,
+    Polkadot,
     MultiVM,
 }
 
@@ -114,8 +114,21 @@ pub struct BridgeManager {
 
 impl BridgeManager {
     /// Create a new bridge manager
-    pub fn new() -> Result<Self> {
-        let ethereum_bridge = ethereum::EthereumBridge::new()?;
+    /// Create a new bridge manager
+    pub async fn new() -> Result<Self> {
+        // Load Ethereum configuration from environment
+        let eth_rpc = std::env::var("ETH_RPC_URL").unwrap_or_else(|_| "http://localhost:8545".to_string());
+        let eth_ws = std::env::var("ETH_WS_URL").ok();
+        let eth_contract = std::env::var("ETH_BRIDGE_CONTRACT").unwrap_or_else(|_| "0x1234567890123456789012345678901234567890".to_string());
+        let eth_key = std::env::var("ETH_PRIVATE_KEY").ok();
+
+        let ethereum_bridge = ethereum::EthereumBridge::new(
+            &eth_rpc,
+            eth_ws.as_deref(),
+            &eth_contract,
+            eth_key.as_deref()
+        ).await?;
+
         let bitcoin_bridge = bitcoin::BitcoinBridge::new()?;
         let cosmos_bridge = cosmos::CosmosBridge::new()?;
         let polkadot_bridge = polkadot::PolkadotBridge::new()?;
@@ -138,9 +151,9 @@ impl BridgeManager {
         );
 
         bridges.insert(
-            Network::External2,
+            Network::Bitcoin,
             BridgeConfig {
-                target_network: Network::External2,
+                target_network: Network::Bitcoin,
                 bridge_address: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh".to_string(),
                 min_confirmations: 6,
                 max_transfer_amount: 100_000_000, // 1 BTC in satoshis
@@ -222,7 +235,7 @@ impl BridgeManager {
         // Create transfer record
         let transfer = CrossChainTransfer {
             id: transfer_id.clone(),
-            source_network: Network::External1, // ArthaChain treated as EVM-compatible
+            source_network: Network::Ethereum, // ArthaChain treated as EVM-compatible
             target_network,
             source_address,
             target_address,
@@ -258,16 +271,16 @@ impl BridgeManager {
             .ok_or_else(|| anyhow::anyhow!("Transfer not found"))?;
 
         match transfer.target_network {
-            Network::External1 => {
+            Network::Ethereum => {
                 self.ethereum_bridge.process_transfer(transfer).await?;
             }
-            Network::External2 => {
+            Network::Bitcoin => {
                 self.bitcoin_bridge.process_transfer(transfer).await?;
             }
-            Network::External6 => {
+            Network::Cosmos => {
                 self.cosmos_bridge.process_transfer(transfer).await?;
             }
-            Network::External7 => {
+            Network::Polkadot => {
                 self.polkadot_bridge.process_transfer(transfer).await?;
             }
             _ => {
@@ -316,10 +329,10 @@ impl BridgeManager {
 
         // Add network-specific base fee
         let base_fee = match target_network {
-            Network::External1 => 50_000, // Higher due to gas costs
-            Network::External2 => 10_000,
-            Network::External6 => 5_000,
-            Network::External7 => 5_000,
+            Network::Ethereum => 50_000, // Higher due to gas costs
+            Network::Bitcoin => 10_000,
+            Network::Cosmos => 5_000,
+            Network::Polkadot => 5_000,
             _ => 10_000,
         };
 

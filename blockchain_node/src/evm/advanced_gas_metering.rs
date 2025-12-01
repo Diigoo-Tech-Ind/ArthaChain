@@ -819,7 +819,7 @@ impl AdvancedGasMeter {
             // Storage operations are more sensitive to congestion
             0x54 | 0x55 => congestion_factor * 1.5,
             // Memory operations are less sensitive
-            0x51 | 0x52 | 0x53 => congestion_factor * 0.8,
+            0x51..=0x53 => congestion_factor * 0.8,
             // Default factor
             _ => congestion_factor,
         };
@@ -994,7 +994,7 @@ impl AdvancedGasMeter {
 
         for &opcode in bytecode {
             match opcode {
-                0x51 | 0x52 | 0x53 => memory_usage += 32, // MLOAD, MSTORE, MSTORE8
+                0x51..=0x53 => memory_usage += 32, // MLOAD, MSTORE, MSTORE8
                 0x37 | 0x39 | 0x3c => memory_usage += 256, // Copy operations
                 0x20 => memory_usage += 1024,             // SHA3 with data
                 _ => {}
@@ -1056,7 +1056,7 @@ impl AdvancedGasMeter {
                 .push("Consider combining SLOAD/SSTORE operations for gas efficiency".to_string());
         }
 
-        if bytecode.iter().filter(|&&b| b >= 0x60 && b <= 0x7f).count() > bytecode.len() / 4 {
+        if bytecode.iter().filter(|&&b| (0x60..=0x7f).contains(&b)).count() > bytecode.len() / 4 {
             suggestions.push(
                 "High number of PUSH operations detected - consider data optimization".to_string(),
             );

@@ -289,6 +289,12 @@ pub struct ValidationErrors {
     pub errors: Vec<ValidationError>,
 }
 
+impl Default for ValidationErrors {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ValidationErrors {
     pub fn new() -> Self {
         Self {

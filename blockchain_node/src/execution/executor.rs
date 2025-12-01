@@ -158,7 +158,7 @@ impl TransactionExecutor {
         // Process transaction based on its type
         let result = match transaction.tx_type {
             TransactionType::Transfer => self.execute_transfer(transaction, state).await?,
-            TransactionType::ContractCreate | TransactionType::Deploy => {
+            TransactionType::ContractCreate | TransactionType::Deploy | TransactionType::ContractDeployment => {
                 self.execute_deploy(transaction, state).await?
             }
             TransactionType::Call | TransactionType::ContractCall => {
@@ -905,7 +905,7 @@ impl TransactionExecutor {
                 // Add contract storage reads - would need more context in real impl
                 read_set.insert(format!("contract_storage:{}", transaction.recipient));
             }
-            TransactionType::Deploy | TransactionType::ContractCreate => {
+            TransactionType::Deploy | TransactionType::ContractCreate | TransactionType::ContractDeployment => {
                 // No additional reads
             }
             TransactionType::ValidatorRegistration | TransactionType::SetValidator => {
@@ -963,7 +963,7 @@ impl TransactionExecutor {
                 // Add contract storage writes - would need more context in real impl
                 write_set.insert(format!("contract_storage:{}", transaction.recipient));
             }
-            TransactionType::Deploy | TransactionType::ContractCreate => {
+            TransactionType::Deploy | TransactionType::ContractCreate | TransactionType::ContractDeployment => {
                 // For contract deployment, create a new contract address
                 let contract_address =
                     format!("contract:{}", hex::encode(transaction.hash().as_ref()));

@@ -252,7 +252,7 @@ impl ViewChangeManager {
 
         // Verify message signature
         let validator_bytes = validator.as_ref();
-        message.verify(&validator_bytes)?;
+        message.verify(validator_bytes)?;
 
         Ok(true)
     }
@@ -272,7 +272,7 @@ impl ViewChangeManager {
         // Add message to collection
         self.messages
             .entry(view_number)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(message);
 
         // Check if we have sufficient view change messages for this view
@@ -345,9 +345,9 @@ impl ViewChangeManager {
         // Round-robin leader selection based on view number
         let validators: Vec<_> = state.validators.iter().collect();
         let leader_index = (view as usize) % validators.len();
-        let new_leader = validators[leader_index].clone();
+        let new_leader = *validators[leader_index];
 
-        state.leader = Some(new_leader.clone());
+        state.leader = Some(new_leader);
 
         info!("New leader elected for view {}: {:?}", view, new_leader);
 
@@ -385,7 +385,7 @@ impl ViewChangeManager {
 
             let vote = ViewChangeVote {
                 view: new_view + 1,
-                new_leader: new_leader.clone(),
+                new_leader: new_leader,
                 timestamp: 0,
             };
 
@@ -470,7 +470,7 @@ impl ViewChangeManager {
         // We can't sort Address type directly, so let's use a different approach
         // Use the view number to pick a leader in a round-robin fashion
         let idx = (state.view_number as usize) % validators.len();
-        Ok(validators[idx].clone())
+        Ok(validators[idx])
     }
 
     /// Sign a vote for view change with advanced cryptographic signing
@@ -559,8 +559,7 @@ impl ViewChangeManager {
 
         state
             .leader
-            .as_ref()
-            .map_or(false, |leader| leader == &validator_address)
+            .as_ref() == Some(&validator_address)
     }
 
     /// Process a view change message
@@ -577,14 +576,14 @@ impl ViewChangeManager {
         // Process the message
         self.messages
             .entry(message.view)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(message.clone());
 
         // Check if we have enough messages for view change
         if self.is_view_change_complete(message.view) {
             let mut state = self.state.write().await;
             state.view_number = message.view;
-            state.leader = Some(message.new_leader.clone());
+            state.leader = Some(message.new_leader);
             state.start_time = Some(SerializableInstant::now());
             state.votes.clear();
         }
@@ -645,7 +644,7 @@ impl ViewChangeManager {
     /// Process a vote internally
     async fn process_vote_internal(&mut self, vote: ViewChangeVote) -> Result<()> {
         let mut state = self.state.write().await;
-        state.votes.insert(vote.new_leader.clone(), vote.clone());
+        state.votes.insert(vote.new_leader, vote.clone());
 
         // Check if we have enough votes
         if state.votes.len() >= self.quorum_size {

@@ -40,6 +40,12 @@ pub struct PropertyTester {
     engine: PropertyTestEngine,
 }
 
+impl Default for PropertyTester {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PropertyTester {
     pub fn new() -> Self {
         Self {

@@ -81,11 +81,14 @@ impl MPCCustodyProvider {
         let mpc_shares: Vec<MPCKeyShare> = shares
             .into_iter()
             .enumerate()
-            .map(|(i, share)| MPCKeyShare {
-                share_id: i as u8 + 1,
-                share_data: share,
-                party_id: format!("party-{}", i),
-                commitment: self.compute_commitment(&share),
+            .map(|(i, share)| {
+                let commitment = self.compute_commitment(&share);
+                MPCKeyShare {
+                    share_id: i as u8 + 1,
+                    share_data: share,
+                    party_id: format!("party-{}", i),
+                    commitment,
+                }
             })
             .collect();
 
@@ -232,7 +235,7 @@ impl MPCCustodyProvider {
         match algorithm {
             "Ed25519" => {
                 // Use ed25519-dalek to derive public key
-                use ed25519_dalek::{PublicKey, SecretKey};
+                use ed25519_dalek::SigningKey;
                 
                 if secret.len() != 32 {
                     return Err(anyhow!("Invalid Ed25519 secret length"));
@@ -241,9 +244,8 @@ impl MPCCustodyProvider {
                 let mut secret_bytes = [0u8; 32];
                 secret_bytes.copy_from_slice(secret);
                 
-                let secret_key = SecretKey::from_bytes(&secret_bytes)
-                    .map_err(|e| anyhow!("Failed to create Ed25519 secret: {}", e))?;
-                let public_key: PublicKey = (&secret_key).into();
+                let signing_key = SigningKey::from_bytes(&secret_bytes);
+                let public_key = signing_key.verifying_key();
                 
                 Ok(public_key.to_bytes().to_vec())
             }

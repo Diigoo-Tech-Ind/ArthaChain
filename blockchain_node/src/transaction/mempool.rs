@@ -1,6 +1,5 @@
 use crate::common::{Error, Result};
-use crate::crypto::Signature;
-use crate::types::{Address, Transaction};
+use crate::types::Transaction;
 use crate::utils::crypto::Hash;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

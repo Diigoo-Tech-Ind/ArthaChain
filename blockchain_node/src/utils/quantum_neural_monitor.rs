@@ -3,9 +3,7 @@ use crate::utils::quantum_merkle::QuantumMerkleTree;
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::Path;
-use std::sync::Arc;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
 /// Neural network model type for performance monitoring
@@ -654,11 +652,11 @@ impl QuantumNeuralMonitor {
     pub fn verify_data_integrity(&self, snapshot: &PerformanceSnapshot) -> Result<bool> {
         let snapshot_bytes = serde_json::to_vec(snapshot)?;
         let proof = self.merkle_tree.generate_proof(&snapshot_bytes)?;
-        Ok(QuantumMerkleTree::verify_proof(
+        QuantumMerkleTree::verify_proof(
             &snapshot_bytes,
             &proof,
             &self.merkle_tree.root(),
-        )?)
+        )
     }
 }
 

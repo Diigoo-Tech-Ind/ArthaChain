@@ -172,7 +172,7 @@ impl AdvancedDetectionEngine {
                 let anomaly = AnomalyDetection {
                     timestamp: std::time::SystemTime::now(),
                     anomaly_type,
-                    confidence: score as f32,
+                    confidence: score,
                     related_entities: Vec::new(),
                     evidence: features.clone(),
                     recommended_action: "Monitor closely".to_string(),

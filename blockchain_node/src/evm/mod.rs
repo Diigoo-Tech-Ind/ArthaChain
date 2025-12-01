@@ -1,7 +1,7 @@
 pub mod advanced_gas_metering;
 pub mod backend;
 pub mod database;  // Real EVM database implementation using RocksDB
-pub mod execution_engine;
+// pub mod execution_engine; // Removed as file is missing
 pub mod executor;
 pub mod opcodes;
 pub mod precompiled;

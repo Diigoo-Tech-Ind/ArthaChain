@@ -5,7 +5,7 @@ use arthachain_node::{
     utils::crypto::Hash as CryptoHash,
 };
 use rand::Rng;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
@@ -28,7 +28,7 @@ impl Default for StressTestConfig {
         Self {
             total_transactions: 10_000,              // Reduced from 100,000 to 10,000
             transaction_size_mb: 1,                  // Reduced from 2MB to 1MB
-            transaction_size_bytes: 1 * 1024 * 1024, // 1MB in bytes
+            transaction_size_bytes: 1024 * 1024, // 1MB in bytes
             duration_minutes: 1,
             target_tps: 167,       // Reduced from 1667 to 167
             batch_size: 100,       // Reduced from 1000 to 100

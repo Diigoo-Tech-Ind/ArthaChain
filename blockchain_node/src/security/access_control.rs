@@ -233,10 +233,16 @@ pub struct AuthResult {
     pub required_actions: Vec<String>,
 }
 
+impl Default for AccessControlManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AccessControlManager {
     /// Create new access control manager
     pub fn new() -> Self {
-        let mut manager = Self {
+        let manager = Self {
             sessions: Arc::new(RwLock::new(HashMap::new())),
             roles: Arc::new(RwLock::new(HashMap::new())),
             permissions: Arc::new(RwLock::new(HashMap::new())),
@@ -755,7 +761,7 @@ impl AccessControlManager {
         // Clean up API keys
         let mut api_keys = self.api_keys.write().await;
         api_keys.retain(|_, api_key| {
-            api_key.active && api_key.expires_at.map_or(true, |exp| exp > now)
+            api_key.active && api_key.expires_at.is_none_or(|exp| exp > now)
         });
 
         Ok(())

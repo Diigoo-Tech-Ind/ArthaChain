@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use tokio::sync::{mpsc, RwLock};
 
 /// Serializable state representation for checkpointing
@@ -206,7 +206,7 @@ impl CheckpointManager {
         while let Some(entry) = entries.next_entry().await? {
             let path = entry.path();
 
-            if path.is_file() && path.extension().map_or(false, |ext| ext == "checkpoint") {
+            if path.is_file() && path.extension().is_some_and(|ext| ext == "checkpoint") {
                 // Parse the checkpoint ID from filename
                 if let Some(file_stem) = path.file_stem() {
                     if let Some(file_name) = file_stem.to_str() {
@@ -547,7 +547,7 @@ impl CheckpointManager {
 
         // Apply the state
         let state_rep: SerializableState = bincode::deserialize(&state_data)?;
-        let mut state = self.state.write().await;
+        let state = self.state.write().await;
         state.set_height(state_rep.height)?;
         state.set_latest_block_hash(&state_rep.latest_block_hash)?;
 
@@ -635,7 +635,7 @@ impl Clone for CheckpointManager {
                 self.config
                     .try_read()
                     .map(|guard| (*guard).clone())
-                    .unwrap_or(CheckpointConfig::default()),
+                    .unwrap_or_default(),
             ),
             checkpoints: RwLock::new(HashMap::new()),
             validators: self.validators.clone(),

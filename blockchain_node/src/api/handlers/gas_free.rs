@@ -1,11 +1,10 @@
 use axum::{
-    extract::{Extension, Json, Path, Query, State},
+    extract::{Extension, Json},
     http::StatusCode,
     response::IntoResponse,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::RwLock;
 
 use crate::gas_free::{GasFreeApp, GasFreeManager, GasFreeTxRequest};
 

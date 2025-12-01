@@ -52,7 +52,7 @@ async fn test_merkle_proof_core() {
 #[tokio::test]
 async fn test_cross_shard_core() {
     use arthachain_node::consensus::cross_shard::coordinator::CrossShardCoordinator;
-    use arthachain_node::network::cross_shard::CrossShardConfig;
+    use arthachain_node::consensus::cross_shard::coordinator::CrossShardConfig;
     use tokio::sync::mpsc;
 
     println!("🔍 Testing Cross-Shard Coordinator...");
@@ -64,17 +64,19 @@ async fn test_cross_shard_core() {
     };
 
     let (tx, _rx) = mpsc::channel(100);
+    let key_registry = std::sync::Arc::new(arthachain_node::consensus::cross_shard::key_registry::InMemoryKeyRegistry::new());
     let coordinator = CrossShardCoordinator::new(
         config,
-        vec![1, 2, 3, 4], // Mock quantum key
+        vec![1u8, 2, 3, 4], // Mock quantum key
         tx,
-    );
+        key_registry,
+    ).await.unwrap();
 
     // Test basic functionality
-    let (cache_size, _) = coordinator.get_proof_cache_stats();
+    let (cache_size, _) = coordinator.get_proof_cache_stats().await;
     assert_eq!(cache_size, 0, "Initial cache should be empty");
 
-    coordinator.clear_proof_cache();
+    coordinator.clear_proof_cache().await;
 
     println!(" Cross-Shard Coordinator: PASSED");
 }

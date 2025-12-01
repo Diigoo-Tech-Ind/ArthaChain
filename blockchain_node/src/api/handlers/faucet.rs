@@ -1,11 +1,10 @@
 use crate::config::Config;
 use crate::ledger::state::State;
 use crate::ledger::transaction::{Transaction, TransactionType};
-use crate::types::{Address, Hash};
 use crate::utils::crypto;
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use hex;
-use log::{error, info, warn};
+use log::{error, info};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::net::IpAddr;
@@ -100,7 +99,7 @@ impl Faucet {
 
         // Initialize state with faucet account if this is genesis
         if config.is_genesis {
-            let mut state_write = state.write().await;
+            let state_write = state.write().await;
 
             // Check if faucet account exists, if not create it
             let faucet_balance = state_write.get_balance(&faucet_config.address).unwrap_or(0);
@@ -292,7 +291,7 @@ impl Faucet {
 
     /// Execute the actual faucet transaction
     async fn execute_faucet_transaction(&self, recipient: &str) -> Result<String> {
-        let mut state = self.state.write().await;
+        let state = self.state.write().await;
 
         // Check faucet balance again (double-check)
         let faucet_balance = state.get_balance(&self.config.address).unwrap_or(0);
@@ -601,7 +600,7 @@ mod tests {
 
 // HTTP handlers for the faucet API endpoints
 use axum::Json;
-use axum::{extract::Extension, http::StatusCode, response::Json as AxumJson};
+use axum::{extract::Extension, http::StatusCode};
 
 /// Handler for faucet token requests
 pub async fn request_faucet_tokens(

@@ -70,7 +70,8 @@ impl ZKPSystem {
 
     /// Setup trusted parameters (in production, use ceremony)
     pub fn setup(&mut self) -> Result<()> {
-        let rng = &mut ark_std::test_rng();
+        use ark_std::rand::thread_rng;
+        let rng = &mut thread_rng();
 
         // Create circuit
         let circuit = SimpleCircuit {
@@ -95,7 +96,8 @@ impl ZKPSystem {
             .as_ref()
             .ok_or_else(|| anyhow!("Setup not run"))?;
 
-        let rng = &mut ark_std::test_rng();
+        use ark_std::rand::thread_rng;
+        let rng = &mut thread_rng();
 
         // Create circuit with actual values
         let circuit = SimpleCircuit {

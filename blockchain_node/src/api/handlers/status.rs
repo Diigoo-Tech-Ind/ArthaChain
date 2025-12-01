@@ -1,4 +1,4 @@
-use axum::{extract::Extension, http::StatusCode, response::Json};
+use axum::{extract::Extension, response::Json};
 use serde::Serialize;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -376,7 +376,7 @@ async fn get_system_performance() -> PerformanceMetrics {
 
 /// Get CPU usage percentage using sysinfo
 async fn get_cpu_usage() -> f64 {
-    use sysinfo::{System, Cpu};
+    use sysinfo::System;
     
     let mut sys = System::new_all();
     sys.refresh_cpu_all();

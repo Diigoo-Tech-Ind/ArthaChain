@@ -352,7 +352,7 @@ impl AdaptiveChunker {
         self.stats.time_per_byte = elapsed.as_nanos() as f32 / total_size as f32;
 
         // Estimate compression ratio (simplified)
-        let unique_bytes = self.estimate_entropy(&chunks);
+        let unique_bytes = self.estimate_entropy(chunks);
         self.stats.compression_ratio = unique_bytes / total_size as f32;
 
         Ok(())
@@ -481,7 +481,7 @@ impl AdaptiveChunker {
         }
 
         let unique_chunks = hash_counts.len();
-        let dedup_ratio = if chunks.len() > 0 {
+        let dedup_ratio = if !chunks.is_empty() {
             1.0 - (unique_chunks as f32 / chunks.len() as f32)
         } else {
             0.0
@@ -493,7 +493,7 @@ impl AdaptiveChunker {
         analysis.insert("total_chunks".to_string(), chunks.len() as f32);
         analysis.insert(
             "avg_chunk_size".to_string(),
-            if chunks.len() > 0 {
+            if !chunks.is_empty() {
                 total_size as f32 / chunks.len() as f32
             } else {
                 0.0

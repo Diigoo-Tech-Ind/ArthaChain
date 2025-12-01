@@ -1,12 +1,10 @@
 use axum::{
-    extract::{Extension, Query},
-    http::StatusCode,
+    extract::Extension,
     Json,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::{HashMap, HashSet};
-use std::str::FromStr;
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::sync::LazyLock;
@@ -14,7 +12,8 @@ use tokio::sync::RwLock;
 
 use crate::api::ApiError;
 use crate::ledger::state::State;
-use crate::types::{Address, Hash, TransactionStatus};
+use crate::types::{Address, Hash};
+use ethereum_types::H256;
 
 /// Event filter for real-time monitoring
 #[derive(Debug, Clone)]
@@ -50,7 +49,7 @@ pub struct JsonRpcRequest {
 }
 
 /// JSON-RPC 2.0 Response
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JsonRpcResponse {
     pub jsonrpc: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -61,7 +60,7 @@ pub struct JsonRpcResponse {
 }
 
 /// JSON-RPC 2.0 Error
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JsonRpcError {
     pub code: i32,
     pub message: String,
@@ -116,10 +115,18 @@ pub async fn handle_rpc_request(
     Extension(state): Extension<Arc<RwLock<State>>>,
     Json(request): Json<JsonRpcRequest>,
 ) -> Result<Json<JsonRpcResponse>, ApiError> {
+    handle_json_rpc(&state, request).await
+}
+
+/// Internal handler for JSON-RPC requests (separated for testing)
+pub async fn handle_json_rpc(
+    state: &Arc<RwLock<State>>,
+    request: JsonRpcRequest,
+) -> Result<Json<JsonRpcResponse>, ApiError> {
     let response = match request.method.as_str() {
         // Chain identification
-        "eth_chainId" => handle_chain_id(&state, &request).await,
-        "net_version" => handle_net_version(&state, &request).await,
+        "eth_chainId" => handle_chain_id(state, &request).await,
+        "net_version" => handle_net_version(state, &request).await,
         "web3_clientVersion" => handle_client_version(&request).await,
 
         // Account management
@@ -127,58 +134,58 @@ pub async fn handle_rpc_request(
         "eth_requestAccounts" => handle_request_accounts(&request).await,
 
         // Balance and account info
-        "eth_getBalance" => handle_get_balance(&state, &request).await,
-        "eth_getTransactionCount" => handle_get_transaction_count(&state, &request).await,
+        "eth_getBalance" => handle_get_balance(state, &request).await,
+        "eth_getTransactionCount" => handle_get_transaction_count(state, &request).await,
 
         // Block information
-        "eth_blockNumber" => handle_block_number(&state, &request).await,
-        "eth_getBlockByNumber" => handle_get_block_by_number(&state, &request).await,
-        "eth_getBlockByHash" => handle_get_block_by_hash(&state, &request).await,
+        "eth_blockNumber" => handle_block_number(state, &request).await,
+        "eth_getBlockByNumber" => handle_get_block_by_number(state, &request).await,
+        "eth_getBlockByHash" => handle_get_block_by_hash(state, &request).await,
 
         // Transaction information
-        "eth_getTransactionByHash" => handle_get_transaction_by_hash(&state, &request).await,
-        "eth_getTransactionReceipt" => handle_get_transaction_receipt(&state, &request).await,
+        "eth_getTransactionByHash" => handle_get_transaction_by_hash(state, &request).await,
+        "eth_getTransactionReceipt" => handle_get_transaction_receipt(state, &request).await,
 
         // Transaction operations
-        "eth_sendTransaction" => handle_send_transaction(&state, &request).await,
-        "eth_sendRawTransaction" => handle_send_raw_transaction(&state, &request).await,
-        "eth_estimateGas" => handle_estimate_gas(&state, &request).await,
+        "eth_sendTransaction" => handle_send_transaction(state, &request).await,
+        "eth_sendRawTransaction" => handle_send_raw_transaction(state, &request).await,
+        "eth_estimateGas" => handle_estimate_gas(state, &request).await,
         "eth_gasPrice" => handle_gas_price(&request).await,
 
         // Network info
         "net_listening" => handle_net_listening(&request).await,
-        "net_peerCount" => handle_net_peer_count(&state, &request).await,
+        "net_peerCount" => handle_net_peer_count(state, &request).await,
 
         // EVM/Contract methods
-        "eth_call" => handle_eth_call(&state, &request).await,
-        "eth_getLogs" => handle_get_logs(&state, &request).await,
-        "eth_getStorageAt" => handle_get_storage_at(&state, &request).await,
-        "eth_getCode" => handle_get_code(&state, &request).await,
-        "eth_newFilter" => handle_new_filter(&state, &request).await,
-        "eth_newBlockFilter" => handle_new_block_filter(&state, &request).await,
+        "eth_call" => handle_eth_call(state, &request).await,
+        "eth_getLogs" => handle_get_logs(state, &request).await,
+        "eth_getStorageAt" => handle_get_storage_at(state, &request).await,
+        "eth_getCode" => handle_get_code(state, &request).await,
+        "eth_newFilter" => handle_new_filter(state, &request).await,
+        "eth_newBlockFilter" => handle_new_block_filter(state, &request).await,
         "eth_newPendingTransactionFilter" => {
-            handle_new_pending_transaction_filter(&state, &request).await
+            handle_new_pending_transaction_filter(state, &request).await
         }
-        "eth_uninstallFilter" => handle_uninstall_filter(&state, &request).await,
-        "eth_getFilterChanges" => handle_get_filter_changes(&state, &request).await,
-        "eth_getFilterLogs" => handle_get_filter_logs(&state, &request).await,
-        "eth_getProof" => handle_get_proof(&state, &request).await,
+        "eth_uninstallFilter" => handle_uninstall_filter(state, &request).await,
+        "eth_getFilterChanges" => handle_get_filter_changes(state, &request).await,
+        "eth_getFilterLogs" => handle_get_filter_logs(state, &request).await,
+        "eth_getProof" => handle_get_proof(state, &request).await,
 
         // Multi-VM compatibility methods
-        "getAccountInfo" => handle_get_account_info(&state, &request).await,
-        "getProgramAccounts" => handle_get_program_accounts(&state, &request).await,
-        "simulateTransaction" => handle_simulate_transaction(&state, &request).await,
-        "getTokenAccountsByOwner" => handle_get_token_accounts_by_owner(&state, &request).await,
-        "getSignaturesForAddress" => handle_get_signatures_for_address(&state, &request).await,
+        "getAccountInfo" => handle_get_account_info(state, &request).await,
+        "getProgramAccounts" => handle_get_program_accounts(state, &request).await,
+        "simulateTransaction" => handle_simulate_transaction(state, &request).await,
+        "getTokenAccountsByOwner" => handle_get_token_accounts_by_owner(state, &request).await,
+        "getSignaturesForAddress" => handle_get_signatures_for_address(state, &request).await,
 
         // WASM-specific methods for WASM wallet support
-        "wasm_deployContract" => handle_wasm_deploy(&state, &request).await,
-        "wasm_call" => handle_wasm_call(&state, &request).await,
-        "wasm_getContractInfo" => handle_wasm_get_contract_info(&state, &request).await,
-        "wasm_estimateGas" => handle_wasm_estimate_gas(&state, &request).await,
+        "wasm_deployContract" => handle_wasm_deploy(state, &request).await,
+        "wasm_call" => handle_wasm_call(state, &request).await,
+        "wasm_getContractInfo" => handle_wasm_get_contract_info(state, &request).await,
+        "wasm_estimateGas" => handle_wasm_estimate_gas(state, &request).await,
 
         // Cross-VM methods
-        "artha_getVmType" => handle_get_vm_type(&state, &request).await,
+        "artha_getVmType" => handle_get_vm_type(state, &request).await,
         "artha_getSupportedVms" => handle_get_supported_vms(&request).await,
 
         _ => JsonRpcResponse {
@@ -690,7 +697,7 @@ async fn handle_get_transaction_receipt(
     };
 
     // Look up actual transaction receipt from blockchain state
-    let receipt = match state.read().await.get_transaction(&tx_hash) {
+    let receipt = match state.read().await.get_transaction(tx_hash) {
         Some(tx) => {
             // Get block information for this transaction
             let block_info = None::<()>; // State does not expose block info; keep fields defaulted
@@ -1069,22 +1076,14 @@ async fn handle_get_logs(state: &Arc<RwLock<State>>, request: &JsonRpcRequest) -
     let addresses = filter_params.get("address").and_then(|v| {
         if let Some(addr) = v.as_str() {
             Some(vec![addr.to_string()])
-        } else if let Some(addrs) = v.as_array() {
-            Some(
-                addrs
+        } else { v.as_array().map(|addrs| addrs
                     .iter()
                     .filter_map(|a| a.as_str().map(|s| s.to_string()))
-                    .collect(),
-            )
-        } else {
-            None
-        }
+                    .collect()) }
     });
 
     let topics = filter_params.get("topics").and_then(|v| {
-        if let Some(topics_array) = v.as_array() {
-            Some(
-                topics_array
+        v.as_array().map(|topics_array| topics_array
                     .iter()
                     .map(|t| {
                         if let Some(topic_str) = t.as_str() {
@@ -1098,11 +1097,8 @@ async fn handle_get_logs(state: &Arc<RwLock<State>>, request: &JsonRpcRequest) -
                             vec![]
                         }
                     })
-                    .collect(),
-            )
-        } else {
-            None
-        }
+                    .map(Some)
+                    .collect::<Vec<Option<Vec<String>>>>())
     });
 
     let from_block = filter_params.get("fromBlock").and_then(|v| v.as_str());
@@ -1135,12 +1131,12 @@ async fn handle_get_logs(state: &Arc<RwLock<State>>, request: &JsonRpcRequest) -
 
     // Iterate through blocks and collect logs
     for block_num in start_block..=end_block {
-        if let Some(block) = state_guard.blocks.read().unwrap().get(&block_num) {
+        if let Some(block) = state_guard.get_block_by_height(block_num) {
             for (tx_idx, tx) in block.transactions.iter().enumerate() {
                 // Check if transaction matches address filter
                 if let Some(ref addrs) = addresses {
-                    let tx_from = format!("0x{}", hex::encode(tx.from.as_bytes()));
-                    let tx_to = tx.to.map(|t| format!("0x{}", hex::encode(t.as_bytes())));
+                    let tx_from = format!("0x{}", hex::encode(&tx.from));
+                    let tx_to = if tx.to.is_empty() { None } else { Some(format!("0x{}", hex::encode(&tx.to))) };
                     
                     let matches_address = addrs.iter().any(|addr| {
                         tx_from.eq_ignore_ascii_case(addr) || 
@@ -1155,28 +1151,33 @@ async fn handle_get_logs(state: &Arc<RwLock<State>>, request: &JsonRpcRequest) -
                 // Create log entry from transaction
                 // In production, logs would come from EVM execution results stored in state
                 let log_entry = json!({
-                    "address": tx.to.map(|t| format!("0x{}", hex::encode(t.as_bytes()))).unwrap_or_else(|| "0x0".to_string()),
+                    "address": if tx.to.is_empty() { "0x0".to_string() } else { format!("0x{}", hex::encode(&tx.to)) },
                     "topics": vec![] as Vec<String>,
                     "data": format!("0x{}", hex::encode(&tx.data)),
                     "blockNumber": format!("0x{:x}", block_num),
-                    "transactionHash": format!("0x{}", hex::encode(tx.hash().as_ref())),
+                    "transactionHash": format!("0x{}", hex::encode(tx.hash().unwrap_or_default().as_ref())),
                     "transactionIndex": format!("0x{:x}", tx_idx),
-                    "blockHash": format!("0x{}", hex::encode(block.header.prev_hash.as_ref())),
+                    "blockHash": format!("0x{}", hex::encode(block.header.previous_hash.as_ref())),
                     "logIndex": format!("0x{:x}", tx_idx),
                     "removed": false
                 });
 
                 // Filter by topics if specified
                 if let Some(ref topic_filters) = topics {
-                    let log_topics = log_entry["topics"].as_array().unwrap_or(&vec![]);
-                    let matches = topic_filters.iter().enumerate().all(|(idx, topic_list)| {
-                        if topic_list.is_empty() {
-                            true // Empty topic list means match all
-                        } else if idx < log_topics.len() {
-                            let log_topic = log_topics[idx].as_str().unwrap_or("");
-                            topic_list.iter().any(|t| log_topic.eq_ignore_ascii_case(t))
+                    let empty_vec = vec![];
+                    let log_topics = log_entry["topics"].as_array().unwrap_or(&empty_vec);
+                    let matches = topic_filters.iter().enumerate().all(|(idx, topic_list_option)| {
+                        if idx >= log_topics.len() {
+                            return topic_list_option.is_none(); // If filter exists for a topic position beyond actual log topics, it must be null/empty filter
+                        }
+
+                        let log_topic = log_topics[idx].as_str().unwrap_or("");
+
+                        if topic_list_option.as_ref().is_none_or(|t| t.is_empty()) {
+                            true // Empty filter (None or Some([]) ) means match all for this position
                         } else {
-                            false
+                            let list = topic_list_option.as_ref().unwrap(); // Safe to unwrap due to previous check
+                            list.iter().any(|t| log_topic.eq_ignore_ascii_case(t))
                         }
                     });
                     
@@ -1246,11 +1247,17 @@ fn detect_transaction_type(data: &[u8]) -> (crate::ledger::transaction::Transact
     )
 }
 
+fn u256_to_be_bytes(value: ethereum_types::U256) -> Vec<u8> {
+    let mut bytes = [0u8; 32];
+    value.to_big_endian(&mut bytes);
+    bytes.to_vec()
+}
+
 /// Verify ECDSA signature for EVM transaction
 fn verify_ecdsa_signature(
     tx: &crate::evm::types::EvmTransaction,
 ) -> Result<ethereum_types::H160, String> {
-    use k256::ecdsa::{signature::Verifier, VerifyingKey};
+    use k256::ecdsa::{RecoveryId, Signature, VerifyingKey};
     use sha3::{Keccak256, Digest};
     
     let (v, r, s) = match &tx.signature {
@@ -1259,24 +1266,28 @@ fn verify_ecdsa_signature(
     };
 
     // Recover public key from signature
-    let recovery_id = if v >= 35 {
+    let recovery_id_value = if v >= 35 {
         // EIP-155: v = chain_id * 2 + 35 + recovery_id
-        (v - 35) % 2
+        ((v - 35) % 2)
     } else {
-        v - 27
+        (v - 27)
     };
+
+    // Create RecoveryId from u8
+    let recovery_id = RecoveryId::try_from(recovery_id_value)
+        .map_err(|e| format!("Invalid recovery ID: {}", e))?;
 
     // Create message hash (RLP-encoded transaction without signature)
     let mut message = Vec::new();
-    message.extend_from_slice(&tx.nonce.to_be_bytes());
-    message.extend_from_slice(&tx.gas_price.to_be_bytes());
-    message.extend_from_slice(&tx.gas_limit.to_be_bytes());
+    message.extend_from_slice(&u256_to_be_bytes(tx.nonce));
+    message.extend_from_slice(&u256_to_be_bytes(tx.gas_price));
+    message.extend_from_slice(&u256_to_be_bytes(tx.gas_limit));
     if let Some(to) = tx.to {
         message.extend_from_slice(to.as_bytes());
     } else {
         message.push(0); // Contract creation
     }
-    message.extend_from_slice(&tx.value.to_be_bytes());
+    message.extend_from_slice(&u256_to_be_bytes(tx.value));
     message.extend_from_slice(&tx.data);
     if let Some(chain_id) = tx.chain_id {
         message.extend_from_slice(&chain_id.to_be_bytes());
@@ -1285,19 +1296,26 @@ fn verify_ecdsa_signature(
     let message_hash = Keccak256::digest(&message);
     
     // Recover verifying key from signature
-    let sig_bytes = [r.as_bytes(), s.as_bytes()].concat();
-    let sig = k256::ecdsa::Signature::from_bytes(&sig_bytes.into())
+    // Construct signature from r and s components (64 bytes total)
+    let mut sig_bytes = [0u8; 64];
+    sig_bytes[0..32].copy_from_slice(r.as_bytes());
+    sig_bytes[32..64].copy_from_slice(s.as_bytes());
+    
+    let sig = Signature::from_slice(&sig_bytes)
         .map_err(|e| format!("Invalid signature format: {}", e))?;
     
-    let verifying_key = VerifyingKey::recover_from_digest(
-        sig,
+    // Recover the public key from the signature and message hash
+    let verifying_key = VerifyingKey::recover_from_prehash(
+        &message_hash,
+        &sig,
         recovery_id,
-        &message_hash.into(),
     ).map_err(|e| format!("Signature recovery failed: {}", e))?;
 
     // Extract address from public key (last 20 bytes of keccak256 hash)
-    let pub_key_bytes = verifying_key.to_sec1_bytes();
-    let pub_key_hash = Keccak256::digest(&pub_key_bytes[1..]); // Skip 0x04 prefix
+    let pub_key_bytes = verifying_key.to_encoded_point(false);
+    let pub_key_uncompressed = pub_key_bytes.as_bytes();
+    // Skip the first byte (0x04 prefix for uncompressed point)
+    let pub_key_hash = Keccak256::digest(&pub_key_uncompressed[1..]);
     let address = ethereum_types::H160::from_slice(&pub_key_hash[12..]);
 
     Ok(address)
@@ -1334,7 +1352,7 @@ async fn process_evm_transaction(
 
     // Extract transaction fields (simplified parsing)
     // In production, use proper RLP decoder
-    let nonce = if tx_data.len() > 0 { ethereum_types::U256::from(tx_data[0]) } else { ethereum_types::U256::zero() };
+    let nonce = if !tx_data.is_empty() { ethereum_types::U256::from(tx_data[0]) } else { ethereum_types::U256::zero() };
     let gas_price = if tx_data.len() > 1 { ethereum_types::U256::from(tx_data[1] as u64 * 1_000_000_000) } else { ethereum_types::U256::from(20_000_000_000u64) };
     let gas_limit = if tx_data.len() > 2 { ethereum_types::U256::from(tx_data[2] as u64 * 1000) } else { ethereum_types::U256::from(21_000u64) };
     
@@ -1373,7 +1391,7 @@ async fn process_evm_transaction(
         gas_price,
         gas_limit,
         nonce,
-        chain_id,
+        chain_id: chain_id.map(|id| id as u64),
         signature: Some((v, r, s)),
     };
 
@@ -1406,7 +1424,7 @@ async fn process_evm_transaction(
     // Execute EVM transaction using EvmExecutor
     // Note: In production, EvmExecutor should be passed as parameter or retrieved from state
     // For now, we'll create a basic execution result
-    use crate::evm::types::{EvmConfig, EvmExecutionResult};
+    use crate::evm::types::EvmExecutionResult;
     let execution_result = if let Some(to_addr) = evm_tx.to {
         // Contract call - execute via EVM runtime
         // In production, use: executor.execute_transaction_sync(evm_tx).await
@@ -1417,11 +1435,12 @@ async fn process_evm_transaction(
             contract_address: None,
             logs: vec![],
             error: None,
+            gas_refunded: 0,
         }
     } else {
         // Contract creation
         let contract_address = ethereum_types::H160::from_slice(
-            &sha3::Keccak256::digest(&[sender_address.as_bytes(), &evm_tx.nonce.to_be_bytes()].concat())[12..]
+            &sha3::Keccak256::digest([sender_address.as_bytes(), &u256_to_be_bytes(evm_tx.nonce)].concat())[12..]
         );
         
         EvmExecutionResult {
@@ -1431,19 +1450,20 @@ async fn process_evm_transaction(
             contract_address: Some(contract_address),
             logs: vec![],
             error: None,
+            gas_refunded: 0,
         }
     };
 
     // Calculate transaction hash using Keccak256
     use sha3::{Keccak256, Digest};
     let mut tx_hash_data = Vec::new();
-    tx_hash_data.extend_from_slice(&evm_tx.nonce.to_be_bytes());
-    tx_hash_data.extend_from_slice(&evm_tx.gas_price.to_be_bytes());
-    tx_hash_data.extend_from_slice(&evm_tx.gas_limit.to_be_bytes());
+    tx_hash_data.extend_from_slice(&u256_to_be_bytes(evm_tx.nonce));
+    tx_hash_data.extend_from_slice(&u256_to_be_bytes(evm_tx.gas_price));
+    tx_hash_data.extend_from_slice(&u256_to_be_bytes(evm_tx.gas_limit));
     if let Some(to) = evm_tx.to {
         tx_hash_data.extend_from_slice(to.as_bytes());
     }
-    tx_hash_data.extend_from_slice(&evm_tx.value.to_be_bytes());
+    tx_hash_data.extend_from_slice(&u256_to_be_bytes(evm_tx.value));
     tx_hash_data.extend_from_slice(&evm_tx.data);
     if let Some(chain_id) = evm_tx.chain_id {
         tx_hash_data.extend_from_slice(&chain_id.to_be_bytes());
@@ -1462,32 +1482,32 @@ async fn process_evm_transaction(
     let tx_hash_hex = format!("0x{}", hex::encode(tx_hash));
     
     // Create transaction for storage
-    let from_bytes = evm_tx.from.as_bytes();
-    let from_addr = crate::types::Address::from_bytes(from_bytes)
-        .map_err(|_| "Invalid sender address".to_string())?;
-    let to_addr = evm_tx.to.and_then(|a| {
-        crate::types::Address::from_bytes(a.as_bytes()).ok()
-    });
-    
-    let stored_tx = crate::types::Transaction {
-        from: from_addr,
-        to: to_addr,
-        value: evm_tx.value.as_u64(),
-        gas_price: evm_tx.gas_price.as_u64(),
-        gas_limit: evm_tx.gas_limit.as_u64(),
-        nonce: evm_tx.nonce.as_u64(),
-        data: evm_tx.data,
-        signature: [r.as_bytes(), s.as_bytes(), &[v]].concat(),
-        hash: crate::types::Hash::from_slice(&tx_hash).unwrap_or_default(),
-    };
+    let _ = evm_tx.from.as_bytes(); // Keep side effects if any, or just remove
+    // Actually, we don't need stored_tx anymore as we create ledger_tx directly below
     
     // Update state: store transaction, update balances, update nonces
     {
-        let mut state_guard = state.write().await;
+        let state_guard = state.write().await;
+        
+        // Create ledger transaction
+        let gas_cost = execution_result.gas_used as u64 * evm_tx.gas_price.as_u64();
+        let sender_addr_str = format!("0x{}", hex::encode(sender_address.as_bytes()));
+        let mut ledger_tx = crate::ledger::transaction::Transaction::new(
+            crate::ledger::transaction::TransactionType::Transfer,
+            sender_addr_str.clone(),
+            evm_tx.to.map(|a| format!("0x{}", hex::encode(a.as_bytes()))).unwrap_or_default(),
+            evm_tx.value.as_u64(),
+            evm_tx.nonce.as_u64(),
+            evm_tx.gas_price.as_u64(),
+            gas_cost, // gas_limit
+            evm_tx.data.clone(),
+        );
+        
+        // Set signature
+        ledger_tx.signature = [r.as_bytes(), s.as_bytes(), &[v]].concat();
         
         // Store transaction
-        state_guard.add_pending_transaction(stored_tx.clone())
-            .map_err(|e| format!("Failed to store transaction: {}", e))?;
+        let _ = state_guard.add_pending_transaction(ledger_tx);
         
         // Update sender balance (deduct value + gas)
         let sender_addr_str = format!("0x{}", hex::encode(sender_address.as_bytes()));
@@ -1520,7 +1540,7 @@ async fn process_evm_transaction(
         }
     }
 
-    Ok(hex::encode(&tx_hash))
+    Ok(hex::encode(tx_hash))
 }
 
 /// Process WASM transaction
@@ -1909,40 +1929,51 @@ async fn handle_new_filter(
                 let addresses = filter_obj.get("address").and_then(|v| {
                     if let Some(addr) = v.as_str() {
                         Some(vec![addr.to_string()])
-                    } else if let Some(addrs) = v.as_array() {
-                        Some(
-                            addrs
+                    } else { v.as_array().map(|addrs| addrs
                                 .iter()
                                 .filter_map(|a| a.as_str().map(|s| s.to_string()))
-                                .collect(),
-                        )
-                    } else {
-                        None
-                    }
+                                .collect()) }
                 });
 
                 let topics = filter_obj.get("topics").and_then(|v| {
-                    if let Some(topics_array) = v.as_array() {
-                        Some(
-                            topics_array
+                    v.as_array().map(|topics_array| topics_array
                                 .iter()
                                 .map(|t| {
                                     if let Some(topic_str) = t.as_str() {
-                                        vec![topic_str.to_string()]
+                                        hex::decode(topic_str.trim_start_matches("0x"))
+                                            .ok()
+                                            .and_then(|bytes| {
+                                                if bytes.len() == 32 {
+                                                    Some(vec![H256::from_slice(&bytes)])
+                                                } else {
+                                                    None
+                                                }
+                                            })
+                                            .unwrap_or_default()
                                     } else if let Some(topic_array) = t.as_array() {
                                         topic_array
                                             .iter()
-                                            .filter_map(|tt| tt.as_str().map(|s| s.to_string()))
+                                            .filter_map(|tt| tt.as_str())
+                                            .filter_map(|s| {
+                                                hex::decode(s.trim_start_matches("0x"))
+                                                    .ok()
+                                                    .and_then(|bytes| {
+                                                        if bytes.len() == 32 {
+                                                            Some(H256::from_slice(&bytes))
+                                                        } else {
+                                                            None
+                                                        }
+                                                    })
+                                            })
                                             .collect()
                                     } else {
                                         vec![]
                                     }
                                 })
-                                .collect(),
-                        )
-                    } else {
-                        None
-                    }
+                                .map(|h256_vec| {
+                                    h256_vec.iter().map(|h| format!("0x{}", hex::encode(h.as_bytes()))).collect()
+                                })
+                                .collect())
                 });
 
                 let from_block = filter_obj
@@ -2190,7 +2221,7 @@ async fn handle_get_filter_logs(
     };
 
     // Get filter from active filters
-    let filters = ACTIVE_FILTERS.read().unwrap();
+    let filters = ACTIVE_FILTERS.read().await;
     let filter = match filters.get(&filter_id) {
         Some(f) => f.clone(),
         None => {
@@ -2266,7 +2297,7 @@ async fn handle_get_proof(state: &Arc<RwLock<State>>, request: &JsonRpcRequest) 
     let state_guard = state.read().await;
 
     // Get real account data
-    let account = state_guard.get_account(&address.to_string());
+    let account = state_guard.get_account(address);
     let (balance, nonce, code_hash) = if let Some(acc) = account {
         (
             acc.balance,
@@ -2312,7 +2343,7 @@ async fn handle_get_proof(state: &Arc<RwLock<State>>, request: &JsonRpcRequest) 
 
     // Generate account proof
     let account_proof =
-        generate_merkle_proof(&format!("{}:{}:{}", address, balance, nonce).as_bytes());
+        generate_merkle_proof(format!("{}:{}:{}", address, balance, nonce).as_bytes());
 
     JsonRpcResponse {
         jsonrpc: "2.0".to_string(),
@@ -2375,7 +2406,7 @@ async fn handle_get_account_info(
 
     let address = params[0].as_str().unwrap_or("");
     let state_guard = state.read().await;
-    let account = state_guard.get_account(&address.to_string());
+    let account = state_guard.get_account(address);
 
     let result = if let Some(account) = account {
         json!({
@@ -2447,7 +2478,7 @@ async fn handle_simulate_transaction(
     let state_guard = state.read().await;
 
     // Real transaction simulation
-    let simulation_result = if tx_data.len() > 0 {
+    let simulation_result = if !tx_data.is_empty() {
         // Simulate transaction execution
         let gas_used = std::cmp::min(tx_data.len() as u64 * 100, 1000000);
         let success = tx_data.len() > 10; // Basic validation
@@ -2639,7 +2670,7 @@ pub async fn websocket_subscribe(
 // RPC DOCUMENTATION
 // ============================================================================
 
-/*!
+/**
 # ArthaChain JSON-RPC 2.0 API Documentation
 
 ## Overview
@@ -3203,7 +3234,7 @@ mod tests {
         };
 
         let response = handle_json_rpc(&state, request).await.unwrap();
-        let response_value: JsonRpcResponse = serde_json::from_value(response.0).unwrap();
+        let response_value = response.0;
         assert!(response_value.error.is_some());
         if let Some(error) = response_value.error {
             assert_eq!(error.code, -32601); // Method not found

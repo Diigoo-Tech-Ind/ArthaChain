@@ -1,6 +1,5 @@
 use crate::common::Error;
 use crate::crypto::Signature;
-use crate::ledger::transaction::Transaction as LedgerTransaction;
 use crate::transaction::mempool::Mempool;
 use crate::types::{Address, Transaction};
 use crate::utils::crypto::Hash;

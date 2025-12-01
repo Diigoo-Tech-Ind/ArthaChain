@@ -1,12 +1,12 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use tokio::sync::RwLock;
 
-use crate::types::{Address, Hash, Transaction};
+use crate::types::Address;
 
 pub mod shard;
 
@@ -146,6 +146,12 @@ pub trait LoadBalancingStrategy: Send + Sync {
 #[derive(Debug)]
 pub struct RoundRobinStrategy {
     current_index: std::sync::atomic::AtomicUsize,
+}
+
+impl Default for RoundRobinStrategy {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl RoundRobinStrategy {
@@ -385,8 +391,7 @@ impl ShardManager {
     /// Get shard statistics for a specific shard
     pub async fn get_shard_stats(&self, shard_id: u64) -> Option<ShardStats> {
         let shards = self.shards.read().await;
-        if let Some(shard) = shards.get(&shard_id) {
-            Some(ShardStats {
+        shards.get(&shard_id).map(|shard| ShardStats {
                 shard_id,
                 transaction_count: shard
                     .performance
@@ -402,9 +407,6 @@ impl ShardManager {
                 parallel_capacity: shard.parallel_capacity,
                 shard_type: shard.shard_type.clone(),
             })
-        } else {
-            None
-        }
     }
 
     /// Get list of connected shards
@@ -433,6 +435,12 @@ impl ShardManager {
 pub struct ShardPerformanceMonitor {
     cross_shard_transactions: Arc<RwLock<HashMap<(u64, u64), u64>>>,
     global_metrics: Arc<RwLock<GlobalShardMetrics>>,
+}
+
+impl Default for ShardPerformanceMonitor {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ShardPerformanceMonitor {

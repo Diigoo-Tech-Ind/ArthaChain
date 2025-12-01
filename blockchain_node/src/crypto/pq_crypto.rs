@@ -68,21 +68,18 @@ impl PQCrypto {
 
                 let (pk_bytes, sk_bytes) = match algorithm {
                     KeyAlgorithm::Dilithium2 => {
-                        // Dilithium2: ~1312 byte pubkey, ~2528 byte privkey, ~2420 byte sig
-                        use pqcrypto_dilithium::dilithium2;
-                        let (pk, sk) = dilithium2::keypair();
+                        use pqcrypto_mldsa::mldsa44;
+                        let (pk, sk) = mldsa44::keypair();
                         (pk.as_bytes().to_vec(), sk.as_bytes().to_vec())
                     }
                     KeyAlgorithm::Dilithium3 => {
-                        // Dilithium3: ~1952 byte pubkey, ~4000 byte privkey, ~3293 byte sig
-                        use pqcrypto_dilithium::dilithium3;
-                        let (pk, sk) = dilithium3::keypair();
+                        use pqcrypto_mldsa::mldsa65;
+                        let (pk, sk) = mldsa65::keypair();
                         (pk.as_bytes().to_vec(), sk.as_bytes().to_vec())
                     }
                     KeyAlgorithm::Dilithium5 => {
-                        // Dilithium5: ~2592 byte pubkey, ~4864 byte privkey, ~4595 byte sig
-                        use pqcrypto_dilithium::dilithium5;
-                        let (pk, sk) = dilithium5::keypair();
+                        use pqcrypto_mldsa::mldsa87;
+                        let (pk, sk) = mldsa87::keypair();
                         (pk.as_bytes().to_vec(), sk.as_bytes().to_vec())
                     }
                     _ => unreachable!(),
@@ -138,12 +135,12 @@ impl PQCrypto {
                 // Verification requires both to pass
 
                 use ed25519_dalek::Keypair;
-                use pqcrypto_dilithium::dilithium3;
+                use pqcrypto_mldsa::mldsa65;
                 use rand::rngs::OsRng;
 
                 let mut csprng = OsRng;
                 let ed_keypair = Keypair::generate(&mut csprng);
-                let (dilithium_pk, dilithium_sk) = dilithium3::keypair();
+                let (dilithium_pk, dilithium_sk) = mldsa65::keypair();
 
                 // Concatenate keys
                 let mut pk_bytes = ed_keypair.public.to_bytes().to_vec();
@@ -190,13 +187,13 @@ impl PQCrypto {
             }
 
             KeyAlgorithm::Dilithium2 => {
-                use pqcrypto_dilithium::dilithium2;
+                use pqcrypto_mldsa::mldsa44;
                 use pqcrypto_traits::sign::SecretKey;
 
-                let sk = dilithium2::SecretKey::from_bytes(&private_key.key_bytes)
+                let sk = mldsa44::SecretKey::from_bytes(&private_key.key_bytes)
                     .map_err(|e| anyhow!("Invalid Dilithium2 secret key: {:?}", e))?;
                 
-                let signed = dilithium2::sign(message, &sk);
+                let signed = mldsa44::sign(message, &sk);
 
                 Ok(Signature {
                     algorithm: KeyAlgorithm::Dilithium2,
@@ -205,13 +202,13 @@ impl PQCrypto {
             }
 
             KeyAlgorithm::Dilithium3 => {
-                use pqcrypto_dilithium::dilithium3;
+                use pqcrypto_mldsa::mldsa65;
                 use pqcrypto_traits::sign::SecretKey;
 
-                let sk = dilithium3::SecretKey::from_bytes(&private_key.key_bytes)
+                let sk = mldsa65::SecretKey::from_bytes(&private_key.key_bytes)
                     .map_err(|e| anyhow!("Invalid Dilithium3 secret key: {:?}", e))?;
                 
-                let signed = dilithium3::sign(message, &sk);
+                let signed = mldsa65::sign(message, &sk);
 
                 Ok(Signature {
                     algorithm: KeyAlgorithm::Dilithium3,
@@ -237,7 +234,7 @@ impl PQCrypto {
             KeyAlgorithm::HybridEd25519Dilithium3 => {
                 // Sign with both algorithms
                 use ed25519_dalek::{Keypair, SecretKey, PublicKey as Ed25519Pub, Signer};
-                use pqcrypto_dilithium::dilithium3;
+                use pqcrypto_mldsa::mldsa65;
                 use pqcrypto_traits::sign::SecretKey as PQSecretKey;
 
                 // Extract Ed25519 secret (first 32 bytes)
@@ -247,12 +244,12 @@ impl PQCrypto {
                 let ed_keypair = Keypair { secret: ed_secret, public: ed_public };
 
                 // Extract Dilithium3 secret (remaining bytes)
-                let dilithium_sk = dilithium3::SecretKey::from_bytes(&private_key.key_bytes[32..])
+                let dilithium_sk = mldsa65::SecretKey::from_bytes(&private_key.key_bytes[32..])
                     .map_err(|e| anyhow!("Invalid Dilithium3 secret: {:?}", e))?;
 
                 // Sign with both
                 let ed_signature = ed_keypair.sign(message);
-                let dilithium_signed = dilithium3::sign(message, &dilithium_sk);
+                let dilithium_signed = mldsa65::sign(message, &dilithium_sk);
 
                 // Concatenate signatures
                 let mut sig_bytes = ed_signature.to_bytes().to_vec();
@@ -288,16 +285,16 @@ impl PQCrypto {
             }
 
             KeyAlgorithm::Dilithium3 => {
-                use pqcrypto_dilithium::dilithium3;
+                use pqcrypto_mldsa::mldsa65;
                 use pqcrypto_traits::sign::{PublicKey as PQPubKey, SignedMessage};
 
-                let pk = dilithium3::PublicKey::from_bytes(&public_key.key_bytes)
+                let pk = mldsa65::PublicKey::from_bytes(&public_key.key_bytes)
                     .map_err(|e| anyhow!("Invalid Dilithium3 public key: {:?}", e))?;
                 
                 let signed_msg = SignedMessage::from_bytes(&signature.signature_bytes)
                     .map_err(|e| anyhow!("Invalid Dilithium3 signature: {:?}", e))?;
 
-                match dilithium3::open(&signed_msg, &pk) {
+                match mldsa65::open(&signed_msg, &pk) {
                     Ok(verified_msg) => Ok(verified_msg == message),
                     Err(_) => Ok(false),
                 }
@@ -306,7 +303,7 @@ impl PQCrypto {
             KeyAlgorithm::HybridEd25519Dilithium3 => {
                 // Verify both signatures
                 use ed25519_dalek::{PublicKey as Ed25519Pub, Signature as Ed25519Sig, Verifier};
-                use pqcrypto_dilithium::dilithium3;
+                use pqcrypto_mldsa::mldsa65;
                 use pqcrypto_traits::sign::{PublicKey as PQPubKey, SignedMessage};
 
                 // Extract Ed25519 public key (first 32 bytes)
@@ -314,7 +311,7 @@ impl PQCrypto {
                     .map_err(|e| anyhow!("Invalid Ed25519 public key: {}", e))?;
 
                 // Extract Dilithium3 public key (remaining bytes)
-                let dilithium_pk = dilithium3::PublicKey::from_bytes(&public_key.key_bytes[32..])
+                let dilithium_pk = mldsa65::PublicKey::from_bytes(&public_key.key_bytes[32..])
                     .map_err(|e| anyhow!("Invalid Dilithium3 public key: {:?}", e))?;
 
                 // Extract signatures
@@ -326,7 +323,7 @@ impl PQCrypto {
 
                 // Both must pass
                 let ed_valid = ed_pk.verify(message, &ed_sig).is_ok();
-                let dilithium_valid = dilithium3::open(&dilithium_signed, &dilithium_pk)
+                let dilithium_valid = mldsa65::open(&dilithium_signed, &dilithium_pk)
                     .map(|verified| verified == message)
                     .unwrap_or(false);
 

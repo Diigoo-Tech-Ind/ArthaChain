@@ -273,7 +273,7 @@ impl ReputationManager {
 
         for peer_scores in scores.values_mut() {
             for entry in peer_scores.values_mut() {
-                entry.score = entry.score * self.config.decay_factor;
+                entry.score *= self.config.decay_factor;
                 total_decayed += 1;
             }
         }

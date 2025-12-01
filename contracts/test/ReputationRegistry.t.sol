@@ -8,7 +8,7 @@ contract ReputationRegistryTest is Test {
     ReputationRegistry internal rep;
     address admin = address(0xA11CE);
     address updater = address(0xB0B);
-    address dev = address(0xD3V);
+    address dev = address(0xD30);
 
     function setUp() public {
         rep = new ReputationRegistry(admin);
@@ -19,12 +19,12 @@ contract ReputationRegistryTest is Test {
     function testAddAndSubReputation() public {
         vm.prank(updater);
         rep.addReputation(dev, 100);
-        (uint256 r,,) = rep.developers(dev);
+        (uint256 r,,,) = rep.developers(dev);
         assertEq(r, 100);
 
         vm.prank(updater);
         rep.subReputation(dev, 40);
-        (r,,) = rep.developers(dev);
+        (r,,,) = rep.developers(dev);
         assertEq(r, 60);
     }
 
@@ -33,7 +33,7 @@ contract ReputationRegistryTest is Test {
         rep.recordLineageContribution(dev);
         vm.prank(updater);
         rep.recordSlashFreeEpoch(dev);
-        (,uint256 lineage,uint256 epochs) = rep.developers(dev);
+        (,uint256 lineage,uint256 epochs,) = rep.developers(dev);
         assertEq(lineage, 1);
         assertEq(epochs, 1);
     }

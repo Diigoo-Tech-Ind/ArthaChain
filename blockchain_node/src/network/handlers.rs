@@ -83,7 +83,7 @@ impl NodeScore {
         self.reliability = self.fulfilled_requests as f32
             / (self.fulfilled_requests + self.failed_requests) as f32;
         // More significant reduction for failures
-        self.score = self.score * 0.9;
+        self.score *= 0.9;
         self.overall_score = self.score;
         self.last_update = now;
         self.last_updated = now;

@@ -44,7 +44,7 @@ fn tanh_(x: &Tensor) -> Tensor {
     out
 }
 
-use log::{debug, info};
+use log::info;
 #[cfg(feature = "python-ai")]
 use pyo3::Python;
 use serde::{Deserialize, Serialize};
@@ -276,7 +276,7 @@ impl BlockchainNeuralModel {
         for features in tx_features {
             let input_tensor = features.clone();
             let output = self.tx_validator.forward(&input_tensor)?;
-            let validity_score = output.get(0).cloned().unwrap_or(0.5);
+            let validity_score = output.first().cloned().unwrap_or(0.5);
 
             let resource_usage = ResourceUsage {
                 cpu_usage: 10.0 + validity_score * 20.0,

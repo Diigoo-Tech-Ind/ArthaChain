@@ -617,7 +617,7 @@ impl NeuralBase {
         use serde_json::json;
         Ok(json!({
             "type": "mock_tensor",
-            "shape": [_data.len(), _data.get(0).map(|v| v.len()).unwrap_or(0)]
+            "shape": [_data.len(), _data.first().map(|v| v.len()).unwrap_or(0)]
         }))
     }
 }

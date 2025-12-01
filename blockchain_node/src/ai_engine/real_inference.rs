@@ -3,9 +3,9 @@
 
 use crate::ai_engine::online_learning::{OnlineLearner, OnlineLearnerConfig};
 use crate::ai_engine::self_healing::{ModelHealthMonitor, SelfHealingConfig, AutoRetrainer};
-use anyhow::{anyhow, Result};
-use log::{info, warn};
-use ndarray::{Array1, Array2, ArrayView1};
+use anyhow::Result;
+use log::info;
+use ndarray::{Array1, Array2};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -220,16 +220,14 @@ impl RealInferenceEngine {
 
     /// Calculate feature importance scores
     fn calculate_feature_importance(&self, features: &Array1<f64>) -> HashMap<String, f64> {
-        let feature_names = vec![
-            "amount",
+        let feature_names = ["amount",
             "gas_price",
             "frequency",
             "account_age",
             "unique_contracts",
             "avg_tx_value_24h",
             "time_since_last_tx",
-            "contract_depth",
-        ];
+            "contract_depth"];
 
         let mut importance = HashMap::new();
         let sum: f64 = features.iter().map(|x| x.abs()).sum();
@@ -332,7 +330,7 @@ impl RealInferenceEngine {
         let retrainer = AutoRetrainer::new(monitor, learner);
         
         let mut model = self.fraud_model.write().await;
-        retrainer.attempt_healing(&mut *model).await
+        retrainer.attempt_healing(&mut model).await
     }
 }
 
@@ -442,16 +440,14 @@ impl FeatureNormalizer {
 
     /// Normalize an array of features
     fn normalize(&self, features: &Array1<f64>) -> Array1<f64> {
-        let feature_names = vec![
-            "amount",
+        let feature_names = ["amount",
             "gas_price",
             "frequency",
             "account_age",
             "unique_contracts",
             "avg_tx_value_24h",
             "time_since_last_tx",
-            "contract_depth",
-        ];
+            "contract_depth"];
 
         let mut normalized = features.clone();
 

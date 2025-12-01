@@ -884,7 +884,7 @@ impl UdpNetwork {
         let original_id = rand::thread_rng().gen();
 
         // Split into fragments
-        let fragment_count = (payload.len() + max_payload_size - 1) / max_payload_size;
+        let fragment_count = payload.len().div_ceil(max_payload_size);
         let mut fragments = Vec::with_capacity(fragment_count);
 
         for i in 0..fragment_count {

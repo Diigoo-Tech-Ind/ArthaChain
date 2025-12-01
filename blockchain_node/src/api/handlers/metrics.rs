@@ -1,10 +1,9 @@
-use axum::{extract::Extension, http::StatusCode, response::IntoResponse, Json};
-use serde::{Deserialize, Serialize};
+use axum::{extract::Extension, http::StatusCode, Json};
+use serde::Serialize;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
 
-use crate::api::ApiError;
 use crate::ledger::state::State;
 use crate::monitoring::metrics_collector::MetricsCollector;
 
@@ -376,6 +375,7 @@ pub async fn get_performance_metrics(
 mod tests {
     use super::*;
     use crate::config::Config;
+    use axum::response::IntoResponse;
 
     #[tokio::test]
     async fn test_metrics_service_creation() {

@@ -685,7 +685,7 @@ impl ParallelProcessor {
 
         // Split transactions into worker batches for parallel processing
         let workers = self.config.worker_threads;
-        let batch_size = (transaction_count + workers - 1) / workers; // Ceiling division
+        let batch_size = transaction_count.div_ceil(workers); // Ceiling division
 
         let mut futures = Vec::new();
         let state_arc = Arc::clone(&self.state);
@@ -705,7 +705,7 @@ impl ParallelProcessor {
 
                     for tx in worker_transactions {
                         // Real transaction processing with validation
-                        match Self::process_single_transaction(&tx, &*state_guard).await {
+                        match Self::process_single_transaction(&tx, &state_guard).await {
                             Ok(_) => {
                                 processed += 1;
                                 debug!(

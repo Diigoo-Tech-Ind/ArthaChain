@@ -6,13 +6,12 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tonic::async_trait;
 
 use crate::ledger::state::State;
-use crate::types::{Address, Block, Transaction, TransactionStatus};
 use crate::consensus::SVCPMiner;
 use crate::consensus::svbft::SVBFTConsensus;
 use crate::network::p2p::P2PNetwork;
 use crate::transaction::mempool::Mempool;
 use crate::ledger::transaction::TransactionStatus as TxStatus;
-use crate::ai_engine::models::{ModelRegistry, NeuralBase, BCIModel, SelfLearningSystem};
+use crate::ai_engine::models::ModelRegistry;
 
 // Use the gRPC types from the server module
 use super::server::arthachain;
@@ -313,7 +312,7 @@ impl ArthaChainServiceImpl {
         request: Request<arthachain::SubmitTransactionRequest>,
     ) -> Result<Response<arthachain::SubmitTransactionResponse>, Status> {
         let req = request.into_inner();
-        let mut state = self.state.write().await;
+        let state = self.state.write().await;
         
         // Parse the raw transaction data
         let transaction = match crate::ledger::transaction::Transaction::deserialize(&req.raw_transaction) {
@@ -536,7 +535,7 @@ impl ArthaChainServiceImpl {
         request: Request<arthachain::DeployContractRequest>,
     ) -> Result<Response<arthachain::DeployContractResponse>, Status> {
         let req = request.into_inner();
-        let mut state = self.state.write().await;
+        let state = self.state.write().await;
         
         // Deploy contract to blockchain state
         let contract_address = hex::encode(blake3::hash(&req.bytecode).as_bytes());

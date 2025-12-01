@@ -3,7 +3,7 @@
 
 use crate::ledger::state::State;
 use crate::types::Hash;
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use log::{error, info, warn};
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -34,14 +34,14 @@ impl StateIntegrityManager {
         // For now, we just check if it matches our last verification (if any)
         let mut last_root = self.last_verified_root.write().await;
         
-        if let Some(last) = *last_root {
+        if let Some(last) = last_root.clone() {
             if last != current_root {
-                warn!("State root changed since last verification. Old: {:?}, New: {:?}", last, current_root);
+                warn!("State root changed since last verification. Old: {:?}, New: {:?}", last, current_root.clone());
                 // This is expected during normal operation, but could indicate issues if no blocks were processed
             }
         }
         
-        *last_root = Some(current_root);
+        *last_root = Some(current_root.clone());
         info!("State integrity verified. Root: {:?}", current_root);
         
         Ok(true)

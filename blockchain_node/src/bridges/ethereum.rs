@@ -10,8 +10,6 @@ use ethers::prelude::*;
 use ethers::providers::{Provider, Ws};
 use ethers::types::{Address, U256};
 use std::convert::TryFrom;
-use std::sync::Arc;
-use std::time::Duration;
 
 /// Real Ethereum bridge handler
 pub struct EthereumBridge {
@@ -116,7 +114,7 @@ impl EthereumBridge {
         let selector = &hex::decode("40c10f19").unwrap(); 
         
         // Encode arguments
-        let recipient = transfer.recipient.parse::<Address>()
+        let recipient = transfer.target_address.parse::<Address>()
             .map_err(|e| anyhow!("Invalid recipient address: {}", e))?;
         let amount = U256::from(transfer.amount);
         

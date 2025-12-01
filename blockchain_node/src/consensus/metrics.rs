@@ -120,6 +120,7 @@ impl Default for ContractMetrics {
 
 /// Security-related metrics
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct SecurityMetrics {
     pub security_violations: u64,
     pub access_denied_count: u64,
@@ -128,17 +129,6 @@ pub struct SecurityMetrics {
     pub security_checks_failed: u64,
 }
 
-impl Default for SecurityMetrics {
-    fn default() -> Self {
-        Self {
-            security_violations: 0,
-            access_denied_count: 0,
-            suspicious_transactions: 0,
-            security_checks_passed: 0,
-            security_checks_failed: 0,
-        }
-    }
-}
 
 impl SecurityMetrics {
     pub fn record_validated_call(&self, _caller: Address, _target: Address) {}

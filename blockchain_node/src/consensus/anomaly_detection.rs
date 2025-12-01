@@ -1,10 +1,9 @@
 use crate::ledger::block::Block;
-use crate::ledger::transaction::Transaction;
 use crate::network::types::NodeId;
 use anyhow::{anyhow, Result};
-use log::{debug, info, warn};
+use log::{info, warn};
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;

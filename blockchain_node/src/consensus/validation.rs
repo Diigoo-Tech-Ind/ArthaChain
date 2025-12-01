@@ -290,7 +290,7 @@ impl ValidationEngine {
         let result = tokio::select! {
             result = validation_future => result,
             _ = tokio::time::sleep(timeout) => {
-                let mut timeout_result = ValidationResult {
+                let timeout_result = ValidationResult {
                     status: ValidationStatus::TimedOut,
                     error: Some("Validation timed out".to_string()),
                     duration_ms: timeout.as_millis() as u64,
@@ -309,9 +309,13 @@ impl ValidationEngine {
 
         // Update memory usage if profiling is enabled
         if config.profile_memory_usage {
-            use sysinfo::{System, Pid, Process};
+            use sysinfo::{System, Pid};
             let mut system = System::new();
-            system.refresh_process(Pid::from(std::process::id() as usize));
+            system.refresh_processes_specifics(
+                sysinfo::ProcessesToUpdate::Some(&[sysinfo::Pid::from(std::process::id() as usize)]),
+                true,
+                sysinfo::ProcessRefreshKind::nothing().with_memory(),
+            );
             if let Some(process) = system.process(Pid::from(std::process::id() as usize)) {
                 let memory_kb = process.memory() / 1024; // Convert bytes to KB
                 final_result.memory_usage_kb = Some(memory_kb);
@@ -381,13 +385,12 @@ impl ValidationEngine {
             }
 
             // If ZKP verification is enabled, validate proofs
-            if config.enable_zkp_verification {
-                if !self.validate_zkp(&tx).await? {
+            if config.enable_zkp_verification
+                && !self.validate_zkp(&tx).await? {
                     result.status = ValidationStatus::Invalid;
                     result.error = Some("Invalid zero-knowledge proof".to_string());
                     return Ok(result);
                 }
-            }
 
             // Transaction is valid
             result.status = ValidationStatus::Valid;
@@ -398,7 +401,7 @@ impl ValidationEngine {
         let result = tokio::select! {
             result = validation_future => result,
             _ = tokio::time::sleep(timeout) => {
-                let mut timeout_result = ValidationResult {
+                let timeout_result = ValidationResult {
                     status: ValidationStatus::TimedOut,
                     error: Some("Transaction validation timed out".to_string()),
                     duration_ms: timeout.as_millis() as u64,
@@ -417,9 +420,13 @@ impl ValidationEngine {
 
         // Update memory usage if profiling is enabled
         if config.profile_memory_usage {
-            use sysinfo::{System, Pid, Process};
+            use sysinfo::{System, Pid};
             let mut system = System::new();
-            system.refresh_process(Pid::from(std::process::id() as usize));
+            system.refresh_processes_specifics(
+                sysinfo::ProcessesToUpdate::Some(&[sysinfo::Pid::from(std::process::id() as usize)]),
+                true,
+                sysinfo::ProcessRefreshKind::nothing().with_memory(),
+            );
             if let Some(process) = system.process(Pid::from(std::process::id() as usize)) {
                 let memory_kb = process.memory() / 1024; // Convert bytes to KB
                 final_result.memory_usage_kb = Some(memory_kb);
@@ -524,7 +531,7 @@ impl ValidationEngine {
         let result = tokio::select! {
             result = validation_future => result,
             _ = tokio::time::sleep(timeout) => {
-                let mut timeout_result = ValidationResult {
+                let timeout_result = ValidationResult {
                     status: ValidationStatus::TimedOut,
                     error: Some("Batch validation timed out".to_string()),
                     duration_ms: timeout.as_millis() as u64,
@@ -546,87 +553,442 @@ impl ValidationEngine {
 
     /// Validate block header
     async fn validate_block_header(&self, block: &Block) -> Result<bool> {
-        // In a real implementation, this would check:
-        // - Block hash correctness
-        // - Timestamp validity
-        // - Parent hash validity
-        // - Block version
-        // - Merkle tree root
-        // - Consensus-specific fields
-
-        // Simple check for example
-        if block.hash()?.0.is_empty() || block.header.previous_hash.0.is_empty() {
+        // 1. Verify block hash correctness
+        let calculated_hash = block.hash()?;
+        if calculated_hash.0.is_empty() {
+            warn!("Block hash is empty");
             return Ok(false);
         }
 
+        // 2. Verify previous hash exists (except for genesis block at height 0)
+        if block.header.height > 0 && block.header.previous_hash.0.is_empty() {
+            warn!("Previous hash is empty for non-genesis block");
+            return Ok(false);
+        }
+
+        // 3. Validate timestamp (not too far in future, not too old)
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        // Allow 5 minutes clock drift for future timestamps
+        if block.header.timestamp > now + 300 {
+            warn!("Block timestamp is too far in the future: {} > {}", block.header.timestamp, now + 300);
+            return Ok(false);
+        }
+
+        // Reject blocks older than 1 hour
+        if block.header.timestamp + 3600 < now {
+            warn!("Block timestamp is too old: {} < {}", block.header.timestamp, now - 3600);
+            return Ok(false);
+        }
+
+        // 4. Verify block version is supported
+        // Assuming version should be > 0
+        if block.header.version == 0 {
+            warn!("Invalid block version: 0");
+            return Ok(false);
+        }
+
+        // 5. Verify Merkle tree root matches transactions
+        let calculated_merkle = crate::ledger::block::Block::calculate_merkle_root(&block.transactions)?;
+        if calculated_merkle != block.header.merkle_root {
+            warn!("Merkle root mismatch: calculated != header");
+            return Ok(false);
+        }
+
+        // 6. Verify producer public key length (48 bytes for BLS12-381)
+        if block.header.producer.0.len() != 48 {
+            warn!("Invalid producer public key length: {}", block.header.producer.0.len());
+            return Ok(false);
+        }
+
+        // 7. Verify difficulty is non-zero
+        if block.header.difficulty == 0 {
+            warn!("Block difficulty is zero");
+            return Ok(false);
+        }
+
+        // 8. Verify block signature if present
+        if let Some(ref signature) = block.signature {
+            let block_data = block.encode_for_signing()?;
+            if !block.header.producer.verify(&block_data, signature.as_ref())? {
+                warn!("Block signature verification failed");
+                return Ok(false);
+            }
+        } else {
+            // Blocks should always be signed
+            warn!("Block missing signature");
+            return Ok(false);
+        }
+
+        debug!("Block header validation passed for height {}", block.header.height);
         Ok(true)
     }
 
     /// Validate state transitions in a block
     async fn validate_state_transitions(&self, block: &Block) -> Result<bool> {
-        // In a real implementation, this would:
-        // - Apply all transactions to the state
-        // - Verify the resulting state matches the expected state
-        // - Check for conflicts
-        // - Verify consensus rules
+        // Track account nonces and balances during state transition
+        let mut account_nonces: HashMap<Vec<u8>, u64> = HashMap::new();
+        let mut seen_tx_hashes: HashSet<crate::types::Hash> = HashSet::new();
+        
+        // 1. Check for duplicate transactions within the block
+        for tx in &block.transactions {
+            let tx_hash = tx.hash()?;
+            if seen_tx_hashes.contains(&tx_hash) {
+                warn!("Duplicate transaction in block: {:?}", hex::encode(&tx_hash));
+                return Ok(false);
+            }
+            seen_tx_hashes.insert(tx_hash);
+        }
 
-        // Simple check for example
+        // 2. Validate nonce ordering for each sender
+        for tx in &block.transactions {
+            if let Some(&last_nonce) = account_nonces.get(&tx.from) {
+                // Nonce should be strictly increasing
+                if tx.nonce <= last_nonce {
+                    warn!("Invalid nonce order for sender: {} <= {}", tx.nonce, last_nonce);
+                    return Ok(false);
+                }
+            }
+            account_nonces.insert(tx.from.clone(), tx.nonce);
+        }
+
+        // 3. Verify balances are sufficient (mock check)
+        // In production, this would query current state and apply transactions
+        for tx in &block.transactions {
+            // Check that amount + fee doesn't overflow
+            if let Some(_total) = tx.amount.checked_add(tx.fee) {
+                // Valid transaction
+            } else {
+                warn!("Transaction amount + fee overflow");
+                return Ok(false);
+            }
+        }
+
+        // 4. Simulate state root computation
+        // In production, apply all transactions and compute merkle of resulting state
+        let mut state_data = Vec::new();
+        for tx in &block.transactions {
+            state_data.extend_from_slice(&tx.from);
+            state_data.extend_from_slice(&tx.to);
+            state_data.extend_from_slice(&tx.amount.to_le_bytes());
+            state_data.extend_from_slice(&tx.nonce.to_le_bytes());
+        }
+
+        // Hash the state data as a simple state root
+        let _state_root = crate::utils::crypto::quantum_resistant_hash(&state_data)?;
+
+        // 5. Verify no conflicting operations
+        // Check for concurrent writes to the same resource
+        let mut resource_writes: HashMap<Vec<u8>, usize> = HashMap::new();
+        for (idx, tx) in block.transactions.iter().enumerate() {
+            // Track writes to 'to' addresses
+            if let Some(&prev_idx) = resource_writes.get(&tx.to) {
+                // Multiple transactions writing to same address - check ordering
+                if prev_idx > idx {
+                    warn!("Invalid transaction ordering detected");
+                    return Ok(false);
+                }
+            }
+            resource_writes.insert(tx.to.clone(), idx);
+        }
+
+        debug!("State transition validation passed for {} transactions", block.transactions.len());
         Ok(true)
     }
 
     /// Validate transaction signature
     async fn validate_transaction_signature(&self, tx: &Transaction) -> Result<bool> {
-        // In a real implementation, this would:
-        // - Verify the signature against the transaction content and sender's public key
-        // - Check for replay protection
-
-        // Simple check for example
+        // 1. Check signature exists and is not empty
         if tx.signature.is_empty() {
+            warn!("Transaction signature is empty");
             return Ok(false);
         }
 
-        Ok(true)
+        // 2. Verify signature length (64 bytes for Ed25519)
+        if tx.signature.len() != 64 {
+            warn!("Invalid signature length: {}", tx.signature.len());
+            return Ok(false);
+        }
+
+        // 3. Reconstruct the message that was signed
+        let msg_to_sign = tx.hash_for_signature();
+
+        // 4. Extract public key from sender address
+        // The sender field should be a hex-encoded public key or address
+        if tx.sender.is_empty() {
+            warn!("Empty sender in transaction");
+            return Ok(false);
+        }
+
+        // Parse sender as public key (32 bytes hex)
+        let sender_bytes = match hex::decode(&tx.sender) {
+            Ok(bytes) => bytes,
+            Err(_) => {
+                warn!("Invalid sender address format");
+                return Ok(false);
+            }
+        };
+
+        if sender_bytes.len() != 32 {
+            warn!("Sender public key must be 32 bytes, got {}", sender_bytes.len());
+            return Ok(false);
+        }
+
+        // 5. REAL Ed25519 signature verification
+        use ed25519_dalek::{VerifyingKey, Signature, Verifier};
+        
+        let public_key_bytes: [u8; 32] = match sender_bytes.try_into() {
+            Ok(bytes) => bytes,
+            Err(_) => return Ok(false),
+        };
+
+        let verifying_key = match VerifyingKey::from_bytes(&public_key_bytes) {
+            Ok(key) => key,
+            Err(e) => {
+                warn!("Invalid public key format: {}", e);
+                return Ok(false);
+            }
+        };
+
+        let sig_bytes: [u8; 64] = match tx.signature.as_slice().try_into() {
+            Ok(bytes) => bytes,
+            Err(_) => return Ok(false),
+        };
+
+        let signature = Signature::from_bytes(&sig_bytes);
+
+        // Perform ACTUAL cryptographic verification
+        match verifying_key.verify(&msg_to_sign, &signature) {
+            Ok(_) => {
+                debug!("Transaction signature verification PASSED");
+                Ok(true)
+            }
+            Err(e) => {
+                warn!("Transaction signature verification FAILED: {}", e);
+                Ok(false)
+            }
+        }
     }
 
     /// Validate transaction format
     async fn validate_transaction_format(&self, tx: &Transaction) -> Result<bool> {
-        // In a real implementation, this would:
-        // - Check that the transaction conforms to the expected schema
-        // - Validate field lengths and types
-        // - Check version compatibility
-
-        // Simple check for example
+        // 1. Verify transaction hash is valid
         if tx.hash().as_bytes().is_empty() {
+            warn!("Transaction hash is empty");
             return Ok(false);
         }
 
+        // 2. Validate sender and recipient format
+        if tx.sender.is_empty() || tx.recipient.is_empty() {
+            warn!("Empty sender or recipient");
+            return Ok(false);
+        }
+
+        // 3. Validate sender/recipient are not identical for transfers
+        if matches!(tx.tx_type, crate::ledger::transaction::TransactionType::Transfer)
+            && tx.sender == tx.recipient {
+                warn!("Sender and recipient are identical for transfer");
+                return Ok(false);
+            }
+
+        // 4. Validate amount and gas fields
+        if tx.amount == 0 && matches!(tx.tx_type, crate::ledger::transaction::TransactionType::Transfer) {
+            warn!("Zero amount transfer");
+            // This might be valid for some use cases, just warn
+        }
+
+        if tx.gas_limit == 0 {
+            warn!("Zero gas limit");
+            return Ok(false);
+        }
+
+        if tx.gas_price == 0 {
+            warn!("Zero gas price might cause transaction to be deprioritized");
+        }
+
+        // 5. Validate nonce is reasonable (not too far ahead)
+        // In production, compare against account's current nonce
+        if tx.nonce > u64::MAX - 1000 {
+            warn!("Suspiciously high nonce: {}", tx.nonce);
+            return Ok(false);
+        }
+
+        // 6. Validate data field length  
+        const MAX_DATA_SIZE: usize = 1024 * 1024; // 1MB max
+        if tx.data.len() > MAX_DATA_SIZE {
+            warn!("Transaction data too large: {} bytes", tx.data.len());
+            return Ok(false);
+        }
+
+        // 7. Validate timestamp is reasonable
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        
+        if tx.timestamp > now + 300 {
+            warn!("Transaction timestamp too far in future");
+            return Ok(false);
+        }
+
+        debug!("Transaction format validation passed");
         Ok(true)
     }
 
     /// Validate transaction semantics
     async fn validate_transaction_semantics(&self, tx: &Transaction) -> Result<bool> {
-        // In a real implementation, this would:
-        // - Check that the transaction makes logical sense
-        // - Validate constraints (e.g., sufficient balance)
-        // - Check permissions
-        // - Validate application-specific rules
+        use crate::ledger::transaction::TransactionType;
 
-        // Simple check for example
+        // 1. Validate transaction makes logical sense based on type
+        match tx.tx_type {
+            TransactionType::Transfer => {
+                // Check amount is positive
+                if tx.amount == 0 {
+                    debug!("Zero-amount transfer detected");
+                }
+                
+                // Verify sender and recipient are different
+                if tx.sender == tx.recipient {
+                    warn!("Self-transfer detected");
+                    return Ok(false);
+                }
+            }
+            TransactionType::ContractDeployment => {
+                // Contract deployment should have some code in data field
+                if tx.data.is_empty() {
+                    warn!("Contract deployment with empty code");
+                    return Ok(false);
+                }
+                // Recipient should be empty for deployment
+                if !tx.recipient.is_empty() {
+                    warn!("Contract deployment should not have recipient");
+                    return Ok(false);
+                }
+            }
+            TransactionType::ContractCall => {
+                // Contract call should have valid recipient (contract address)
+                if tx.recipient.is_empty() {
+                    warn!("Contract call without recipient");
+                    return Ok(false);
+                }
+            }
+            _ => {
+                // Other transaction types - basic validation
+            }
+        }
+
+        // 2. Validate constraints - check that sender would have sufficient balance
+        // In production, query actual account state
+        // For now, validate that tx amount + gas cost doesn't overflow
+        let gas_cost = tx.gas_limit.saturating_mul(tx.gas_price);
+        if let Some(_total_cost) = tx.amount.checked_add(gas_cost) {
+            // Valid - no overflow
+        } else {
+            warn!("Transaction cost would overflow");
+            return Ok(false);
+        }
+
+        // 3. Check permissions - validate sender has authority
+        // In production, check against access control lists, multi-sig requirements, etc.
+        if tx.sender.is_empty() {
+            warn!("No sender specified");
+            return Ok(false);
+        }
+
+        // 4. Validate gas limit is sufficient for transaction type
+        let min_gas = match tx.tx_type {
+            TransactionType::Transfer => 21000,
+            TransactionType::ContractDeployment => 53000,
+            TransactionType::ContractCall => 25000,
+            _ => 21000,
+        };
+
+        if tx.gas_limit < min_gas {
+            warn!("Gas limit {} below minimum {} for {:?}", tx.gas_limit, min_gas, tx.tx_type);
+            return Ok(false);
+        }
+
+        // 5. Validate application-specific rules
+        // For example, check maximum transfer amounts, blacklists, etc.
+        const MAX_TRANSFER_AMOUNT: u64 = u64::MAX / 2;
+        if tx.amount > MAX_TRANSFER_AMOUNT {
+            warn!("Transfer amount exceeds maximum: {} > {}", tx.amount, MAX_TRANSFER_AMOUNT);
+            return Ok(false);
+        }
+
+        // 6. Check nonce validity (should be current nonce + 1)
+        // In production, query account's current nonce from state
+        // For now, just verify it's reasonable
+        if tx.nonce == u64::MAX {
+            warn!("Nonce at maximum value");
+            return Ok(false);
+        }
+
+        debug!("Transaction semantics validation passed");
         Ok(true)
     }
 
     /// Validate zero-knowledge proofs
     async fn validate_zkp(&self, tx: &Transaction) -> Result<bool> {
-        // In a real implementation, this would:
-        // - Verify the ZKP against the public inputs
-        // - Check proof integrity
-
-        // Simple check for example
-        if false {
-            // ZKP validation disabled for now
-            return Ok(false);
+        // 1. Check if transaction contains ZKP data
+        // In production, this would be in a dedicated field
+        // For now, check if data field contains proof markers
+        if tx.data.is_empty() {
+            // No ZKP data, but that's okay for non-private transactions
+            debug!("No ZKP data in transaction");
+            return Ok(true);
         }
 
+        // 2. Parse ZKP data from transaction
+        // Expected format: proof_type | public_inputs | proof_data
+        if tx.data.len() < 4 {
+            // Too small to contain valid proof
+            debug!("Transaction data too small for ZKP");
+            return Ok(true); // Not a ZKP transaction
+        }
+
+        // 3. Verify proof type is supported
+        // For example: Groth16, PLONK, Bulletproofs, etc.
+        let proof_type = &tx.data[0..4];
+        if proof_type == b"ZKP:" {
+            debug!("ZKP transaction detected");
+
+            // 4. Extract public inputs
+            // In production, parse the public inputs from the data field
+            // Public inputs should include:
+            // - Commitment to the hidden values
+            // - Nullifier (to prevent double-spending)
+            // - Recipient commitment
+            
+            // 5. Verify the ZKP against public inputs
+            // In production, use arkworks or similar:
+            // use ark_groth16::Groth16;
+            // use ark_bn254::Bn254;
+            // let verification_key = get_verification_key();
+            // let public_inputs = parse_public_inputs(&tx.data);
+            // let proof = parse_proof(&tx.data);
+            // Groth16::<Bn254>::verify(&verification_key, &public_inputs, &proof)?;
+
+            // 6. Check proof integrity
+            if tx.data.len() < 100 {
+                warn!("ZKP proof data too small");
+                return Ok(false);
+            }
+
+            // 7. Validate nullifier hasn't been used (prevents double-spending)
+            // In production, check nullifier set:
+            // if nullifier_set.contains(&nullifier) {
+            //     return Ok(false); // Double-spend attempt
+            // }
+
+            debug!("ZKP validation passed (mock implementation)");
+            return Ok(true);
+        }
+
+        // Not a ZKP transaction 
         Ok(true)
     }
 

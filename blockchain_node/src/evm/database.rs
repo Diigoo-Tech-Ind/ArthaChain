@@ -2,9 +2,9 @@
 //! This module implements the revm Database trait for ArthaChain's storage layer
 
 use anyhow::Result;
-use ethereum_types::{H160, H256, U256};
+use ethereum_types::H160;
 use revm::primitives::{
-    Account as RevmAccount, AccountInfo, Bytecode, Address, B256, KECCAK_EMPTY, U256 as RevmU256,
+    AccountInfo, Bytecode, Address, B256, KECCAK_EMPTY, U256 as RevmU256,
 };
 use revm::Database;
 use std::sync::Arc;
@@ -17,7 +17,7 @@ use crate::storage::RocksDbStorage;
 pub struct EvmDatabase {
     storage: Arc<RwLock<RocksDbStorage>>,
     /// Cache for account information to reduce DB lookups
-    account_cache: Arc<RwLock<std::collections::HashMap<B160, AccountInfo>>>,
+    account_cache: Arc<RwLock<std::collections::HashMap<H160, AccountInfo>>>,
 }
 
 impl EvmDatabase {
@@ -30,14 +30,14 @@ impl EvmDatabase {
     }
 
     /// Convert Ethereum address to storage key
-    fn account_key(address: &B160) -> Vec<u8> {
+    fn account_key(address: &H160) -> Vec<u8> {
         let mut key = b"account:".to_vec();
         key.extend_from_slice(address.as_bytes());
         key
     }
 
     /// Convert storage key to database key
-    fn storage_key(address: &B160, index: &RevmU256) -> Vec<u8> {
+    fn storage_key(address: &H160, index: &RevmU256) -> Vec<u8> {
         let mut key = b"storage:".to_vec();
         key.extend_from_slice(address.as_bytes());
         key.push(b':');
@@ -57,20 +57,23 @@ impl Database for EvmDatabase {
     type Error = anyhow::Error;
 
     /// Get basic account information
-    fn basic(&mut self, address: B160) -> Result<Option<AccountInfo>, Self::Error> {
+    fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
+        // Convert Address to H160
+        let h160_addr = H160::from_slice(address.as_slice());
+        
         // Check cache first
         {
             let cache = self.account_cache.blocking_read();
-            if let Some(info) = cache.get(&address) {
+            if let Some(info) = cache.get(&h160_addr) {
                 return Ok(Some(info.clone()));
             }
         }
 
         // Fetch from database
-        let key = Self::account_key(&address);
+        let key = Self::account_key(&h160_addr);
         let storage = self.storage.blocking_read();
         
-        let data = storage.blocking_get(&key)?;
+        let data = storage.get_sync(&key);
         
         if let Some(bytes) = data {
             // Deserialize account data
@@ -80,13 +83,13 @@ impl Database for EvmDatabase {
                 balance: RevmU256::from_be_bytes(account_data.balance),
                 nonce: account_data.nonce,
                 code_hash: B256::from_slice(&account_data.code_hash),
-                code: account_data.code.map(Bytecode::new_raw),
+                code: account_data.code.map(|c| Bytecode::new_raw(c.into())),
             };
 
             // Update cache
             {
                 let mut cache = self.account_cache.blocking_write();
-                cache.insert(address, info.clone());
+                cache.insert(h160_addr, info.clone());
             }
 
             Ok(Some(info))
@@ -103,10 +106,10 @@ impl Database for EvmDatabase {
         }
 
         let mut key = b"code:".to_vec();
-        key.extend_from_slice(code_hash.as_bytes());
+        key.extend_from_slice(code_hash.as_slice());
 
         let storage = self.storage.blocking_read();
-        let code_bytes = storage.blocking_get(&key)?;
+        let code_bytes = storage.get_sync(&key);
 
         if let Some(bytes) = code_bytes {
             Ok(Bytecode::new_raw(bytes.into()))
@@ -116,11 +119,12 @@ impl Database for EvmDatabase {
     }
 
     /// Get storage value at a specific index
-    fn storage(&mut self, address: B160, index: RevmU256) -> Result<RevmU256, Self::Error> {
-        let key = Self::storage_key(&address, &index);
+    fn storage(&mut self, address: Address, index: RevmU256) -> Result<RevmU256, Self::Error> {
+        let h160_addr = H160::from_slice(address.as_slice());
+        let key = Self::storage_key(&h160_addr, &index);
         let storage = self.storage.blocking_read();
         
-        let value = storage.blocking_get(&key)?;
+        let value = storage.get_sync(&key);
 
         if let Some(bytes) = value {
             if bytes.len() == 32 {
@@ -138,7 +142,7 @@ impl Database for EvmDatabase {
         let key = Self::block_hash_key(number);
         let storage = self.storage.blocking_read();
         
-        let hash = storage.blocking_get(&key)?;
+        let hash = storage.get_sync(&key);
 
         if let Some(bytes) = hash {
             if bytes.len() == 32 {

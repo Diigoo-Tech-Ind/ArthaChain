@@ -70,6 +70,12 @@ pub struct SecurityAuditRegistry {
     targets: Arc<RwLock<HashMap<ComponentType, Vec<AuditTarget>>>>,
 }
 
+impl Default for SecurityAuditRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SecurityAuditRegistry {
     /// Create a new security audit registry
     pub fn new() -> Self {
@@ -162,7 +168,7 @@ impl SecurityAuditRegistry {
             0.0
         };
 
-        report.push_str(&format!("## Summary\n\n"));
+        report.push_str(&"## Summary\n\n".to_string());
         report.push_str(&format!("- Total components: {}\n", total));
         report.push_str(&format!("- Audited: {} ({:.1}%)\n", audited, percentage));
         report.push_str(&format!("- Unaudited: {}\n\n", total - audited));
@@ -219,7 +225,7 @@ impl SecurityAuditRegistry {
                 ));
             }
 
-            report.push_str("\n");
+            report.push('\n');
         }
 
         report

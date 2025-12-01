@@ -561,7 +561,7 @@ impl QuantumSVBFTConsensus {
                 // Sign the prepare vote with quantum-resistant signature
                 let block_hash = block.hash().unwrap_or_default();
                 let msg_bytes =
-                    format!("prepare:{}:{}", view, hex::encode(&block_hash.as_ref())).into_bytes();
+                    format!("prepare:{}:{}", view, hex::encode(block_hash.as_ref())).into_bytes();
                 let prepare_sig = dilithium_sign(node_id.as_ref(), &msg_bytes)?;
 
                 // Send prepare vote

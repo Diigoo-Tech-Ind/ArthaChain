@@ -3,8 +3,6 @@
 
 use axum::{
     extract::{Path, State as AxumState},
-    http::StatusCode,
-    response::{IntoResponse, Response},
     Json,
 };
 use serde::{Deserialize, Serialize};
@@ -12,7 +10,6 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use sha3::{Digest, Keccak256};
 use reqwest::Client as HttpClient;
-use ethereum_types::{H160, U256};
 
 use crate::api::ApiError;
 use crate::ledger::state::State;
@@ -81,8 +78,9 @@ impl AIIDRegistryClient {
 
     /// Send transaction to contract (write operation)
     async fn send_transaction(&self, data: &str, from: Option<&str>) -> Result<String, String> {
+        let env_addr = std::env::var("ARTHA_OPERATOR_ADDR").ok();
         let from_addr = from
-            .or_else(|| std::env::var("ARTHA_OPERATOR_ADDR").ok().as_deref())
+            .or(env_addr.as_deref())
             .unwrap_or("0x0000000000000000000000000000000000000000");
 
         let payload = serde_json::json!({
@@ -131,7 +129,7 @@ impl AIIDRegistryClient {
     async fn get_aiid(&self, aiid_hash: &[u8; 32]) -> Result<AIIDInfo, String> {
         let selector = Self::compute_selector("getAIID(bytes32)");
         let param = hex::encode(aiid_hash);
-        let data = self.encode_call(selector, vec![param]);
+        let data = self.encode_call(&selector, vec![param]);
 
         let result = self.call_contract(&data).await?;
         
@@ -281,7 +279,7 @@ impl AIIDRegistryClient {
     async fn get_lineage(&self, aiid_hash: &[u8; 32]) -> Result<Vec<String>, String> {
         let selector = Self::compute_selector("getLineage(bytes32)");
         let param = hex::encode(aiid_hash);
-        let data = self.encode_call(selector, vec![param]);
+        let data = self.encode_call(&selector, vec![param]);
 
         let result = self.call_contract(&data).await?;
         
@@ -487,27 +485,27 @@ pub async fn create_aiid(
 ) -> Result<Json<CreateAIIDResponse>, ApiError> {
     // Validate inputs
     if request.owner_did.is_empty() || request.model_cid.is_empty() {
-        return Err(ApiError::BadRequest("owner_did and model_cid are required".to_string()));
+        return Err(ApiError::bad_request("owner_did and model_cid are required"));
     }
     
     if request.version.is_empty() {
-        return Err(ApiError::BadRequest("version is required".to_string()));
+        return Err(ApiError::bad_request("version is required"));
     }
     
     // Convert inputs to bytes32
     let owner_did_bytes = did_to_bytes32(&request.owner_did)
-        .map_err(|e| ApiError::BadRequest(format!("Invalid owner_did: {}", e)))?;
+        .map_err(|e| ApiError::bad_request(&format!("Invalid owner_did: {}", e)))?;
     
     let model_cid_bytes = cid_to_bytes32(&request.model_cid)
-        .map_err(|e| ApiError::BadRequest(format!("Invalid model_cid: {}", e)))?;
+        .map_err(|e| ApiError::bad_request(&format!("Invalid model_cid: {}", e)))?;
     
     let dataset_id_bytes = cid_to_bytes32(&request.dataset_id)
-        .map_err(|e| ApiError::BadRequest(format!("Invalid dataset_id: {}", e)))?;
+        .map_err(|e| ApiError::bad_request(&format!("Invalid dataset_id: {}", e)))?;
     
     let code_hash_bytes = hex::decode(request.code_hash.trim_start_matches("0x"))
-        .map_err(|e| ApiError::BadRequest(format!("Invalid code_hash: {}", e)))?
+        .map_err(|e| ApiError::bad_request(&format!("Invalid code_hash: {}", e)))?
         .try_into()
-        .map_err(|_| ApiError::BadRequest("code_hash must be 32 bytes".to_string()))?;
+        .map_err(|_| ApiError::bad_request("code_hash must be 32 bytes"))?;
     
     // Initialize contract client
     let client = AIIDRegistryClient::from_env();
@@ -522,16 +520,16 @@ pub async fn create_aiid(
             &request.version,
         )
         .await
-        .map_err(|e| ApiError::InternalServerError(format!("Contract call failed: {}", e)))?;
+        .map_err(|e| ApiError::internal_server_error(&format!("Contract call failed: {}", e)))?;
     
     // Generate AIID hash (matching contract logic for verification)
     let timestamp = chrono::Utc::now().timestamp() as u64;
     let mut hasher = Keccak256::new();
-    hasher.update(&model_cid_bytes);
-    hasher.update(&dataset_id_bytes);
-    hasher.update(&code_hash_bytes);
+    hasher.update(model_cid_bytes);
+    hasher.update(dataset_id_bytes);
+    hasher.update(code_hash_bytes);
     hasher.update(request.version.as_bytes());
-    hasher.update(&timestamp.to_be_bytes());
+    hasher.update(timestamp.to_be_bytes());
     let aiid_hash: [u8; 32] = hasher.finalize().into();
     
     let aiid = bytes32_to_aiid(&aiid_hash);
@@ -553,7 +551,7 @@ pub async fn get_aiid(
 ) -> Result<Json<AIIDInfo>, ApiError> {
     // Extract AIID hash
     let aiid_hash = extract_aiid_hash(&aiid)
-        .map_err(|e| ApiError::BadRequest(e))?;
+        .map_err(|e| ApiError::bad_request(&e))?;
     
     // Initialize contract client
     let client = AIIDRegistryClient::from_env();
@@ -564,9 +562,9 @@ pub async fn get_aiid(
         .await
         .map_err(|e| {
             if e.contains("not found") {
-                ApiError::NotFound(format!("AIID not found: {}", aiid))
+                ApiError::not_found(&format!("AIID not found: {}", aiid))
             } else {
-                ApiError::InternalServerError(format!("Contract call failed: {}", e))
+                ApiError::internal_server_error(&format!("Contract call failed: {}", e))
             }
         })?;
     
@@ -581,12 +579,12 @@ pub async fn rotate_aiid(
 ) -> Result<Json<RotateAIIDResponse>, ApiError> {
     // Validate inputs
     if request.new_model_cid.is_empty() || request.new_version.is_empty() {
-        return Err(ApiError::BadRequest("new_model_cid and new_version are required".to_string()));
+        return Err(ApiError::bad_request("new_model_cid and new_version are required"));
     }
     
     // Extract old AIID hash
     let old_aiid_hash = extract_aiid_hash(&request.aiid)
-        .map_err(|e| ApiError::BadRequest(e))?;
+        .map_err(|e| ApiError::bad_request(&e))?;
     
     // Verify old AIID exists and get its data
     let client = AIIDRegistryClient::from_env();
@@ -595,38 +593,38 @@ pub async fn rotate_aiid(
         .await
         .map_err(|e| {
             if e.contains("not found") {
-                ApiError::NotFound(format!("AIID not found: {}", request.aiid))
+                ApiError::not_found(&format!("AIID not found: {}", request.aiid))
             } else {
-                ApiError::InternalServerError(format!("Failed to verify AIID: {}", e))
+                ApiError::internal_server_error(&format!("Failed to verify AIID: {}", e))
             }
         })?;
     
     // Convert new model CID
     let new_model_cid_bytes = cid_to_bytes32(&request.new_model_cid)
-        .map_err(|e| ApiError::BadRequest(format!("Invalid new_model_cid: {}", e)))?;
+        .map_err(|e| ApiError::bad_request(&format!("Invalid new_model_cid: {}", e)))?;
     
     // Call contract to rotate AIID
     let tx_hash = client
         .rotate_aiid(&old_aiid_hash, &new_model_cid_bytes, &request.new_version)
         .await
-        .map_err(|e| ApiError::InternalServerError(format!("Contract call failed: {}", e)))?;
+        .map_err(|e| ApiError::internal_server_error(&format!("Contract call failed: {}", e)))?;
     
     // Generate new AIID hash (matching contract logic)
     // Contract uses: keccak256(newModelCid, old.datasetId, old.codeHash, newVersion, block.timestamp)
     let timestamp = chrono::Utc::now().timestamp() as u64;
     let old_dataset_id_bytes = cid_to_bytes32(&old_info.dataset_id)
-        .map_err(|e| ApiError::InternalServerError(format!("Failed to parse old dataset_id: {}", e)))?;
-    let old_code_hash_bytes = hex::decode(old_info.code_hash.trim_start_matches("0x"))
-        .map_err(|e| ApiError::InternalServerError(format!("Failed to parse old code_hash: {}", e)))?
+        .map_err(|e| ApiError::internal_server_error(&format!("Failed to parse old dataset_id: {}", e)))?;
+    let old_code_hash_bytes: [u8; 32] = hex::decode(old_info.code_hash.trim_start_matches("0x"))
+        .map_err(|e| ApiError::internal_server_error(&format!("Failed to parse old code_hash: {}", e)))?
         .try_into()
-        .map_err(|_| ApiError::InternalServerError("Invalid old code_hash format".to_string()))?;
+        .map_err(|_| ApiError::internal_server_error("Invalid old code_hash format"))?;
     
     let mut hasher = Keccak256::new();
-    hasher.update(&new_model_cid_bytes);
-    hasher.update(&old_dataset_id_bytes);
-    hasher.update(&old_code_hash_bytes);
+    hasher.update(new_model_cid_bytes);
+    hasher.update(old_dataset_id_bytes);
+    hasher.update(old_code_hash_bytes);
     hasher.update(request.new_version.as_bytes());
-    hasher.update(&timestamp.to_be_bytes());
+    hasher.update(timestamp.to_be_bytes());
     let new_aiid_hash: [u8; 32] = hasher.finalize().into();
     
     let new_aiid = bytes32_to_aiid(&new_aiid_hash);
@@ -648,16 +646,16 @@ pub async fn link_owner(
 ) -> Result<Json<LinkOwnerResponse>, ApiError> {
     // Validate inputs
     if request.owner_did.is_empty() {
-        return Err(ApiError::BadRequest("owner_did is required".to_string()));
+        return Err(ApiError::bad_request("owner_did is required"));
     }
     
     // Extract AIID hash
     let aiid_hash = extract_aiid_hash(&request.aiid)
-        .map_err(|e| ApiError::BadRequest(e))?;
+        .map_err(|e| ApiError::bad_request(&e))?;
     
     // Validate owner DID
     let owner_did_bytes = did_to_bytes32(&request.owner_did)
-        .map_err(|e| ApiError::BadRequest(format!("Invalid owner_did: {}", e)))?;
+        .map_err(|e| ApiError::bad_request(&format!("Invalid owner_did: {}", e)))?;
     
     // Verify AIID exists
     let client = AIIDRegistryClient::from_env();
@@ -666,9 +664,9 @@ pub async fn link_owner(
         .await
         .map_err(|e| {
             if e.contains("not found") {
-                ApiError::NotFound(format!("AIID not found: {}", request.aiid))
+                ApiError::not_found(&format!("AIID not found: {}", request.aiid))
             } else {
-                ApiError::InternalServerError(format!("Failed to verify AIID: {}", e))
+                ApiError::internal_server_error(&format!("Failed to verify AIID: {}", e))
             }
         })?;
     
@@ -676,7 +674,7 @@ pub async fn link_owner(
     let tx_hash = client
         .link_owner(&aiid_hash, &owner_did_bytes)
         .await
-        .map_err(|e| ApiError::InternalServerError(format!("Contract call failed: {}", e)))?;
+        .map_err(|e| ApiError::internal_server_error(&format!("Contract call failed: {}", e)))?;
     
     let timestamp = chrono::Utc::now().timestamp() as u64;
     
@@ -696,7 +694,7 @@ pub async fn get_lineage(
 ) -> Result<Json<LineageResponse>, ApiError> {
     // Extract AIID hash
     let aiid_hash = extract_aiid_hash(&aiid)
-        .map_err(|e| ApiError::BadRequest(e))?;
+        .map_err(|e| ApiError::bad_request(&e))?;
     
     // Initialize contract client
     let client = AIIDRegistryClient::from_env();
@@ -705,7 +703,7 @@ pub async fn get_lineage(
     let lineage = client
         .get_lineage(&aiid_hash)
         .await
-        .map_err(|e| ApiError::InternalServerError(format!("Contract call failed: {}", e)))?;
+        .map_err(|e| ApiError::internal_server_error(&format!("Contract call failed: {}", e)))?;
     
     Ok(Json(LineageResponse {
         aiid,

@@ -304,7 +304,7 @@ pub async fn allocate_role(
     }
     
     // Validate target role
-    let valid_roles = vec!["Mining", "Validation", "Sharding", "Full Node", "Light Node"];
+    let valid_roles = ["Mining", "Validation", "Sharding", "Full Node", "Light Node"];
     if !valid_roles.contains(&request.target_role.as_str()) {
         return Err(ApiError::bad_request("Invalid target role"));
     }

@@ -1,4 +1,4 @@
-use super::{Result, Storage, StorageError, StorageStats};
+use super::{Result, Storage, StorageStats};
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -6,6 +6,12 @@ use std::sync::{Arc, Mutex};
 /// Simple in-memory storage implementation for testing
 pub struct MemoryStorage {
     data: Arc<Mutex<HashMap<Vec<u8>, Vec<u8>>>>,
+}
+
+impl Default for MemoryStorage {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MemoryStorage {

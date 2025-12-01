@@ -244,21 +244,19 @@ impl NetworkStats {
 
 /// Network message priority
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum MessagePriority {
     Low = 1,
+    #[default]
     Normal = 2,
     High = 3,
     Critical = 4,
 }
 
-impl Default for MessagePriority {
-    fn default() -> Self {
-        MessagePriority::Normal
-    }
-}
 
 /// Network connection status
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum ConnectionStatus {
     /// Connection is being established
     Connecting,
@@ -267,16 +265,12 @@ pub enum ConnectionStatus {
     /// Connection is established but experiencing issues
     Degraded,
     /// Connection is lost or failed
+    #[default]
     Disconnected,
     /// Connection is being closed
     Closing,
 }
 
-impl Default for ConnectionStatus {
-    fn default() -> Self {
-        ConnectionStatus::Disconnected
-    }
-}
 
 /// Peer information
 #[derive(Debug, Clone, Serialize, Deserialize)]

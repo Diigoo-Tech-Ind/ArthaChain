@@ -1,7 +1,8 @@
 use libp2p::kad::{
-    store::MemoryStore, Kademlia, KademliaEvent, QueryId, QueryResult, Quorum, Record, RecordKey,
+    store::MemoryStore, Behaviour as Kademlia, Event as KademliaEvent, QueryResult,
+    Record, RecordKey,
 };
-use libp2p::{PeerId, Swarm};
+use libp2p::PeerId;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -127,50 +128,48 @@ impl DhtRoutingManager {
     
     /// Handle Kademlia event and update provider cache
     pub async fn handle_kad_event(&self, event: KademliaEvent) -> Result<()> {
-        match event {
-            KademliaEvent::QueryResult { result, .. } => {
-                match result {
-                    QueryResult::GetRecord(Ok(get_record)) => {
-                        for peer_record in get_record.records {
-                            if let Ok(value_json) = serde_json::from_slice::<serde_json::Value>(&peer_record.record.value) {
-                                let cid = value_json["cid"].as_str().unwrap_or("");
-                                let peer_id_str = value_json["peer_id"].as_str().unwrap_or("");
+        if let KademliaEvent::OutboundQueryProgressed { result, .. } = event {
+            match result {
+                libp2p::kad::QueryResult::GetRecord(Ok(libp2p::kad::GetRecordOk::FoundRecord(peer_record))) => {
+                    let records = vec![peer_record];
+                    for peer_record in records {
+                        if let Ok(value_json) = serde_json::from_slice::<serde_json::Value>(&peer_record.record.value) {
+                            let cid = value_json["cid"].as_str().unwrap_or("");
+                            let peer_id_str = value_json["peer_id"].as_str().unwrap_or("");
+                            
+                            if let Ok(peer_id) = peer_id_str.parse::<PeerId>() {
+                                let capabilities = ProviderCapabilities {
+                                    storage: value_json["capabilities"]["storage"].as_bool().unwrap_or(false),
+                                    retrieval: value_json["capabilities"]["retrieval"].as_bool().unwrap_or(false),
+                                    gpu: value_json["capabilities"]["gpu"].as_bool().unwrap_or(false),
+                                    region: value_json["capabilities"]["region"].as_str().unwrap_or("unknown").to_string(),
+                                    bandwidth_mbps: value_json["capabilities"]["bandwidth_mbps"].as_u64().unwrap_or(0),
+                                };
                                 
-                                if let Ok(peer_id) = peer_id_str.parse::<PeerId>() {
-                                    let capabilities = ProviderCapabilities {
-                                        storage: value_json["capabilities"]["storage"].as_bool().unwrap_or(false),
-                                        retrieval: value_json["capabilities"]["retrieval"].as_bool().unwrap_or(false),
-                                        gpu: value_json["capabilities"]["gpu"].as_bool().unwrap_or(false),
-                                        region: value_json["capabilities"]["region"].as_str().unwrap_or("unknown").to_string(),
-                                        bandwidth_mbps: value_json["capabilities"]["bandwidth_mbps"].as_u64().unwrap_or(0),
-                                    };
-                                    
-                                    let provider_record = ProviderRecord {
-                                        cid: cid.to_string(),
-                                        provider: peer_id,
-                                        addresses: vec![],
-                                        capabilities,
-                                        published_at: value_json["published_at"].as_u64().unwrap_or(0),
-                                    };
-                                    
-                                    // Update cache
-                                    let mut providers = self.providers.write().await;
-                                    providers.entry(cid.to_string())
-                                        .or_insert_with(Vec::new)
-                                        .push(provider_record);
-                                    
-                                    println!("✓ Discovered provider for CID: {} (peer: {})", cid, peer_id);
-                                }
+                                let provider_record = ProviderRecord {
+                                    cid: cid.to_string(),
+                                    provider: peer_id,
+                                    addresses: vec![],
+                                    capabilities,
+                                    published_at: value_json["published_at"].as_u64().unwrap_or(0),
+                                };
+                                
+                                // Update cache
+                                let mut providers = self.providers.write().await;
+                                providers.entry(cid.to_string())
+                                    .or_insert_with(Vec::new)
+                                    .push(provider_record);
+                                
+                                println!("✓ Discovered provider for CID: {} (peer: {})", cid, peer_id);
                             }
                         }
                     }
-                    QueryResult::PutRecord(Ok(put_record)) => {
-                        println!("✓ Provider record published successfully (key: {:?})", put_record.key);
-                    }
-                    _ => {}
                 }
+                QueryResult::PutRecord(Ok(put_record)) => {
+                    println!("✓ Provider record published successfully (key: {:?})", put_record.key);
+                }
+                _ => {}
             }
-            _ => {}
         }
         
         Ok(())

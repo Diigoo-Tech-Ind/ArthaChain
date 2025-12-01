@@ -4,6 +4,8 @@ pragma solidity ^0.8.20;
 import "forge-std/Test.sol";
 import {ArthaCoin} from "../ArthaCoin.sol";
 
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+
 contract ArthaCoinExemptionsTest is Test {
     ArthaCoin internal token;
 
@@ -17,8 +19,9 @@ contract ArthaCoinExemptionsTest is Test {
     address internal treasuryReserve = address(0x7777);
 
     function setUp() public {
-        token = new ArthaCoin();
-        token.initialize(
+        ArthaCoin implementation = new ArthaCoin();
+        bytes memory initData = abi.encodeWithSelector(
+            ArthaCoin.initialize.selector,
             admin,
             validatorsPool,
             stakingRewardsPool,
@@ -28,6 +31,8 @@ contract ArthaCoinExemptionsTest is Test {
             daoGovernancePool,
             treasuryReserve
         );
+        ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
+        token = ArthaCoin(address(proxy));
     }
 
     function testPoolsAreBurnExempt() public {

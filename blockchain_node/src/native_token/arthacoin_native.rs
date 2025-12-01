@@ -1,9 +1,8 @@
 //! Native ArthaCoin integration for blockchain core
 //! This replaces simple balance tracking with the advanced ArthaCoin system
 
-use crate::ledger::state::State;
 use anyhow::{anyhow, Result};
-use log::{debug, info, warn};
+use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;

@@ -41,7 +41,7 @@ impl BatchProcessor {
 
         self.pending_txs
             .entry(priority)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(tx);
     }
 

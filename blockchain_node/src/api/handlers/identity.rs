@@ -106,7 +106,7 @@ pub async fn create_did(
 
 /// Advanced DID resolution with blockchain verification and caching
 pub async fn resolve_did(State(state): State<AppState>, Path(did_str): Path<String>) -> Response {
-    let mut did_manager = DIDManager::new();
+    let did_manager = DIDManager::new();
 
     // Parse and validate DID format
     let did = match ArthaDID::from_str(&did_str) {
@@ -150,7 +150,7 @@ pub async fn resolve_did(State(state): State<AppState>, Path(did_str): Path<Stri
 pub async fn authenticate_did(
     Json(request): Json<AuthenticateDIDRequest>,
 ) -> Response {
-    let mut did_manager = DIDManager::new();
+    let did_manager = DIDManager::new();
 
     // Multi-factor authentication with blockchain verification
     let result = did_manager

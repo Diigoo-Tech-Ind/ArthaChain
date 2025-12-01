@@ -1,6 +1,6 @@
 use crate::ledger::state::State as LedgerState;
 use axum::{extract::Extension, http::StatusCode, response::IntoResponse, Json};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;

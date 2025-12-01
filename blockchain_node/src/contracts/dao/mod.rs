@@ -200,7 +200,7 @@ impl DAOContract {
         proposals
             .cast_vote(
                 proposal_id.clone(),
-                voter.clone(),
+                voter,
                 vote_weight,
                 support,
                 reason,
@@ -236,7 +236,7 @@ impl DAOContract {
         state: &DAOState,
         voter: &Address,
     ) -> anyhow::Result<VoteWeight> {
-        let mut weight = state.token_balances.get(voter).unwrap_or(&0.into()).clone();
+        let mut weight = *state.token_balances.get(voter).unwrap_or(&0.into());
 
         // Add staking bonus
         if let Some(position) = state.staking_positions.get(voter) {

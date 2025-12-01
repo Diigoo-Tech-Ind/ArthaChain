@@ -5,9 +5,10 @@ use ethereum_types::{H160, U256};
 use hex;
 use jsonrpc_core::{Error as RpcError, IoHandler, Params, Value};
 use jsonrpc_http_server::{Server as RpcServer, ServerBuilder};
-use log::info;
+use log::{info, error};
 
 use serde::{Deserialize, Serialize};
+use sha3::{Digest, Keccak256};
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -62,7 +63,7 @@ impl EvmRpcService {
             let executor = executor_clone.clone();
             async move {
                 // Get real block number from executor
-                let block_number = executor.get_block_number();
+                let block_number = executor.get_block_number().await;
                 let block_number_hex = format!("0x{block_number:x}");
                 Ok(Value::String(block_number_hex))
             }
@@ -70,38 +71,40 @@ impl EvmRpcService {
 
         // eth_getBalance
         let executor_clone = executor.clone();
-        io.add_method("eth_getBalance", move |params: Params| async move {
-            // Parse parameters
-            let params: (String, String) = params
-                .parse()
-                .map_err(|e| RpcError::invalid_params(format!("Invalid parameters: {e:?}")))?;
-
-            let address_str = params.0;
-            let block_identifier = params.1; // "latest", "earliest", "pending", or block number
-
-            // Parse address
-            let address = if address_str.starts_with("0x") {
-                let address_bytes = hex::decode(&address_str[2..])
-                    .map_err(|e| RpcError::invalid_params(format!("Invalid address: {e:?}")))?;
-
-                if address_bytes.len() != 20 {
-                    return Err(RpcError::invalid_params("Address must be 20 bytes"));
-                }
-
-                let mut addr = [0u8; 20];
-                addr.copy_from_slice(&address_bytes);
-                H160::from(addr)
-            } else {
-                return Err(RpcError::invalid_params("Address must start with 0x"));
-            };
-
-            // Get balance from EVM backend
+        io.add_method("eth_getBalance", move |params: Params| {
             let executor = executor_clone.clone();
-            let balance = executor.get_balance(address).await
-                .unwrap_or_else(|_| U256::zero());
-            let balance_hex = format!("0x{balance:x}");
+            async move {
+                // Parse parameters
+                let params: (String, String) = params
+                    .parse()
+                    .map_err(|e| RpcError::invalid_params(format!("Invalid parameters: {e:?}")))?;
 
-            Ok(Value::String(balance_hex))
+                let address_str = params.0;
+                let _block_identifier = params.1; // "latest", "earliest", "pending", or block number
+
+                // Parse address
+                let address = if address_str.starts_with("0x") {
+                    let address_bytes = hex::decode(&address_str[2..])
+                        .map_err(|e| RpcError::invalid_params(format!("Invalid address: {e:?}")))?;
+
+                    if address_bytes.len() != 20 {
+                        return Err(RpcError::invalid_params("Address must be 20 bytes"));
+                    }
+
+                    let mut addr = [0u8; 20];
+                    addr.copy_from_slice(&address_bytes);
+                    H160::from(addr)
+                } else {
+                    return Err(RpcError::invalid_params("Address must start with 0x"));
+                };
+
+                // Get balance from EVM backend
+                let balance = executor.get_balance(address).await
+                    .unwrap_or_else(|_| U256::zero());
+                let balance_hex = format!("0x{balance:x}");
+
+                Ok(Value::String(balance_hex))
+            }
         });
 
         // eth_gasPrice
@@ -132,7 +135,7 @@ impl EvmRpcService {
                     from: call_request.from.unwrap_or(H160::zero()),
                     to: call_request.to,
                     value: call_request.value.unwrap_or(U256::zero()),
-                    data: call_request.data.unwrap_or_else(Vec::new),
+                    data: call_request.data.unwrap_or_default(),
                     gas_price: call_request
                         .gas_price
                         .unwrap_or(U256::from(executor.get_config().default_gas_price)),
@@ -162,13 +165,15 @@ impl EvmRpcService {
 
         // eth_sendRawTransaction
         let executor_clone = executor.clone();
-        io.add_method("eth_sendRawTransaction", move |params: Params| async move {
-            // Parse parameters
-            let params: (String,) = params
-                .parse()
-                .map_err(|e| RpcError::invalid_params(format!("Invalid parameters: {:?}", e)))?;
+        io.add_method("eth_sendRawTransaction", move |params: Params| {
+            let executor = executor_clone.clone();
+            async move {
+                // Parse parameters
+                let params: (String,) = params
+                    .parse()
+                    .map_err(|e| RpcError::invalid_params(format!("Invalid parameters: {:?}", e)))?;
 
-            let raw_tx = params.0;
+                let raw_tx = params.0;
 
             // Decode the raw transaction (RLP-encoded)
             // Parse hex string
@@ -202,10 +207,16 @@ impl EvmRpcService {
 
             // Submit for execution
             if let Err(e) = executor.submit_transaction(tx).await {
-                return Err(RpcError::internal_error(anyhow::anyhow!("Failed to submit transaction: {}", e)));
+                error!("Failed to submit transaction: {}", e);
+                return Err(RpcError {
+                    code: jsonrpc_core::ErrorCode::InternalError,
+                    message: "Failed to submit transaction".to_string(),
+                    data: None,
+                });
             }
 
             Ok(Value::String(tx_hash_hex))
+            }
         });
 
         // eth_getTransactionReceipt
@@ -245,7 +256,7 @@ impl EvmRpcService {
                     from: call_request.from.unwrap_or(H160::zero()),
                     to: call_request.to,
                     value: call_request.value.unwrap_or(U256::zero()),
-                    data: call_request.data.unwrap_or_else(Vec::new),
+                    data: call_request.data.unwrap_or_default(),
                     gas_price: call_request
                         .gas_price
                         .unwrap_or(U256::from(executor.get_config().default_gas_price)),

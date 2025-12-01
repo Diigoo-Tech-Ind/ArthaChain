@@ -71,11 +71,11 @@ impl TransactionGraph {
         self.edges
             .write()
             .entry(tx_id.clone())
-            .or_insert_with(HashSet::new);
+            .or_default();
         self.reverse_edges
             .write()
             .entry(tx_id)
-            .or_insert_with(HashSet::new);
+            .or_default();
 
         Ok(())
     }
@@ -86,14 +86,14 @@ impl TransactionGraph {
         self.edges
             .write()
             .entry(from.to_string())
-            .or_insert_with(HashSet::new)
+            .or_default()
             .insert(to.to_string());
 
         // Add reverse edge
         self.reverse_edges
             .write()
             .entry(to.to_string())
-            .or_insert_with(HashSet::new)
+            .or_default()
             .insert(from.to_string());
 
         Ok(())

@@ -14,6 +14,8 @@ pub enum TransactionType {
     ContractCreate,
     /// Contract deployment (alias for ContractCreate)
     Deploy,
+    /// Contract deployment (another alias)
+    ContractDeployment,
     /// Contract call
     ContractCall,
     /// Contract call (alias for backward compatibility)
@@ -317,7 +319,7 @@ impl Transaction {
                 });
             }
 
-            TransactionType::ContractCreate | TransactionType::Deploy => {
+            TransactionType::ContractCreate | TransactionType::Deploy | TransactionType::ContractDeployment => {
                 // Real contract deployment execution
                 gas_used += 32_000 + (self.data.len() as u64 * 200); // Contract creation costs
 
@@ -438,6 +440,11 @@ impl Transaction {
         data.extend_from_slice(&self.data);
         data.extend_from_slice(&self.timestamp.to_le_bytes());
         data
+    }
+
+    /// Get transaction bytes for signature (alias for serialize_for_hash)
+    pub fn hash_for_signature(&self) -> Vec<u8> {
+        self.serialize_for_hash()
     }
 }
 

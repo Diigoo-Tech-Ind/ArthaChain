@@ -1,4 +1,3 @@
-use num_traits::ToPrimitive;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -7,7 +6,7 @@ use tokio::sync::{mpsc, RwLock};
 use tokio::task::JoinHandle;
 
 use crate::ledger::block::Block;
-use crate::sharding::{ShardInfo, ShardManager, ShardType};
+use crate::sharding::ShardManager;
 use crate::types::{Address, Hash, Transaction};
 
 /// Performance metrics for the parallel processor
@@ -239,7 +238,7 @@ impl ParallelProcessor {
         let result =
             Self::process_transaction_in_shard(&transaction, shard_id, shard_manager).await;
 
-        if let Ok(_) = result {
+        if result.is_ok() {
             // Update shard metrics
             let mut shards = shard_distribution.write().await;
             if let Some(shard_metrics) = shards.get_mut(&shard_id) {
@@ -273,7 +272,7 @@ impl ParallelProcessor {
             Self::create_shard_block(shard_id, transactions, previous_hash, height, shard_manager)
                 .await;
 
-        if let Ok(_) = result {
+        if result.is_ok() {
             // Update shard metrics
             let mut shards = shard_distribution.write().await;
             if let Some(shard_metrics) = shards.get_mut(&shard_id) {
@@ -297,7 +296,7 @@ impl ParallelProcessor {
         // Validate block consensus
         let result = Self::validate_block_consensus().await;
 
-        if let Ok(_) = result {
+        if result.is_ok() {
             // Update shard metrics
             let mut shards = shard_distribution.write().await;
             if let Some(shard_metrics) = shards.get_mut(&shard_id) {
@@ -404,6 +403,7 @@ impl ParallelProcessor {
         use crate::ledger::block::{Block, BlockHeader};
 
         let header = BlockHeader {
+            version: 1,
             previous_hash: Hash::default(),
             merkle_root: Hash::default(),
             timestamp: std::time::SystemTime::now()

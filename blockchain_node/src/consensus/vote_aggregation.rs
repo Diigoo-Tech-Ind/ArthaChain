@@ -1,4 +1,3 @@
-use crate::ledger::block::Block;
 use crate::network::types::NodeId;
 use anyhow::{anyhow, Result};
 use log::{debug, info, warn};
@@ -565,9 +564,9 @@ impl VoteAggregator {
         use sha2::{Digest, Sha256};
         let mut hasher = Sha256::new();
         hasher.update(message_hash);
-        hasher.update(&[vote_type as u8]);
-        hasher.update(&height.to_be_bytes());
-        hasher.update(&round.to_be_bytes());
+        hasher.update([vote_type as u8]);
+        hasher.update(height.to_be_bytes());
+        hasher.update(round.to_be_bytes());
         hasher.update(validator_id.as_bytes());
         let signature = hasher.finalize().to_vec();
 

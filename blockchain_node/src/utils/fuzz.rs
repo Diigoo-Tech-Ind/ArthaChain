@@ -416,7 +416,7 @@ impl ContractFuzzer {
             .count();
 
         let mut result = String::new();
-        result.push_str(&format!("# Fuzzing Summary\n\n"));
+        result.push_str(&"# Fuzzing Summary\n\n".to_string());
         result.push_str(&format!("- Total test cases: {}\n", total));
         result.push_str(&format!("- Successful: {}\n", total - failures));
         result.push_str(&format!("- Failures: {}\n", failures));
@@ -578,7 +578,7 @@ impl ContractFuzzer {
 
                 // Generate realistic test inputs based on parameter types
                 for param in &function.parameters {
-                    let value = self.generate_realistic_input(&param, &mut rng);
+                    let value = self.generate_realistic_input(param, &mut rng);
                     input.insert(param.name.clone(), value);
                 }
 
@@ -742,16 +742,14 @@ impl ContractFuzzer {
                 let failure_chance = 0.1; // 10% failure rate
                 let mut local_rng = rand::thread_rng();
                 if local_rng.gen::<f64>() < failure_chance {
-                    let error_types = vec![
-                        "Invalid input parameters",
+                    let error_types = ["Invalid input parameters",
                         "Contract state error", 
                         "Permission denied",
                         "Gas limit exceeded",
                         "Out of bounds access",
                         "Integer overflow",
                         "Division by zero",
-                        "Invalid state transition"
-                    ];
+                        "Invalid state transition"];
                     let error_msg = error_types[local_rng.gen_range(0..error_types.len())];
                     return Err(anyhow!("{}", error_msg));
                 }

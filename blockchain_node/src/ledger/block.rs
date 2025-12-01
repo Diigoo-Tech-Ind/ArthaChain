@@ -91,6 +91,8 @@ pub struct Block {
 /// Block header containing metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockHeader {
+    /// Protocol version
+    pub version: u32,
     /// Previous block hash
     pub previous_hash: Hash,
     /// Merkle root of transactions
@@ -141,6 +143,7 @@ impl Block {
         let merkle_root = Self::calculate_merkle_root(&transactions);
 
         let header = BlockHeader {
+            version: 1,
             previous_hash,
             merkle_root: merkle_root?,
             timestamp,
@@ -182,7 +185,7 @@ impl Block {
     }
 
     /// Calculate the merkle root of transactions
-    fn calculate_merkle_root(transactions: &[Transaction]) -> Result<Hash> {
+    pub fn calculate_merkle_root(transactions: &[Transaction]) -> Result<Hash> {
         if transactions.is_empty() {
             return Ok(Hash::default());
         }
@@ -316,7 +319,7 @@ impl Transaction {
             let tx_hash = self.calculate_hash()?;
             // For now, we'll do a simplified verification
             // In production, this would verify against the sender's public key
-            return Ok(signature.as_ref().len() > 0 && !tx_hash.as_ref().is_empty());
+            return Ok(!signature.as_ref().is_empty() && !tx_hash.as_ref().is_empty());
         }
 
         // Transactions without signatures are considered invalid

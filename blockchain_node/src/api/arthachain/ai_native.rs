@@ -4,14 +4,9 @@
 //! artificial intelligence directly into blockchain operations.
 
 use crate::api::errors::ApiError;
-use crate::ai_engine::models::{
-    fraud_detection::FraudDetectionModel,
-    device_health::DeviceHealthDetector,
-    blockchain_neural::BlockchainNeural,
-};
 use crate::ledger::state::State;
 use axum::{
-    extract::{Extension, Path, Query},
+    extract::{Extension, Path},
     response::Json,
     routing::{get, post},
     Router,

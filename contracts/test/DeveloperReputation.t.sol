@@ -6,7 +6,7 @@ import {DeveloperReputation} from "../DeveloperReputation.sol";
 
 contract DeveloperReputationTest is Test {
     DeveloperReputation rep;
-    address dev = address(0xD3V);
+    address dev = address(0xD30);
 
     function setUp() public {
         rep = new DeveloperReputation();

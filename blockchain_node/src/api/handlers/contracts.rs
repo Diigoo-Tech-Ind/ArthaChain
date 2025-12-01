@@ -112,7 +112,7 @@ impl SmartContractsService {
         &self,
         request: &DeployRequest,
     ) -> Result<ContractExecutionResult, String> {
-        let mut engine = self.smart_contract_engine.write().await;
+        let engine = self.smart_contract_engine.write().await;
 
         // Validate bytecode
         if request.bytecode.is_empty() {

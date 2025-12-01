@@ -70,7 +70,7 @@ pub fn simulate(input: &SimulationInput) -> SimulationResult {
     let mut projected = Vec::new();
     for y in 0..input.years_ahead { projected.push((y, burn_for_year(input.burn_schedule_bps.clone(), y))); }
     let mut emissions = Vec::new();
-    for c in 0..=((input.years_ahead/3) as u32 + 1) {
+    for c in 0..=((input.years_ahead/3) + 1) {
         let em = (input.emission_initial_m * input.emission_growth.powi(c as i32)).min(input.emission_cap_m);
         emissions.push((c*3, round2(em)));
     }

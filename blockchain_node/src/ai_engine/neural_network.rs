@@ -169,7 +169,7 @@ impl AdvancedNeuralNetwork {
         // Initialize gradients
         let gradients = layers
             .iter()
-            .map(|layer| LayerGradients::new(layer))
+            .map(LayerGradients::new)
             .collect();
 
         info!(

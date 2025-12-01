@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlEnumerableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "./interfaces/ICycleManager.sol";
@@ -20,7 +20,7 @@ import "./interfaces/ICycleManager.sol";
  */
 contract CycleManager is 
     Initializable,
-    AccessControlUpgradeable, 
+    AccessControlEnumerableUpgradeable, 
     UUPSUpgradeable,
     ICycleManager 
 {
@@ -97,7 +97,6 @@ contract CycleManager is
      */
     function initialize(address _admin, address _tokenContract) public initializer {
         __AccessControl_init();
-        __UUPSUpgradeable_init();
 
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
         _grantRole(GOVERNANCE_ROLE, _admin);

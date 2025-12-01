@@ -13,6 +13,11 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 // TODO: Re-enable when ai_services module is implemented
+use crate::ai_engine::{
+    AIOutputVerificationInput, AnomalyDetectionService, AuthenticityVerificationService,
+    IdentityGraphInput, NodeBehaviorInput, ReputationScoringService, RiskScoringService,
+    VCRiskInput,
+};
 // use crate::ai_services::{
 //     risk_scoring::{RiskScoringService, VCRiskInput, VCRiskOutput},
 //     anomaly_detection::{AnomalyDetectionService, NodeBehaviorInput, AnomalyOutput},
@@ -97,6 +102,12 @@ pub struct AIServiceState {
     pub authenticity: Arc<AuthenticityVerificationService>,
 }
 
+impl Default for AIServiceState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AIServiceState {
     pub fn new() -> Self {
         AIServiceState {
@@ -121,14 +132,12 @@ pub async fn score_vc(
         subject_did: req.subject_did,
         claim_type: req.claim_type,
         issued_at: req.issued_at,
-        expires_at: req.expires_at,
-        issuer_reputation: req.issuer_reputation,
-        prior_revocations: req.prior_revocations,
+        expires_at: Some(req.expires_at),
+        issuer_reputation: Some(req.issuer_reputation as f64),
+        prior_revocations: Some(req.prior_revocations as u64),
     };
 
-    let output = state.risk_scoring.score_vc(input)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let output = state.risk_scoring.score_vc(input).await;
 
     let recommended_action = if output.risk > 0.8 {
         "BLOCK"
@@ -141,9 +150,9 @@ pub async fn score_vc(
     };
 
     Ok(Json(ScoreVCResponse {
-        risk: output.risk,
+        risk: output.risk as f32,
         reason_codes: output.reason_codes,
-        threshold_exceeded: output.threshold_exceeded,
+        threshold_exceeded: output.risk > 0.8, // Calculate locally or add to struct
         recommended_action: recommended_action.to_string(),
     }))
 }
@@ -154,19 +163,14 @@ pub async fn score_node(
     Json(req): Json<ScoreNodeRequest>,
 ) -> Result<Json<ScoreNodeResponse>, StatusCode> {
     // Parse time series data from JSON
-    let time_series_data = req.metrics
+    let time_series_data: Vec<f64> = req.metrics
         .as_object()
-        .ok_or(StatusCode::BAD_REQUEST)?
-        .iter()
-        .filter_map(|(k, v)| {
-            v.as_array().and_then(|arr| {
-                let floats: Vec<f32> = arr.iter()
-                    .filter_map(|v| v.as_f64().map(|f| f as f32))
-                    .collect();
-                if floats.is_empty() { None } else { Some((k.clone(), floats)) }
-            })
+        .map(|m| {
+            m.values()
+                .filter_map(|v| v.as_f64())
+                .collect()
         })
-        .collect();
+        .unwrap_or_default();
 
     let input = NodeBehaviorInput {
         node_pubkey: req.node_pubkey,
@@ -174,13 +178,12 @@ pub async fn score_node(
     };
 
     let output = state.anomaly_detection.score_node_behavior(input)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .await;
 
-    let should_alert = output.anomaly_score > 0.7;
+    let should_alert = output.anomaly_score > 0.8;
 
     Ok(Json(ScoreNodeResponse {
-        anomaly_score: output.anomaly_score,
+        anomaly_score: output.anomaly_score as f32,
         suggested_action: output.suggested_action,
         reason_codes: output.reason_codes,
         should_alert,
@@ -210,14 +213,13 @@ pub async fn score_identity(
     let input = IdentityGraphInput {
         did: req.did,
         graph_edges,
-        ip_hints: req.ip_hints,
-        device_fingerprints: req.device_fingerprints,
-        signup_timestamps: req.signup_timestamps,
+        ip_hints: Some(req.ip_hints),
+        device_fingerprints: Some(req.device_fingerprints),
+        signup_timestamps: Some(req.signup_timestamps),
     };
 
     let output = state.reputation_scoring.score_identity_graph(input)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .await;
 
     let should_block = output.artha_score < 30 || output.risk_level == "high";
 
@@ -242,8 +244,7 @@ pub async fn verify_ai_output(
     };
 
     let output = state.authenticity.verify_ai_output(input)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .await;
 
     let warning = if !output.is_authentic {
         Some("WARNING: AI output authenticity could not be verified. Provenance chain may be broken.".to_string())
@@ -294,7 +295,7 @@ pub async fn ai_health_check() -> impl IntoResponse {
 // ============================================================================
 
 /// Dataset registration request
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct DatasetRegisterRequest {
     pub root_cid: String,
     pub license_cid: String,
@@ -302,7 +303,7 @@ pub struct DatasetRegisterRequest {
 }
 
 /// Dataset registration response
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct DatasetRegisterResponse {
     pub dataset_id: String,
     pub root_cid: String,
@@ -310,7 +311,7 @@ pub struct DatasetRegisterResponse {
 }
 
 /// Model registration request
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ModelRegisterRequest {
     pub model_cid: String,
     pub architecture: String,
@@ -322,7 +323,7 @@ pub struct ModelRegisterRequest {
 }
 
 /// Model registration response
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ModelRegisterResponse {
     pub model_id: String,
     pub model_cid: String,
@@ -330,7 +331,7 @@ pub struct ModelRegisterResponse {
 }
 
 /// Training job request
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct TrainJobRequest {
     pub model_id: String,
     pub dataset_id: String,
@@ -339,7 +340,7 @@ pub struct TrainJobRequest {
     pub budget: u64,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct TrainParams {
     pub epochs: u32,
     pub batch_size: u32,
@@ -349,7 +350,7 @@ pub struct TrainParams {
 }
 
 /// Training job response
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct TrainJobResponse {
     pub job_id: String,
     pub status: String,
@@ -358,7 +359,7 @@ pub struct TrainJobResponse {
 }
 
 /// Inference job request
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct InferJobRequest {
     pub model_id: String,
     pub input_cid: Option<String>,
@@ -370,14 +371,14 @@ pub struct InferJobRequest {
 }
 
 /// Inference job response
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct InferJobResponse {
     pub job_id: String,
     pub status: String,
 }
 
 /// Agent job request
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct AgentJobRequest {
     pub agent_spec_cid: String,
     pub submitter_did: String,
@@ -388,7 +389,7 @@ pub struct AgentJobRequest {
 }
 
 /// Agent job response
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct AgentJobResponse {
     pub job_id: String,
     pub status: String,
@@ -405,7 +406,7 @@ pub async fn register_dataset(
     let jobd_url = std::env::var("ARTHA_JOBD_URL").unwrap_or_else(|_| "http://localhost:8081".to_string());
     
     let response = client
-        .post(&format!("{}/ai/dataset/register", jobd_url))
+        .post(format!("{}/ai/dataset/register", jobd_url))
         .json(&req)
         .send()
         .await
@@ -458,7 +459,7 @@ pub async fn get_dataset_info(
     let jobd_url = std::env::var("ARTHA_JOBD_URL").unwrap_or_else(|_| "http://localhost:8081".to_string());
     
     let response = client
-        .get(&format!("{}/ai/dataset/{}", jobd_url, dataset_id))
+        .get(format!("{}/ai/dataset/{}", jobd_url, dataset_id))
         .send()
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -481,7 +482,7 @@ pub async fn register_model(
     let jobd_url = std::env::var("ARTHA_JOBD_URL").unwrap_or_else(|_| "http://localhost:8081".to_string());
     
     let response = client
-        .post(&format!("{}/ai/model/register", jobd_url))
+        .post(format!("{}/ai/model/register", jobd_url))
         .json(&req)
         .send()
         .await
@@ -530,7 +531,7 @@ pub async fn get_model_lineage(
     let jobd_url = std::env::var("ARTHA_JOBD_URL").unwrap_or_else(|_| "http://localhost:8081".to_string());
     
     let response = client
-        .get(&format!("{}/ai/model/{}/lineage", jobd_url, model_id))
+        .get(format!("{}/ai/model/{}/lineage", jobd_url, model_id))
         .send()
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -549,7 +550,7 @@ pub async fn submit_train_job(
     let jobd_url = std::env::var("ARTHA_JOBD_URL").unwrap_or_else(|_| "http://localhost:8081".to_string());
     
     let response = client
-        .post(&format!("{}/job/train", jobd_url))
+        .post(format!("{}/job/train", jobd_url))
         .json(&req)
         .send()
         .await
@@ -573,7 +574,7 @@ pub async fn submit_infer_job(
     let jobd_url = std::env::var("ARTHA_JOBD_URL").unwrap_or_else(|_| "http://localhost:8081".to_string());
     
     let response = client
-        .post(&format!("{}/job/infer", jobd_url))
+        .post(format!("{}/job/infer", jobd_url))
         .json(&req)
         .send()
         .await
@@ -597,7 +598,7 @@ pub async fn submit_agent_job(
     let jobd_url = std::env::var("ARTHA_JOBD_URL").unwrap_or_else(|_| "http://localhost:8081".to_string());
     
     let response = client
-        .post(&format!("{}/job/agent", jobd_url))
+        .post(format!("{}/job/agent", jobd_url))
         .json(&req)
         .send()
         .await
@@ -621,7 +622,7 @@ pub async fn get_job_status(
     let jobd_url = std::env::var("ARTHA_JOBD_URL").unwrap_or_else(|_| "http://localhost:8081".to_string());
     
     let response = client
-        .get(&format!("{}/job/{}/status", jobd_url, job_id))
+        .get(format!("{}/job/{}/status", jobd_url, job_id))
         .send()
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -644,7 +645,7 @@ pub async fn get_job_logs(
     let runtime_url = std::env::var("ARTHA_RUNTIME_URL").unwrap_or_else(|_| "http://localhost:8084".to_string());
     
     let response = client
-        .get(&format!("{}/job/{}/logs", runtime_url, job_id))
+        .get(format!("{}/job/{}/logs", runtime_url, job_id))
         .send()
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -667,7 +668,7 @@ pub async fn cancel_job(
     let jobd_url = std::env::var("ARTHA_JOBD_URL").unwrap_or_else(|_| "http://localhost:8081".to_string());
     
     let response = client
-        .post(&format!("{}/job/{}/cancel", jobd_url, job_id))
+        .post(format!("{}/job/{}/cancel", jobd_url, job_id))
         .send()
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -683,7 +684,7 @@ pub async fn cancel_job(
 // Federated Learning Endpoints
 // ============================================================================
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct StartFederatedRequest {
     pub model_id: String,
     pub dataset_ids: Vec<String>,
@@ -692,7 +693,7 @@ pub struct StartFederatedRequest {
     pub budget: u64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct StartFederatedResponse {
     pub fed_id: String,
     pub status: String,
@@ -706,7 +707,7 @@ pub async fn start_federated(
     let fed_url = std::env::var("ARTHA_FEDERATION_URL").unwrap_or_else(|_| "http://localhost:8087".to_string());
     
     let response = client
-        .post(&format!("{}/federated/start", fed_url))
+        .post(format!("{}/federated/start", fed_url))
         .json(&req)
         .send()
         .await
@@ -730,7 +731,7 @@ pub async fn get_federated_status(
     let fed_url = std::env::var("ARTHA_FEDERATION_URL").unwrap_or_else(|_| "http://localhost:8087".to_string());
     
     let response = client
-        .get(&format!("{}/federated/{}/status", fed_url, fed_id))
+        .get(format!("{}/federated/{}/status", fed_url, fed_id))
         .send()
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -745,7 +746,7 @@ pub async fn get_federated_status(
 // Evolutionary Learning Endpoints
 // ============================================================================
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct StartEvolutionRequest {
     pub search_space_cid: String,
     pub population: u32,
@@ -753,7 +754,7 @@ pub struct StartEvolutionRequest {
     pub budget: u64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct StartEvolutionResponse {
     pub evo_id: String,
     pub status: String,
@@ -767,7 +768,7 @@ pub async fn start_evolution(
     let evo_url = std::env::var("ARTHA_EVOLUTION_URL").unwrap_or_else(|_| "http://localhost:8088".to_string());
     
     let response = client
-        .post(&format!("{}/evolution/start", evo_url))
+        .post(format!("{}/evolution/start", evo_url))
         .json(&req)
         .send()
         .await
@@ -791,7 +792,7 @@ pub async fn get_evolution_status(
     let evo_url = std::env::var("ARTHA_EVOLUTION_URL").unwrap_or_else(|_| "http://localhost:8088".to_string());
     
     let response = client
-        .get(&format!("{}/evolution/{}/status", evo_url, evo_id))
+        .get(format!("{}/evolution/{}/status", evo_url, evo_id))
         .send()
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -810,7 +811,7 @@ pub async fn get_evolution_population(
     let evo_url = std::env::var("ARTHA_EVOLUTION_URL").unwrap_or_else(|_| "http://localhost:8088".to_string());
     
     let response = client
-        .get(&format!("{}/evolution/{}/population", evo_url, evo_id))
+        .get(format!("{}/evolution/{}/population", evo_url, evo_id))
         .send()
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -830,7 +831,7 @@ pub async fn submit_federated_gradient(
     let fed_url = std::env::var("ARTHA_FEDERATION_URL").unwrap_or_else(|_| "http://localhost:8087".to_string());
     
     let response = client
-        .post(&format!("{}/federated/{}/submit-gradient", fed_url, fed_id))
+        .post(format!("{}/federated/{}/submit-gradient", fed_url, fed_id))
         .json(&req)
         .send()
         .await
@@ -851,7 +852,7 @@ pub async fn trigger_aggregation(
     let fed_url = std::env::var("ARTHA_FEDERATION_URL").unwrap_or_else(|_| "http://localhost:8087".to_string());
     
     let response = client
-        .post(&format!("{}/federated/{}/aggregate", fed_url, fed_id))
+        .post(format!("{}/federated/{}/aggregate", fed_url, fed_id))
         .send()
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -870,7 +871,7 @@ pub async fn get_agent_tool_calls(
     let agents_url = std::env::var("ARTHA_AGENTS_URL").unwrap_or_else(|_| "http://localhost:8086".to_string());
     
     let response = client
-        .get(&format!("{}/agent/{}/tool-calls", agents_url, job_id))
+        .get(format!("{}/agent/{}/tool-calls", agents_url, job_id))
         .send()
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -890,7 +891,7 @@ pub async fn record_tool_call(
     let agents_url = std::env::var("ARTHA_AGENTS_URL").unwrap_or_else(|_| "http://localhost:8086".to_string());
     
     let response = client
-        .post(&format!("{}/agent/{}/tool-call", agents_url, job_id))
+        .post(format!("{}/agent/{}/tool-call", agents_url, job_id))
         .json(&req)
         .send()
         .await
@@ -910,7 +911,7 @@ pub async fn get_agent_memory(
     let agents_url = std::env::var("ARTHA_AGENTS_URL").unwrap_or_else(|_| "http://localhost:8086".to_string());
     
     let response = client
-        .get(&format!("{}/agent/{}/memory", agents_url, job_id))
+        .get(format!("{}/agent/{}/memory", agents_url, job_id))
         .send()
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -930,7 +931,7 @@ pub async fn update_agent_memory(
     let agents_url = std::env::var("ARTHA_AGENTS_URL").unwrap_or_else(|_| "http://localhost:8086".to_string());
     
     let response = client
-        .post(&format!("{}/agent/{}/memory", agents_url, job_id))
+        .post(format!("{}/agent/{}/memory", agents_url, job_id))
         .json(&req)
         .send()
         .await

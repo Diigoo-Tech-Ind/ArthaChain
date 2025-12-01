@@ -6,13 +6,12 @@
 use crate::api::errors::ApiError;
 use crate::ledger::state::State;
 use axum::{
-    extract::{Extension, Path, Query},
+    extract::{Extension, Path},
     response::Json,
     routing::{get, post},
     Router,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 

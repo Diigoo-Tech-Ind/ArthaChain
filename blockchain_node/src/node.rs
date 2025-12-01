@@ -142,6 +142,12 @@ pub struct FailureEvent {
     pub remediation_attempted: bool,
 }
 
+impl Default for SpofEliminationCoordinator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SpofEliminationCoordinator {
     /// Create new SPOF elimination coordinator
     pub fn new() -> Self {
@@ -199,8 +205,7 @@ impl SpofEliminationCoordinator {
         info!("🔍 Initializing predictive health monitoring...");
 
         // Register default remediation strategies
-        let default_strategies = vec![
-            RemediationStrategy {
+        let default_strategies = [RemediationStrategy {
                 name: "restart_component".to_string(),
                 triggers: vec![],
                 actions: vec![],
@@ -213,8 +218,7 @@ impl SpofEliminationCoordinator {
                 actions: vec![],
                 cooldown_secs: 600,
                 success_rate: 0.7,
-            },
-        ];
+            }];
 
         // Start enhanced monitoring
         self.health_monitor.start_enhanced_monitoring(30).await?;
@@ -554,7 +558,7 @@ impl Node {
 
         // 1. ACTIVATE SPOF COORDINATOR FIRST (Most Important!)
         {
-            let mut coordinator = self.spof_coordinator.as_ref();
+            let coordinator = self.spof_coordinator.as_ref();
             info!("🛡️ Activating SPOF Elimination Coordinator...");
 
             // Force enable all SPOF protection systems
@@ -596,7 +600,7 @@ impl Node {
         };
 
         // Initialize the storage using StorageInit trait
-        use crate::storage::StorageInit;
+        
         // For now, we'll just log that storage initialization is completed
         // In a real implementation, we would cast the storage to the specific type and call init
         info!("Storage initialization completed - using default configuration");
@@ -705,7 +709,7 @@ impl Node {
         
         // Initialize blockchain neural network
         let neural_config = crate::ai_engine::models::neural_base::NeuralConfig::default();
-        let mut blockchain_neural = crate::ai_engine::models::blockchain_neural::BlockchainNeural::new(neural_config)?;
+        let blockchain_neural = crate::ai_engine::models::blockchain_neural::BlockchainNeural::new(neural_config)?;
         // blockchain_neural.load_model("data/ai_models/blockchain_neural.bin").await?;
         // Note: load_model method not yet implemented for BlockchainNeural
         
@@ -823,7 +827,7 @@ impl Node {
     /// Get the current memory usage in bytes
     pub async fn get_memory_usage(&self) -> Result<f64, anyhow::Error> {
         // Get actual memory usage from system
-        use sysinfo::{System, Pid};
+        use sysinfo::System;
         
         let mut system = System::new_all();
         system.refresh_all();
@@ -847,7 +851,7 @@ impl Node {
     /// Get the current CPU usage as a percentage
     pub async fn get_cpu_usage(&self) -> Result<f64, anyhow::Error> {
         // Get actual CPU usage from system
-        use sysinfo::{System, Pid};
+        use sysinfo::System;
         
         let mut system = System::new_all();
         system.refresh_all();
@@ -971,7 +975,7 @@ impl Node {
         // In a real implementation, this would query actual storage
         let block_count = self.get_height().await;
         // Estimate ~10KB per block on average
-        total_size += block_count as u64 * 10 * 1024;
+        total_size += block_count * 10 * 1024;
 
         // Add storage from RocksDB if available
         // Try to get actual storage size

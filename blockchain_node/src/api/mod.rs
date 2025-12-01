@@ -10,7 +10,7 @@ pub mod recovery_api;
 pub mod routes;
 pub mod rpc;
 pub mod server;
-// pub mod testnet_router;
+// pub mod testnet_router;  // TODO: Requires fixing handlers module scope and trait bound issues
 pub mod transaction;
 pub mod validation;
 pub mod wallet_integration;

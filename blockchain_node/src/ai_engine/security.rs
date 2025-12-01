@@ -1024,7 +1024,7 @@ impl SecurityAI {
         let mut predictions = Vec::new();
 
         // Overall health score (weighted average of metrics)
-        let weights = vec![0.3, 0.25, 0.2, 0.15, 0.1]; // CPU, Memory, Disk, Network, Temp
+        let weights = [0.3, 0.25, 0.2, 0.15, 0.1]; // CPU, Memory, Disk, Network, Temp
         let mut overall_health = 0.0;
 
         for (i, &metric) in metrics.iter().enumerate() {
@@ -1266,7 +1266,7 @@ impl SecurityAI {
     async fn get_real_disk_usage() -> Result<f32> {
         // Try to get actual disk usage
         if let Ok(output) = tokio::process::Command::new("df")
-            .args(&["-h", "/"])
+            .args(["-h", "/"])
             .output()
             .await
         {
@@ -1328,8 +1328,8 @@ impl SecurityAI {
         let _ = tokio::fs::remove_file("/tmp/test_io").await;
 
         let io_time = start.elapsed().as_millis() as f32;
-        let performance = (100.0 / (io_time + 1.0)).min(1.0); // Higher speed = better performance
-        performance
+         // Higher speed = better performance
+        (100.0 / (io_time + 1.0)).min(1.0)
     }
 
     async fn get_storage_reliability() -> f32 {

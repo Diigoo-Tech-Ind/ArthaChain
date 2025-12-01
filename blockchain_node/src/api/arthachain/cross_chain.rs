@@ -354,7 +354,7 @@ pub async fn create_bridge_transaction(
     );
     
     // Calculate bridge fee
-    let bridge_fee = request.bridge_fee.unwrap_or_else(|| request.amount / 1000);
+    let bridge_fee = request.bridge_fee.unwrap_or(request.amount / 1000);
     
     // Simulate bridge transaction creation
     let success = true;

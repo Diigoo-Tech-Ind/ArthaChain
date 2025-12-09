@@ -439,7 +439,7 @@ impl GasOptimizationEngine {
 
         // Adjust based on historical performance
         if pattern.avg_gas_consumption > 0.0 {
-            let efficiency_factor = pattern.efficiency_trend.max(0.1).min(2.0);
+            let efficiency_factor = pattern.efficiency_trend.clamp(0.1, 2.0);
             optimized_gas = (pattern.avg_gas_consumption * efficiency_factor) as u64;
             recommendations.push(format!(
                 "Adjusted based on {} previous executions",

@@ -26,13 +26,13 @@ struct StressTestConfig {
 impl Default for StressTestConfig {
     fn default() -> Self {
         Self {
-            total_transactions: 10_000,              // Reduced from 100,000 to 10,000
-            transaction_size_mb: 1,                  // Reduced from 2MB to 1MB
-            transaction_size_bytes: 1024 * 1024, // 1MB in bytes
-            duration_minutes: 1,
-            target_tps: 167,       // Reduced from 1667 to 167
-            batch_size: 100,       // Reduced from 1000 to 100
-            concurrent_workers: 5, // Reduced from 10 to 5
+            total_transactions: 100_000,         // 100K for final verification
+            transaction_size_mb: 0,
+            transaction_size_bytes: 256,
+            duration_minutes: 5,
+            target_tps: 1_000_000,               // Unbounded
+            batch_size: 1000,
+            concurrent_workers: 10,              // 10 workers
         }
     }
 }
@@ -77,14 +77,14 @@ struct PerformanceMetrics {
 /// Stress test orchestrator
 struct StressTestOrchestrator {
     config: StressTestConfig,
-    mempool: Arc<RwLock<Mempool>>,
+    mempool: Arc<Mempool>,
     metrics: Arc<RwLock<Vec<TransactionMetrics>>>,
     start_time: Instant,
     performance_metrics: Arc<RwLock<PerformanceMetrics>>,
 }
 
 impl StressTestOrchestrator {
-    fn new(config: StressTestConfig, mempool: Arc<RwLock<Mempool>>) -> Self {
+    fn new(config: StressTestConfig, mempool: Arc<Mempool>) -> Self {
         Self {
             config,
             mempool,
@@ -164,8 +164,9 @@ impl StressTestOrchestrator {
             handle.await?;
         }
 
-        // Wait for performance monitoring to complete
-        monitor_handle.await?;
+        // Stop performance monitoring
+        monitor_handle.abort();
+        println!("✅ All workers completed. Generating report...");
 
         // Generate final report
         self.generate_final_report().await?;
@@ -177,18 +178,28 @@ impl StressTestOrchestrator {
     async fn transaction_generator_worker(
         worker_id: u32,
         config: StressTestConfig,
-        mempool: Arc<RwLock<Mempool>>,
+        mempool: Arc<Mempool>,
         metrics: Arc<RwLock<Vec<TransactionMetrics>>>,
         performance_metrics: Arc<RwLock<PerformanceMetrics>>,
     ) {
         println!("👷 Worker {} starting...", worker_id);
 
         let transactions_per_worker = config.total_transactions / config.concurrent_workers;
-        let interval_ms = (1000 / config.target_tps).max(1) as u64; // Ensure minimum 1ms interval
-        let mut interval_timer = interval(Duration::from_millis(interval_ms));
+        // let interval_ms = (1000 / config.target_tps).max(1) as u64; 
+        // let mut interval_timer = interval(Duration::from_millis(interval_ms));
+
+        // Local aggregation buffers
+        let mut local_metrics = Vec::with_capacity(1000);
+        let mut local_success = 0;
+        let mut local_failed = 0;
+        let mut local_data_mb = 0.0;
+        let mut local_tx_count = 0;
 
         for i in 0..transactions_per_worker {
-            interval_timer.tick().await;
+            // Yield every 100 transactions to allow runtime progress
+            if i % 100 == 0 {
+                tokio::task::yield_now().await;
+            }
 
             let transaction =
                 Self::generate_large_transaction(worker_id, i, config.transaction_size_bytes);
@@ -199,7 +210,7 @@ impl StressTestOrchestrator {
                 .as_secs();
 
             // Add transaction to mempool
-            let result = mempool.write().await.add_transaction(transaction).await;
+            let result = mempool.add_transaction(transaction).await;
 
             let status = if result.is_ok() {
                 TransactionStatus::Submitted
@@ -207,7 +218,20 @@ impl StressTestOrchestrator {
                 TransactionStatus::Failed
             };
 
-            // Record metrics
+            // Update local counters
+            match status {
+                TransactionStatus::Submitted => local_success += 1,
+                TransactionStatus::Failed => local_failed += 1,
+                _ => {}
+            }
+            local_data_mb += config.transaction_size_mb as f64; // Note: this is 0 in current config, maybe use bytes?
+            // Correcting data calculation to use bytes if mb is 0
+            if config.transaction_size_mb == 0 {
+                 local_data_mb += config.transaction_size_bytes as f64 / (1024.0 * 1024.0);
+            }
+            local_tx_count += 1;
+
+            // Record metrics locally
             let metric = TransactionMetrics {
                 transaction_id: format!("worker_{}_tx_{}", worker_id, i),
                 size_bytes: config.transaction_size_bytes as usize,
@@ -216,21 +240,32 @@ impl StressTestOrchestrator {
                 confirmation_delay_ms: None,
                 status: status.clone(),
             };
+            local_metrics.push(metric);
 
-            metrics.write().await.push(metric);
+            // Batch update global state every 1000 transactions or at the end
+            if i > 0 && (i % 1000 == 0 || i == transactions_per_worker - 1) {
+                // Update global metrics
+                {
+                    let mut global_metrics = metrics.write().await;
+                    global_metrics.append(&mut local_metrics);
+                }
 
-            // Update performance metrics
-            let mut perf_metrics = performance_metrics.write().await;
-            perf_metrics.total_transactions += 1;
-            perf_metrics.total_data_mb += config.transaction_size_mb as f64;
+                // Update performance metrics
+                {
+                    let mut perf_metrics = performance_metrics.write().await;
+                    perf_metrics.total_transactions += local_tx_count;
+                    perf_metrics.successful_transactions += local_success;
+                    perf_metrics.failed_transactions += local_failed;
+                    perf_metrics.total_data_mb += local_data_mb;
+                }
 
-            match status {
-                TransactionStatus::Submitted => perf_metrics.successful_transactions += 1,
-                TransactionStatus::Failed => perf_metrics.failed_transactions += 1,
-                _ => {}
-            }
-
-            if i % 1000 == 0 {
+                // Reset local counters
+                local_success = 0;
+                local_failed = 0;
+                local_data_mb = 0.0;
+                local_tx_count = 0;
+                // local_metrics is already empty after append
+                
                 println!("👷 Worker {}: Generated {} transactions", worker_id, i);
             }
         }
@@ -441,7 +476,7 @@ async fn main() -> Result<()> {
     println!("==================================");
 
     // Initialize mempool
-    let mempool = Arc::new(RwLock::new(Mempool::new(200_000))); // Large capacity for stress test
+    let mempool = Arc::new(Mempool::new(200_000)); // Large capacity for stress test
 
     // Create stress test configuration
     let config = StressTestConfig::default();

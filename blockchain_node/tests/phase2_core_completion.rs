@@ -209,10 +209,10 @@ async fn test_phase2_smart_contract_structures() {
     let contract_address = Address::from_bytes(b"contract_test_123456").unwrap();
 
     let execution_request = ContractExecutionRequest {
-        contract_address: contract_address.clone(),
+        contract_address: contract_address,
         function: "test_function".to_string(),
         args: vec![1, 2, 3, 4, 5],
-        caller: deployer.clone(),
+        caller: deployer,
         value: 1000,
         gas_limit: 500_000,
         gas_price: 1_000_000_000,

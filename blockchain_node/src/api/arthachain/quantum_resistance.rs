@@ -492,7 +492,10 @@ pub async fn get_quantum_migration_status(
 }
 
 /// Create quantum resistance router
-pub fn create_quantum_resistance_router() -> Router {
+pub fn create_quantum_resistance_router<S>() -> Router<S>
+where
+    S: Clone + Send + Sync + 'static,
+{
     Router::new()
         .route("/status", get(get_quantum_resistance_status))
         .route("/keys/generate", get(generate_quantum_key_pair))

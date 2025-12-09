@@ -508,7 +508,10 @@ pub async fn get_dag_visualization(
 }
 
 /// Create DAG processing router
-pub fn create_dag_router() -> Router {
+pub fn create_dag_router<S>() -> Router<S>
+where
+    S: Clone + Send + Sync + 'static,
+{
     Router::new()
         .route("/structure", get(get_dag_structure))
         .route("/vertices", get(get_dag_vertices))

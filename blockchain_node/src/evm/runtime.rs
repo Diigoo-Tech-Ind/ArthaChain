@@ -34,7 +34,7 @@ impl EvmRuntime {
             config: config.clone(),
             block_number: 0,
             block_timestamp: 0,
-            gas_limit: config.default_gas_limit,
+            gas_limit: crate::evm::BLOCK_GAS_LIMIT,
             logs: Vec::new(),
         }
     }

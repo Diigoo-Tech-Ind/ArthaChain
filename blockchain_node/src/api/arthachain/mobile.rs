@@ -465,7 +465,10 @@ pub async fn get_mobile_recommendations(
 }
 
 /// Create mobile router
-pub fn create_mobile_router() -> Router {
+pub fn create_mobile_router<S>() -> Router<S>
+where
+    S: Clone + Send + Sync + 'static,
+{
     Router::new()
         .route("/status", get(get_mobile_node_status))
         .route("/settings", get(get_mobile_optimization_settings))

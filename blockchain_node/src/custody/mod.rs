@@ -147,8 +147,8 @@ impl CustodyProvider for HybridCustodyProvider {
         let new_mpc_key = self.mpc.rotate_key(old_mpc_key, new_policy)?;
         
         // Rotate TEE key if backup enabled
-        let new_tee_key = if self.tee_backup_enabled && old_tee_key.is_some() {
-            self.tee.rotate_key(old_tee_key.unwrap(), new_policy)?
+        let new_tee_key = if let (true, Some(key)) = (self.tee_backup_enabled, old_tee_key) {
+            self.tee.rotate_key(key, new_policy)?
         } else {
             "none".to_string()
         };

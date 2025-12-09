@@ -8,7 +8,6 @@ use arthachain_node::security::{
 };
 use std::sync::Arc;
 use std::time::Instant;
-use tokio::time::{sleep, Duration};
 
 /// Test Phase 3.1: Advanced Security Monitoring
 #[tokio::test]
@@ -118,7 +117,7 @@ async fn test_phase31_advanced_security_monitoring() {
     // Test Incident Subscription
     println!("\n📡 TESTING INCIDENT NOTIFICATIONS:");
 
-    let mut incident_receiver = monitor.subscribe_to_incidents();
+    let incident_receiver = monitor.subscribe_to_incidents();
 
     // Test incident notification system
     println!("    Real-time Notification: System ready");

@@ -65,9 +65,19 @@ async fn test_cross_shard_core() {
 
     let (tx, _rx) = mpsc::channel(100);
     let key_registry = std::sync::Arc::new(arthachain_node::consensus::cross_shard::key_registry::InMemoryKeyRegistry::new());
+    // Helper to generate valid keys
+    fn generate_test_quantum_keypair() -> (Vec<u8>, Vec<u8>) {
+        use pqcrypto_mldsa::mldsa65::*;
+        use pqcrypto_traits::sign::{SecretKey, PublicKey};
+        let keypair = keypair();
+        (keypair.1.as_bytes().to_vec(), keypair.0.as_bytes().to_vec())
+    }
+
+    let (sk, pk) = generate_test_quantum_keypair();
     let coordinator = CrossShardCoordinator::new(
         config,
-        vec![1u8, 2, 3, 4], // Mock quantum key
+        sk,
+        pk,
         tx,
         key_registry,
     ).await.unwrap();

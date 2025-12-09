@@ -506,7 +506,10 @@ pub async fn get_self_healing_config(
 }
 
 /// Create self-healing router
-pub fn create_self_healing_router() -> Router {
+pub fn create_self_healing_router<S>() -> Router<S>
+where
+    S: Clone + Send + Sync + 'static,
+{
     Router::new()
         .route("/status", get(get_self_healing_status))
         .route("/recoveries", get(get_active_recoveries))

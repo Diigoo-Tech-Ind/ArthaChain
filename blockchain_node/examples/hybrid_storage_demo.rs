@@ -1,7 +1,5 @@
 use arthachain_node::storage::{Storage, StorageConfig, StorageError, StorageInit, StorageStats};
-use arthachain_node::types::Hash;
 use async_trait::async_trait;
-use rand::{thread_rng, Rng};
 use std::any::Any;
 use std::collections::HashMap;
 use std::path::Path;
@@ -326,7 +324,7 @@ async fn main() -> Result<(), StorageError> {
     println!("Using temp directory: {:?}", base_path);
 
     // Initialize custom hybrid storage
-    let mut storage = CustomHybridStorage::new();
+    let storage = CustomHybridStorage::new();
 
     // Initialize storage
     let config = StorageConfig {

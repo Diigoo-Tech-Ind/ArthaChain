@@ -55,7 +55,9 @@ impl MetricsServer {
         
         let handle = tokio::spawn(async move {
             // Start the metrics collector with 60 second interval
-            collector.start(60).await.unwrap();
+            if let Err(e) = collector.start(60).await {
+                error!("Failed to start metrics collector: {}", e);
+            }
             
             // In a real implementation, this would start an HTTP server
             // For now, we'll just log that the server would start

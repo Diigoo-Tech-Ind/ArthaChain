@@ -55,8 +55,8 @@ mod tests {
         let hash = create_test_hash();
 
         let tx = Transaction {
-            from: from.clone(),
-            to: to.clone(),
+            from: from,
+            to: to,
             value,
             gas_price,
             gas_limit,

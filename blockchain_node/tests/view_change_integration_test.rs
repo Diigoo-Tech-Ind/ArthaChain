@@ -5,7 +5,7 @@ use tokio::sync::RwLock;
 use tokio::time::sleep;
 
 use arthachain_node::consensus::view_change::{
-    ViewChangeConfig, ViewChangeManager, ViewChangeMessage, ViewChangeReason,
+    ViewChangeConfig, ViewChangeManager, ViewChangeMessage,
 };
 use arthachain_node::types::Address;
 
@@ -43,7 +43,7 @@ async fn test_byzantine_fault_tolerance_33_percent() {
 
         let message = ViewChangeMessage::new(
             target_view,
-            validator_addr.clone(),
+            validator_addr,
             vec![1, 2, 3, 4], // Mock signature
         );
 
@@ -125,7 +125,7 @@ async fn test_leader_election_rotation() {
         manager.elect_leader_for_view(view).await.unwrap();
 
         let state = manager.state.read().await;
-        let current_leader = state.leader.clone();
+        let current_leader = state.leader;
 
         assert!(
             current_leader.is_some(),
@@ -168,9 +168,9 @@ async fn test_view_change_message_validation() {
     manager.initialize(validators.clone()).await.unwrap();
 
     // Test 1: Valid validator sending view change
-    let valid_validator = format!("validator_0").into_bytes();
+    let valid_validator = "validator_0".to_string().into_bytes();
     let valid_addr = Address::from_bytes(&valid_validator).unwrap();
-    let valid_message = ViewChangeMessage::new(2, valid_addr.clone(), vec![1, 2, 3]);
+    let valid_message = ViewChangeMessage::new(2, valid_addr, vec![1, 2, 3]);
 
     let result = manager
         .process_view_change_message(valid_message, valid_addr)
@@ -181,9 +181,9 @@ async fn test_view_change_message_validation() {
     );
 
     // Test 2: Invalid validator (not in validator set)
-    let invalid_validator = format!("invalid_validator").into_bytes();
+    let invalid_validator = "invalid_validator".to_string().into_bytes();
     let invalid_addr = Address::from_bytes(&invalid_validator).unwrap();
-    let invalid_message = ViewChangeMessage::new(3, invalid_addr.clone(), vec![4, 5, 6]);
+    let invalid_message = ViewChangeMessage::new(3, invalid_addr, vec![4, 5, 6]);
 
     let result = manager
         .process_view_change_message(invalid_message, invalid_addr)
@@ -228,7 +228,7 @@ async fn test_concurrent_view_changes() {
             let validator_addr = Address::from_bytes(&validator_bytes).unwrap();
             let message = ViewChangeMessage::new(
                 target_view,
-                validator_addr.clone(),
+                validator_addr,
                 vec![i as u8, (i + 1) as u8, (i + 2) as u8],
             );
 
@@ -290,7 +290,7 @@ async fn test_view_change_network_partition() {
 
         let message = ViewChangeMessage::new(
             2, // new view
-            validator_addr.clone(),
+            validator_addr,
             vec![i as u8 + 10],
         );
 

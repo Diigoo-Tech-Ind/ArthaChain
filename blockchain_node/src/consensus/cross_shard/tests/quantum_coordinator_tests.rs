@@ -17,7 +17,7 @@ mod tests {
             retry_attempts: 3,
             quantum_signature_enabled: true,
             enable_distributed_coordination: false,
-            coordinator_replicas: 1,
+            coordinator_replicas: 3,
             consensus_threshold: 1,
             enable_coordinator_failover: false,
             coordinator_health_check_interval_ms: 1000,

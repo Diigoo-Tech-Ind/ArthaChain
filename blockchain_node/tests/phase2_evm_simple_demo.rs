@@ -38,15 +38,13 @@ fn test_phase23_evm_compatibility_demo() {
     // Test Ethereum Address Compatibility
     println!("\n🔐 Testing Ethereum Address Compatibility...");
 
-    let addresses = vec![
-        H160::zero(),
+    let addresses = [H160::zero(),
         H160::from_low_u64_be(1),
         H160::from_low_u64_be(0xdeadbeef),
         H160::from_slice(&[
             0x12, 0x34, 0x56, 0x78, 0x90, 0xab, 0xcd, 0xef, 0x12, 0x34, 0x56, 0x78, 0x90, 0xab,
             0xcd, 0xef, 0x12, 0x34, 0x56, 0x78,
-        ]),
-    ];
+        ])];
 
     for (i, addr) in addresses.iter().enumerate() {
         assert_eq!(addr.as_bytes().len(), 20, "Address should be 20 bytes");

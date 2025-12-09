@@ -1,39 +1,41 @@
 use sha2::{Digest, Sha256};
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::mpsc;
 
-use arthachain_node::consensus::cross_shard::protocol::CrossShardTxType;
 use arthachain_node::consensus::cross_shard::{
-    coordinator::{CoordinatorMessage, CrossShardCoordinator, TxPhase},
+    coordinator::{CrossShardCoordinator, TxPhase},
     merkle_proof::{MerkleTree, ProofCache, ProvenTransaction},
 };
 use arthachain_node::consensus::cross_shard::coordinator::CrossShardConfig;
 
 /// Generate a proper Dilithium keypair for testing
-fn generate_test_quantum_key() -> Vec<u8> {
+fn generate_test_quantum_keypair() -> (Vec<u8>, Vec<u8>) {
     use pqcrypto_mldsa::mldsa65::*;
-    use pqcrypto_traits::sign::SecretKey;
+    use pqcrypto_traits::sign::{SecretKey, PublicKey};
     let keypair = keypair();
-    keypair.1.as_bytes().to_vec() // Return private key bytes
+    (keypair.1.as_bytes().to_vec(), keypair.0.as_bytes().to_vec())
 }
 
 /// Test end-to-end cross-shard transaction with Merkle proof
 #[tokio::test]
 async fn test_cross_shard_transaction_with_proof() {
-    let config = CrossShardConfig {
+    let mut config = CrossShardConfig {
         local_shard: 1,
         connected_shards: vec![1, 2],
         transaction_timeout_ms: 30000,
         ..Default::default()
     };
+    let temp_dir = tempfile::Builder::new().prefix("test_db_cross_shard").tempdir().unwrap();
+    config.coordinator_config.db_path = temp_dir.path().to_str().unwrap().to_string();
 
     let (tx, _rx) = mpsc::channel(100);
     let key_registry = std::sync::Arc::new(arthachain_node::consensus::cross_shard::key_registry::InMemoryKeyRegistry::new());
+    let (sk, pk) = generate_test_quantum_keypair();
     let coordinator = CrossShardCoordinator::new(
         config,
-        generate_test_quantum_key(), // Proper quantum key
+        sk,
+        pk,
         tx,
         key_registry,
     ).await.unwrap();
@@ -92,10 +94,13 @@ async fn test_cross_shard_transaction_with_proof() {
 /// Test Merkle proof caching and performance
 #[tokio::test]
 async fn test_merkle_proof_caching() {
-    let config = CrossShardConfig::default();
+    let mut config = CrossShardConfig::default();
+    let temp_dir = tempfile::Builder::new().prefix("test_db_caching").tempdir().unwrap();
+    config.coordinator_config.db_path = temp_dir.path().to_str().unwrap().to_string();
     let (tx, _rx) = mpsc::channel(100);
     let key_registry = std::sync::Arc::new(arthachain_node::consensus::cross_shard::key_registry::InMemoryKeyRegistry::new());
-    let coordinator = CrossShardCoordinator::new(config, generate_test_quantum_key(), tx, key_registry).await.unwrap();
+    let (sk, pk) = generate_test_quantum_keypair();
+    let coordinator = CrossShardCoordinator::new(config, sk, pk, tx, key_registry).await.unwrap();
 
     // Create multiple transactions
     let mut tx_hashes = Vec::new();
@@ -154,16 +159,19 @@ async fn test_merkle_proof_caching() {
 /// Test atomic cross-shard transaction rollback
 #[tokio::test]
 async fn test_atomic_transaction_rollback() {
-    let config = CrossShardConfig {
+    let mut config = CrossShardConfig {
         local_shard: 1,
         connected_shards: vec![1, 2, 3],
         transaction_timeout_ms: 100, // Short timeout for testing
         ..Default::default()
     };
+    let temp_dir = tempfile::Builder::new().prefix("test_db_rollback").tempdir().unwrap();
+    config.coordinator_config.db_path = temp_dir.path().to_str().unwrap().to_string();
 
     let (tx, mut rx) = mpsc::channel(100);
     let key_registry = std::sync::Arc::new(arthachain_node::consensus::cross_shard::key_registry::InMemoryKeyRegistry::new());
-    let mut coordinator = CrossShardCoordinator::new(config, generate_test_quantum_key(), tx, key_registry).await.unwrap();
+    let (sk, pk) = generate_test_quantum_keypair();
+    let mut coordinator = CrossShardCoordinator::new(config, sk, pk, tx, key_registry).await.unwrap();
 
     // Start coordinator
     coordinator.start().await.unwrap();
@@ -206,15 +214,18 @@ async fn test_atomic_transaction_rollback() {
 /// Test concurrent cross-shard transactions
 #[tokio::test]
 async fn test_concurrent_cross_shard_transactions() {
-    let config = CrossShardConfig {
+    let mut config = CrossShardConfig {
         local_shard: 1,
         connected_shards: vec![1, 2, 3, 4],
         ..Default::default()
     };
+    let temp_dir = tempfile::Builder::new().prefix("test_db_concurrent").tempdir().unwrap();
+    config.coordinator_config.db_path = temp_dir.path().to_str().unwrap().to_string();
 
     let (tx, _rx) = mpsc::channel(1000);
     let key_registry = std::sync::Arc::new(arthachain_node::consensus::cross_shard::key_registry::InMemoryKeyRegistry::new());
-    let coordinator = Arc::new(CrossShardCoordinator::new(config, generate_test_quantum_key(), tx, key_registry).await.unwrap());
+    let (sk, pk) = generate_test_quantum_keypair();
+    let coordinator = Arc::new(CrossShardCoordinator::new(config, sk, pk, tx, key_registry).await.unwrap());
 
     let num_concurrent_txs = 50;
     let mut handles = Vec::new();
@@ -235,7 +246,7 @@ async fn test_concurrent_cross_shard_transactions() {
                 proof,
                 1,
                 ((i % 3) + 2) as u32, // Distribute across shards 2, 3, 4
-                1234567890 + i as u64,
+                1234567890 + i,
             );
 
             coordinator_clone.submit_proven_transaction(proven_tx).await
@@ -266,10 +277,13 @@ async fn test_concurrent_cross_shard_transactions() {
 /// Test Merkle proof verification under malicious conditions
 #[tokio::test]
 async fn test_malicious_proof_detection() {
-    let config = CrossShardConfig::default();
+    let mut config = CrossShardConfig::default();
+    let temp_dir = tempfile::Builder::new().prefix("test_db_malicious").tempdir().unwrap();
+    config.coordinator_config.db_path = temp_dir.path().to_str().unwrap().to_string();
     let (tx, _rx) = mpsc::channel(100);
     let key_registry = std::sync::Arc::new(arthachain_node::consensus::cross_shard::key_registry::InMemoryKeyRegistry::new());
-    let coordinator = CrossShardCoordinator::new(config, generate_test_quantum_key(), tx, key_registry).await.unwrap();
+    let (sk, pk) = generate_test_quantum_keypair();
+    let coordinator = CrossShardCoordinator::new(config, sk, pk, tx, key_registry).await.unwrap();
 
     // Create legitimate transaction
     let tx_data = b"legitimate_transaction".to_vec();
@@ -312,15 +326,18 @@ async fn test_malicious_proof_detection() {
 /// Test cross-shard transaction with multiple participants
 #[tokio::test]
 async fn test_multi_shard_atomic_transaction() {
-    let config = CrossShardConfig {
+    let mut config = CrossShardConfig {
         local_shard: 1,
         connected_shards: vec![1, 2, 3, 4, 5],
         ..Default::default()
     };
+    let temp_dir = tempfile::Builder::new().prefix("test_db_multi").tempdir().unwrap();
+    config.coordinator_config.db_path = temp_dir.path().to_str().unwrap().to_string();
 
     let (tx, _rx) = mpsc::channel(100);
     let key_registry = std::sync::Arc::new(arthachain_node::consensus::cross_shard::key_registry::InMemoryKeyRegistry::new());
-    let coordinator = CrossShardCoordinator::new(config, generate_test_quantum_key(), tx, key_registry).await.unwrap();
+    let (sk, pk) = generate_test_quantum_keypair();
+    let coordinator = CrossShardCoordinator::new(config, sk, pk, tx, key_registry).await.unwrap();
 
     // Create transaction involving multiple shards
     let tx_data = b"multi_shard_atomic_transfer".to_vec();

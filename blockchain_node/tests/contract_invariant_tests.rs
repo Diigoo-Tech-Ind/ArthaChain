@@ -136,11 +136,10 @@ fn invariant_vc_subject_consistency(state: &VCRegistryState) -> bool {
 // Once a VC is revoked, it cannot be un-revoked
 fn invariant_vc_revocation_permanence(old_state: &VCRegistryState, new_state: &VCRegistryState) -> bool {
     for (old_vc, new_vc) in old_state.vcs.iter().zip(new_state.vcs.iter()) {
-        if old_vc.revoked && old_vc.vc_hash == new_vc.vc_hash {
-            if !new_vc.revoked {
+        if old_vc.revoked && old_vc.vc_hash == new_vc.vc_hash
+            && !new_vc.revoked {
                 return false; // Revocation reversed - invalid!
             }
-        }
     }
     true
 }
@@ -149,11 +148,10 @@ fn invariant_vc_revocation_permanence(old_state: &VCRegistryState, new_state: &V
 // Expiration time cannot be extended after issuance
 fn invariant_vc_expiration_monotonicity(old_state: &VCRegistryState, new_state: &VCRegistryState) -> bool {
     for (old_vc, new_vc) in old_state.vcs.iter().zip(new_state.vcs.iter()) {
-        if old_vc.vc_hash == new_vc.vc_hash {
-            if old_vc.expires_at != 0 && new_vc.expires_at > old_vc.expires_at {
+        if old_vc.vc_hash == new_vc.vc_hash
+            && old_vc.expires_at != 0 && new_vc.expires_at > old_vc.expires_at {
                 return false; // Expiration extended - invalid!
             }
-        }
     }
     true
 }

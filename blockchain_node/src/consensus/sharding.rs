@@ -970,7 +970,35 @@ impl ObjectiveSharding {
         let shard_monitor = Arc::new(RwLock::new(ShardMonitor::new()));
         let metrics = Arc::new(RwLock::new(ShardingMetrics::new()));
         let consensus_manager = Arc::new(RwLock::new(ShardConsensusManager::new()));
-        let cross_shard_coordinator = Arc::new(RwLock::new(CrossShardCoordinator::new()));
+        // Initialize CrossShardCoordinator dependencies
+        use pqcrypto_mldsa::mldsa65::keypair;
+        use pqcrypto_traits::sign::{SecretKey, PublicKey};
+        let (pk, sk) = keypair();
+        let private_key = sk.as_bytes().to_vec();
+        let public_key = pk.as_bytes().to_vec();
+        
+        let (coord_sender, _coord_receiver) = mpsc::channel(100);
+        let key_registry = Arc::new(crate::consensus::cross_shard::key_registry::InMemoryKeyRegistry::new());
+        let coordinator_config = crate::consensus::cross_shard::coordinator::CrossShardConfig::default();
+
+        // We need to await the async new(), but we are in a sync function.
+        // For now, we'll use a blocking runtime or just panic if it fails (since this is initialization).
+        // However, ObjectiveSharding::new is synchronous.
+        // We might need to change ObjectiveSharding::new to async or use block_in_place.
+        // Given the context, let's try to use tokio::task::block_in_place or handle it.
+        // Actually, CrossShardCoordinator::new is async.
+        // Let's assume we can block here for initialization.
+        let cross_shard_coordinator = Arc::new(RwLock::new(
+            tokio::runtime::Handle::current().block_on(async {
+                CrossShardCoordinator::new(
+                    coordinator_config,
+                    private_key,
+                    public_key,
+                    coord_sender,
+                    key_registry
+                ).await
+            }).map_err(|e| anyhow::anyhow!("Failed to create coordinator: {}", e))?
+        ));
         let running = Arc::new(RwLock::new(false));
 
         // Initialize initial shards

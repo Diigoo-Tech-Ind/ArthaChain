@@ -1,7 +1,6 @@
-use anyhow::{Result, anyhow};
+use std::sync::{Arc, RwLock};
 use std::collections::HashMap;
-use std::sync::Arc;
-use tokio::sync::RwLock;
+use anyhow::{Result, anyhow};
 use pqcrypto_mldsa::mldsa65::PublicKey as DilithiumPK;
 use pqcrypto_falcon::falcon512::PublicKey as FalconPK;
 use pqcrypto_mlkem::mlkem512::PublicKey as KyberPK;
@@ -54,15 +53,15 @@ impl InMemoryKeyRegistry {
 
 impl KeyRegistry for InMemoryKeyRegistry {
     fn get_dilithium_pk(&self, shard_id: u32) -> Option<DilithiumPK> {
-        self.dilithium_keys.blocking_read().get(&shard_id).cloned()
+        self.dilithium_keys.read().unwrap().get(&shard_id).cloned()
     }
 
     fn get_falcon_pk(&self, shard_id: u32) -> Option<FalconPK> {
-        self.falcon_keys.blocking_read().get(&shard_id).cloned()
+        self.falcon_keys.read().unwrap().get(&shard_id).cloned()
     }
 
     fn get_kyber_pk(&self, shard_id: u32) -> Option<KyberPK> {
-        self.kyber_keys.blocking_read().get(&shard_id).cloned()
+        self.kyber_keys.read().unwrap().get(&shard_id).cloned()
     }
 
     fn register_shard_keys(
@@ -75,19 +74,19 @@ impl KeyRegistry for InMemoryKeyRegistry {
         if let Some(bytes) = dilithium_bytes {
             let pk = DilithiumPK::from_bytes(bytes)
                 .map_err(|e| anyhow!("Invalid Dilithium PK: {:?}", e))?;
-            self.dilithium_keys.blocking_write().insert(shard_id, pk);
+            self.dilithium_keys.write().unwrap().insert(shard_id, pk);
         }
         
         if let Some(bytes) = falcon_bytes {
             let pk = FalconPK::from_bytes(bytes)
                 .map_err(|e| anyhow!("Invalid Falcon PK: {:?}", e))?;
-            self.falcon_keys.blocking_write().insert(shard_id, pk);
+            self.falcon_keys.write().unwrap().insert(shard_id, pk);
         }
 
         if let Some(bytes) = kyber_bytes {
             let pk = KyberPK::from_bytes(bytes)
                 .map_err(|e| anyhow!("Invalid Kyber PK: {:?}", e))?;
-            self.kyber_keys.blocking_write().insert(shard_id, pk);
+            self.kyber_keys.write().unwrap().insert(shard_id, pk);
         }
         
         Ok(())

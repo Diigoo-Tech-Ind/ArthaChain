@@ -4,7 +4,6 @@
 //! load testing, security testing, and integration testing for $10M investment readiness.
 
 use anyhow::Result;
-use arthachain_node::consensus::svbft::SVBFTConfig;
 use arthachain_node::network::enterprise_connectivity::{
     EnterpriseConnectivityConfig, EnterpriseConnectivityManager,
 };
@@ -59,6 +58,7 @@ pub struct ByzantineConfig {
 
 /// Comprehensive testing configuration
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct ComprehensiveTestConfig {
     /// Byzantine fault testing configuration
     pub byzantine_test_config: ByzantineTestConfig,
@@ -72,17 +72,6 @@ pub struct ComprehensiveTestConfig {
     pub benchmark_config: BenchmarkConfig,
 }
 
-impl Default for ComprehensiveTestConfig {
-    fn default() -> Self {
-        Self {
-            byzantine_test_config: ByzantineTestConfig::default(),
-            load_test_config: LoadTestConfig::default(),
-            security_test_config: SecurityTestConfig::default(),
-            integration_test_config: IntegrationTestConfig::default(),
-            benchmark_config: BenchmarkConfig::default(),
-        }
-    }
-}
 
 /// Byzantine fault testing configuration
 #[derive(Debug, Clone)]
@@ -566,7 +555,7 @@ impl ComprehensiveTestingSuite {
             let is_malicious = i < malicious_count;
 
             let node = TestNode {
-                address: address.clone(),
+                address: address,
                 socket_addr,
                 is_malicious,
                 fault_types: if is_malicious {
@@ -624,7 +613,7 @@ impl ComprehensiveTestingSuite {
             fault_detections += detected_faults;
 
             // Test network partitions
-            if total_consensus_attempts % 10 == 0 {
+            if total_consensus_attempts.is_multiple_of(10) {
                 self.test_network_partitions().await?;
             }
 
@@ -1650,7 +1639,7 @@ async fn test_comprehensive_testing_suite() {
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     println!(" Overall Success: {}", results.overall_success);
     println!("⏱️  Total Duration: {:?}", results.total_duration);
-    println!("");
+    println!();
 
     println!("🔒 Byzantine Fault Tolerance:");
     println!(
@@ -1669,7 +1658,7 @@ async fn test_comprehensive_testing_suite() {
         "    Network Resilience Score: {:.1}/10",
         results.byzantine_results.network_resilience_score
     );
-    println!("");
+    println!();
 
     println!(" Load Testing Performance:");
     println!(
@@ -1692,7 +1681,7 @@ async fn test_comprehensive_testing_suite() {
         "  🧠 Memory Leak Detected: {}",
         results.load_test_results.memory_leak_detected
     );
-    println!("");
+    println!();
 
     println!(" Security Testing:");
     println!(
@@ -1719,7 +1708,7 @@ async fn test_comprehensive_testing_suite() {
         "  🚨 Vulnerabilities: {}",
         results.security_test_results.vulnerabilities_found.len()
     );
-    println!("");
+    println!();
 
     println!(" Integration Testing:");
     println!(
@@ -1749,7 +1738,7 @@ async fn test_comprehensive_testing_suite() {
             "FAILED"
         }
     );
-    println!("");
+    println!();
 
     println!(" Performance Benchmarks:");
     println!(
@@ -1772,7 +1761,7 @@ async fn test_comprehensive_testing_suite() {
         "  🔐 Crypto: {:.0} ops/sec",
         results.benchmark_results.crypto_performance.throughput
     );
-    println!("");
+    println!();
 
     if results.overall_success {
         println!("  BLOCKCHAIN IS READY FOR $10M INVESTMENT! ");

@@ -515,8 +515,10 @@ impl ScalabilityOptimizer {
     /// Optimize memory performance
     async fn optimize_memory(&self) -> Result<f64> {
         // Simulate memory optimization
-        let mut pool = self.resource_pool.write().unwrap();
-        pool.memory_pool_size_mb = (pool.memory_pool_size_mb as f64 * 1.2) as usize;
+        {
+            let mut pool = self.resource_pool.write().unwrap();
+            pool.memory_pool_size_mb = (pool.memory_pool_size_mb as f64 * 1.2) as usize;
+        }
         tokio::time::sleep(Duration::from_millis(30)).await;
         Ok(12.3) // 12.3% improvement
     }
@@ -531,8 +533,10 @@ impl ScalabilityOptimizer {
     /// Optimize network performance
     async fn optimize_network(&self) -> Result<f64> {
         // Simulate network optimization
-        let mut pool = self.resource_pool.write().unwrap();
-        pool.connection_pool_size = (pool.connection_pool_size as f64 * 1.5) as usize;
+        {
+            let mut pool = self.resource_pool.write().unwrap();
+            pool.connection_pool_size = (pool.connection_pool_size as f64 * 1.5) as usize;
+        }
         tokio::time::sleep(Duration::from_millis(35)).await;
         Ok(22.1) // 22.1% improvement
     }
@@ -540,8 +544,10 @@ impl ScalabilityOptimizer {
     /// Optimize cache performance
     async fn optimize_cache(&self) -> Result<f64> {
         // Simulate cache optimization
-        let mut pool = self.resource_pool.write().unwrap();
-        pool.cache_pool_size_mb = (pool.cache_pool_size_mb as f64 * 1.3) as usize;
+        {
+            let mut pool = self.resource_pool.write().unwrap();
+            pool.cache_pool_size_mb = (pool.cache_pool_size_mb as f64 * 1.3) as usize;
+        }
         tokio::time::sleep(Duration::from_millis(25)).await;
         Ok(25.8) // 25.8% improvement
     }
@@ -549,8 +555,10 @@ impl ScalabilityOptimizer {
     /// Optimize parallel processing
     async fn optimize_parallel_processing(&self) -> Result<f64> {
         // Simulate parallel optimization
-        let mut pool = self.resource_pool.write().unwrap();
-        pool.thread_pool_size = (pool.thread_pool_size as f64 * 1.1) as usize;
+        {
+            let mut pool = self.resource_pool.write().unwrap();
+            pool.thread_pool_size = (pool.thread_pool_size as f64 * 1.1) as usize;
+        }
         tokio::time::sleep(Duration::from_millis(45)).await;
         Ok(14.2) // 14.2% improvement
     }

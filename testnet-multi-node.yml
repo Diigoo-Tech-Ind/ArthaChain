@@ -1,0 +1,202 @@
+# ArthaChain Multi-Node LOCAL TESTING Setup
+# ⚠️  THIS IS FOR LOCAL DEVELOPMENT/TESTING ONLY!
+# ⚠️  For community nodes, use: docker-compose.community.yml
+#
+# This runs 3 validators on ONE machine (different ports) for testing consensus.
+# In production, each person runs ONE node using docker-compose.community.yml
+# with STANDARD PORTS (8080, 8545, 8084, etc.)
+#
+# Created: 2025
+
+version: '3.8'
+
+x-node-common: &node-common
+  build:
+    context: .
+    dockerfile: blockchain_node/Dockerfile
+  restart: unless-stopped
+  networks:
+    - arthachain-testnet
+
+services:
+  # ===========================================================
+  # VALIDATOR NODES (3-node BFT consensus)
+  # ===========================================================
+
+  # Validator 1 - Primary/Seed Node
+  validator-1:
+    <<: *node-common
+    container_name: arthachain-validator-1
+    hostname: validator-1
+    ports:
+      - "8080:8080"   # HTTP API
+      - "8545:8545"   # EVM JSON-RPC
+      - "9944:9944"   # gRPC
+      - "8084:8084"   # P2P
+      - "9184:9184"   # Prometheus Metrics
+    environment:
+      - RUST_LOG=info,arthachain=debug
+      - NODE_ID=validator-1
+      - NODE_ROLE=validator
+      - VALIDATOR_INDEX=0
+      - IS_SEED_NODE=true
+      - API_PORT=8080
+      - EVM_RPC_PORT=8545
+      - P2P_PORT=8084
+      - METRICS_PORT=9184
+      - CONSENSUS_ENABLED=true
+      - MINING_ENABLED=true
+      - MIN_VALIDATORS=3
+      - PEER_NODES=validator-2:8084,validator-3:8084
+      - DATA_DIR=/data
+    volumes:
+      - validator-1-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Validator 2
+  validator-2:
+    <<: *node-common
+    container_name: arthachain-validator-2
+    hostname: validator-2
+    ports:
+      - "8081:8080"   # HTTP API
+      - "8546:8545"   # EVM JSON-RPC
+      - "9945:9944"   # gRPC
+      - "8085:8084"   # P2P
+      - "9185:9184"   # Prometheus Metrics
+    environment:
+      - RUST_LOG=info,arthachain=debug
+      - NODE_ID=validator-2
+      - NODE_ROLE=validator
+      - VALIDATOR_INDEX=1
+      - IS_SEED_NODE=false
+      - API_PORT=8080
+      - EVM_RPC_PORT=8545
+      - P2P_PORT=8084
+      - METRICS_PORT=9184
+      - CONSENSUS_ENABLED=true
+      - MINING_ENABLED=true
+      - MIN_VALIDATORS=3
+      - SEED_NODES=validator-1:8084
+      - PEER_NODES=validator-1:8084,validator-3:8084
+      - DATA_DIR=/data
+    volumes:
+      - validator-2-data:/data
+    depends_on:
+      validator-1:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Validator 3
+  validator-3:
+    <<: *node-common
+    container_name: arthachain-validator-3
+    hostname: validator-3
+    ports:
+      - "8082:8080"   # HTTP API
+      - "8547:8545"   # EVM JSON-RPC
+      - "9946:9944"   # gRPC
+      - "8086:8084"   # P2P
+      - "9186:9184"   # Prometheus Metrics
+    environment:
+      - RUST_LOG=info,arthachain=debug
+      - NODE_ID=validator-3
+      - NODE_ROLE=validator
+      - VALIDATOR_INDEX=2
+      - IS_SEED_NODE=false
+      - API_PORT=8080
+      - EVM_RPC_PORT=8545
+      - P2P_PORT=8084
+      - METRICS_PORT=9184
+      - CONSENSUS_ENABLED=true
+      - MINING_ENABLED=true
+      - MIN_VALIDATORS=3
+      - SEED_NODES=validator-1:8084
+      - PEER_NODES=validator-1:8084,validator-2:8084
+      - DATA_DIR=/data
+    volumes:
+      - validator-3-data:/data
+    depends_on:
+      validator-1:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ===========================================================
+  # MONITORING (Optional)
+  # ===========================================================
+
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    container_name: arthachain-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./config/prometheus/prometheus-testnet.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    networks:
+      - arthachain-testnet
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: arthachain-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=arthachain
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./config/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./config/grafana/dashboard-files:/etc/grafana/provisioning/dashboards:ro
+    networks:
+      - arthachain-testnet
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+# ===========================================================
+# VOLUMES
+# ===========================================================
+volumes:
+  validator-1-data:
+    driver: local
+  validator-2-data:
+    driver: local
+  validator-3-data:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+
+# ===========================================================
+# NETWORKS
+# ===========================================================
+networks:
+  arthachain-testnet:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.29.0.0/16

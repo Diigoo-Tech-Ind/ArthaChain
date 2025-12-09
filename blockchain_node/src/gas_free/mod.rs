@@ -124,7 +124,7 @@ impl GasFreeManager {
             // Check if within time bounds
             let current_time = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .unwrap()
+                .unwrap_or(std::time::Duration::from_secs(0))
                 .as_secs();
 
             if app.end_time > 0 && current_time > app.end_time {
@@ -199,7 +199,7 @@ impl GasFreeManager {
         let mut counters = self.daily_counters.write().await;
         let current_time = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .unwrap_or(std::time::Duration::from_secs(0))
             .as_secs();
 
         // Reset counters older than 24 hours
@@ -228,7 +228,7 @@ impl GasFreeManager {
         let mut counters = self.daily_counters.write().await;
         let current_time = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .unwrap_or(std::time::Duration::from_secs(0))
             .as_secs();
 
         let count = counters.entry(app_id.to_string()).or_insert(0);
@@ -261,14 +261,14 @@ impl GasFreeManager {
                 duration: 86400 * 30, // 30 days
                 start_time: SystemTime::now()
                     .duration_since(UNIX_EPOCH)
-                    .unwrap()
+                    .unwrap_or(std::time::Duration::from_secs(0))
                     .as_secs(),
                 end_time: 0, // Permanent for demo
                 max_tx_per_day: 1000,
                 daily_tx_count: 0,
                 last_reset: SystemTime::now()
                     .duration_since(UNIX_EPOCH)
-                    .unwrap()
+                    .unwrap_or(std::time::Duration::from_secs(0))
                     .as_secs(),
                 gas_limit_per_tx: 21_000, // Standard ETH gas limit
                 allowed_tx_types: vec!["transfer".to_string(), "contract_call".to_string()],
@@ -276,7 +276,7 @@ impl GasFreeManager {
                 is_active: true,
                 created_at: SystemTime::now()
                     .duration_since(UNIX_EPOCH)
-                    .unwrap()
+                    .unwrap_or(std::time::Duration::from_secs(0))
                     .as_secs(),
             },
             GasFreeApp {
@@ -286,14 +286,14 @@ impl GasFreeManager {
                 duration: 86400 * 90, // 90 days
                 start_time: SystemTime::now()
                     .duration_since(UNIX_EPOCH)
-                    .unwrap()
+                    .unwrap_or(std::time::Duration::from_secs(0))
                     .as_secs(),
                 end_time: 0,
                 max_tx_per_day: 5000,
                 daily_tx_count: 0,
                 last_reset: SystemTime::now()
                     .duration_since(UNIX_EPOCH)
-                    .unwrap()
+                    .unwrap_or(std::time::Duration::from_secs(0))
                     .as_secs(),
                 gas_limit_per_tx: 100_000,
                 allowed_tx_types: vec!["transfer".to_string(), "contract_deploy".to_string()],
@@ -301,7 +301,7 @@ impl GasFreeManager {
                 is_active: true,
                 created_at: SystemTime::now()
                     .duration_since(UNIX_EPOCH)
-                    .unwrap()
+                    .unwrap_or(std::time::Duration::from_secs(0))
                     .as_secs(),
             },
         ];

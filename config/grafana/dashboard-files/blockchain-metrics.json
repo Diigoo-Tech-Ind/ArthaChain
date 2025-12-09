@@ -1,0 +1,143 @@
+{
+    "dashboard": {
+        "title": "ArthaChain Blockchain Metrics",
+        "tags": [
+            "arthachain",
+            "blockchain",
+            "metrics"
+        ],
+        "timezone": "browser",
+        "refresh": "30s",
+        "time": {
+            "from": "now-1h",
+            "to": "now"
+        },
+        "panels": [
+            {
+                "id": 1,
+                "title": "Current Block Height",
+                "type": "stat",
+                "gridPos": {
+                    "h": 4,
+                    "w": 6,
+                    "x": 0,
+                    "y": 0
+                },
+                "targets": [
+                    {
+                        "expr": "arthachain_block_height",
+                        "legendFormat": "Block Height",
+                        "refId": "A"
+                    }
+                ],
+                "fieldConfig": {
+                    "defaults": {
+                        "unit": "short"
+                    }
+                }
+            },
+            {
+                "id": 2,
+                "title": "Blocks Per Second",
+                "type": "graph",
+                "gridPos": {
+                    "h": 8,
+                    "w": 12,
+                    "x": 0,
+                    "y": 4
+                },
+                "targets": [
+                    {
+                        "expr": "rate(arthachain_blocks_total[1m])",
+                        "legendFormat": "Blocks/sec",
+                        "refId": "A"
+                    }
+                ],
+                "yaxes": [
+                    {
+                        "format": "short",
+                        "min": 0
+                    }
+                ]
+            },
+            {
+                "id": 3,
+                "title": "Transactions Per Second (TPS)",
+                "type": "graph",
+                "gridPos": {
+                    "h": 8,
+                    "w": 12,
+                    "x": 12,
+                    "y": 4
+                },
+                "targets": [
+                    {
+                        "expr": "rate(arthachain_transactions_total[1m])",
+                        "legendFormat": "TPS",
+                        "refId": "A"
+                    }
+                ],
+                "yaxes": [
+                    {
+                        "format": "short",
+                        "min": 0
+                    }
+                ]
+            },
+            {
+                "id": 4,
+                "title": "Transaction Pool Size",
+                "type": "graph",
+                "gridPos": {
+                    "h": 8,
+                    "w": 12,
+                    "x": 0,
+                    "y": 12
+                },
+                "targets": [
+                    {
+                        "expr": "arthachain_transaction_pool_size",
+                        "legendFormat": "Pool Size",
+                        "refId": "A"
+                    }
+                ],
+                "yaxes": [
+                    {
+                        "format": "short",
+                        "min": 0
+                    }
+                ]
+            },
+            {
+                "id": 5,
+                "title": "Block Processing Time",
+                "type": "graph",
+                "gridPos": {
+                    "h": 8,
+                    "w": 12,
+                    "x": 12,
+                    "y": 12
+                },
+                "targets": [
+                    {
+                        "expr": "histogram_quantile(0.95, rate(arthachain_block_processing_duration_seconds_bucket[5m]))",
+                        "legendFormat": "P95",
+                        "refId": "A"
+                    },
+                    {
+                        "expr": "histogram_quantile(0.50, rate(arthachain_block_processing_duration_seconds_bucket[5m]))",
+                        "legendFormat": "P50",
+                        "refId": "B"
+                    }
+                ],
+                "yaxes": [
+                    {
+                        "format": "s",
+                        "min": 0
+                    }
+                ]
+            }
+        ]
+    },
+    "overwrite": true
+}

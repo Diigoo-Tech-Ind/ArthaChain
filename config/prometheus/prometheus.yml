@@ -1,0 +1,74 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'arthachain-testnet'
+    environment: 'production'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+# Load rules once and periodically evaluate them
+rule_files:
+  - "alert-rules.yml"
+
+# Scrape configurations
+scrape_configs:
+  # ArthaChain Node - Main Metrics
+  - job_name: 'arthachain-node'
+    static_configs:
+      - targets: ['host.docker.internal:9090']
+    metrics_path: /metrics
+    scrape_interval: 15s
+    scrape_timeout: 10s
+
+  # ArthaChain API Server
+  - job_name: 'arthachain-api'
+    static_configs:
+      - targets: ['host.docker.internal:8080']
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  # Blockchain Consensus Metrics
+  - job_name: 'arthachain-consensus'
+    static_configs:
+      - targets: ['host.docker.internal:9091']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  # EVM Execution Metrics
+  - job_name: 'arthachain-evm'
+    static_configs:
+      - targets: ['host.docker.internal:9092']
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  # System Metrics (Node Exporter)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 15s
+
+  # Prometheus Self-Monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 30s
+
+  # Grafana Metrics
+  - job_name: 'grafana'
+    static_configs:
+      - targets: ['grafana:3000']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # Alertmanager Metrics
+  - job_name: 'alertmanager'
+    static_configs:
+      - targets: ['alertmanager:9093']
+    metrics_path: /metrics
+    scrape_interval: 30s

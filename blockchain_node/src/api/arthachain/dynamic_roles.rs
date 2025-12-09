@@ -529,7 +529,10 @@ pub async fn get_role_allocation_statistics(
 }
 
 /// Create dynamic roles router
-pub fn create_dynamic_roles_router() -> Router {
+pub fn create_dynamic_roles_router<S>() -> Router<S>
+where
+    S: Clone + Send + Sync + 'static,
+{
     Router::new()
         .route("/nodes", get(get_node_roles))
         .route("/allocate", post(allocate_role))

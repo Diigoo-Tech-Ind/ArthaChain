@@ -1,7 +1,7 @@
 //! EVM precompile conformance tests
-use arthachain_node::evm::precompiles;
 use arthachain_node::evm::runtime::EvmRuntime;
 use arthachain_node::evm::types::{EvmAddress, EvmTransaction};
+use arthachain_node::evm::chain_config::ARTHACHAIN_TESTNET_CHAIN_ID;
 use arthachain_node::evm::EvmConfig;
 use std::sync::{Arc, Mutex};
 
@@ -15,13 +15,13 @@ async fn test_sha256_precompile() {
     let data = hex::decode("48656c6c6f20576f726c64").unwrap(); // "Hello World"
     let tx = EvmTransaction {
         from: EvmAddress::from_slice(&[0u8; 20]),
-        to: Some(EvmAddress::from_slice(&[0u8; 19].iter().chain([0x02u8].iter()).cloned().collect::<Vec<u8>>().as_slice())),
+        to: Some(EvmAddress::from_slice([0u8; 19].iter().chain([0x02u8].iter()).cloned().collect::<Vec<u8>>().as_slice())),
         value: ethereum_types::U256::zero(),
         data,
         gas_price: ethereum_types::U256::from(1u64),
         gas_limit: ethereum_types::U256::from(1_000_000u64),
         nonce: ethereum_types::U256::zero(),
-        chain_id: Some(1),
+        chain_id: Some(ARTHACHAIN_TESTNET_CHAIN_ID),
         signature: None,
     };
 

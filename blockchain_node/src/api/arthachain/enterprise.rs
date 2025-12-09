@@ -572,7 +572,10 @@ pub async fn get_enterprise_alerts(
 }
 
 /// Create enterprise router
-pub fn create_enterprise_router() -> Router {
+pub fn create_enterprise_router<S>() -> Router<S>
+where
+    S: Clone + Send + Sync + 'static,
+{
     Router::new()
         .route("/dashboard", get(get_enterprise_dashboard))
         .route("/metrics", get(get_enterprise_metrics))

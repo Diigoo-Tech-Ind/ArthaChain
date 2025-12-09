@@ -1,0 +1,146 @@
+groups:
+  - name: arthachain_node_alerts
+    interval: 30s
+    rules:
+      # Node Health Alerts
+      - alert: NodeDown
+        expr: up{job="arthachain-node"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "ArthaChain node is down"
+          description: "Node {{ $labels.instance }} has been down for more than 1 minute."
+
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is above 80% (current: {{ $value | humanize }}%)"
+
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage is above 80% (current: {{ $value | humanize }}%)"
+
+      # Blockchain Specific Alerts
+      - alert: BlockProductionSlow
+        expr: rate(arthachain_blocks_total[5m]) < 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Block production is slow"
+          description: "Block production rate is below 0.1 blocks/sec for 5 minutes"
+
+      - alert: HighBlockLatency
+        expr: arthachain_block_processing_duration_seconds > 5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High block processing latency"
+          description: "Block processing taking more than 5 seconds"
+
+      - alert: TransactionPoolOverflow
+        expr: arthachain_transaction_pool_size > 10000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Transaction pool is overflowing"
+          description: "Transaction pool size is {{ $value }}, which is above threshold"
+
+      # Consensus Alerts
+      - alert: ConsensusFailure
+        expr: rate(arthachain_consensus_failures_total[5m]) > 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Consensus failures detected"
+          description: "Consensus is failing on instance {{ $labels.instance }}"
+
+      - alert: LowPeerCount
+        expr: arthachain_peer_count < 3
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low peer count"
+          description: "Node has only {{ $value }} peers connected (minimum: 3)"
+
+      - alert: ValidatorJailed
+        expr: arthachain_validator_jailed == 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Validator has been jailed"
+          description: "Validator {{ $labels.validator }} has been jailed"
+
+      # EVM Alerts
+      - alert: HighGasUsage
+        expr: rate(arthachain_evm_gas_used_total[5m]) > 1000000
+        for: 5m
+        labels:
+          severity: info
+        annotations:
+          summary: "High EVM gas usage"
+          description: "EVM gas usage is unusually high"
+
+      - alert: ContractExecutionFailures
+        expr: rate(arthachain_evm_execution_failures_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High contract execution failure rate"
+          description: "Contract executions are failing at a high rate"
+
+      # Storage Alerts
+      - alert: LowDiskSpace
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"} * 100) < 20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low disk space"
+          description: "Available disk space is below 20% (current: {{ $value | humanize }}%)"
+
+      - alert: CriticalDiskSpace
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"} * 100) < 10
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical disk space"
+          description: "Available disk space is below 10% (current: {{ $value | humanize }}%)"
+
+  - name: arthachain_performance_alerts
+    interval: 30s
+    rules:
+      - alert: LowTPS
+        expr: rate(arthachain_transactions_total[1m]) < 100
+        for: 5m
+        labels:
+          severity: info
+        annotations:
+          summary: "Low transactions per second"
+          description: "TPS is below 100 (current: {{ $value | humanize }})"
+
+      - alert: HighTransactionLatency
+        expr: histogram_quantile(0.95, rate(arthachain_transaction_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High transaction latency"
+          description: "95th percentile transaction latency is above 1 second"

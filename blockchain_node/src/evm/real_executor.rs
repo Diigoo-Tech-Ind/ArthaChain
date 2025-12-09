@@ -5,7 +5,7 @@ use anyhow::{anyhow, Result};
 use ethereum_types::{H256, U256};
 use revm::{
     primitives::{
-        Address as RevmAddress, Bytes, ExecutionResult, Output, TransactTo,
+        Address as RevmAddress, Bytes, CfgEnv, ExecutionResult, Output, TransactTo,
         TxEnv, U256 as RevmU256,
     }, EvmBuilder,
 };
@@ -74,10 +74,13 @@ impl RealEvmExecutor {
         // Get mutable access to database
         let mut db = self.database.write().await;
 
-        // Build and execute EVM
+        // Build EVM with proper chain configuration
         let mut evm = EvmBuilder::default()
             .with_db(&mut *db)
             .with_tx_env(tx_env)
+            .modify_cfg_env(|cfg| {
+                cfg.chain_id = self.chain_id;
+            })
             .build();
 
         // Set block environment

@@ -342,7 +342,10 @@ pub async fn get_consensus_health(
 }
 
 /// Create SVCP-SVBFT consensus router
-pub fn create_svcp_consensus_router() -> Router {
+pub fn create_svcp_consensus_router<S>() -> Router<S> 
+where
+    S: Clone + Send + Sync + 'static,
+{
     Router::new()
         .route("/status", get(get_svcp_consensus_status))
         .route("/validators/roles", get(get_validator_roles))

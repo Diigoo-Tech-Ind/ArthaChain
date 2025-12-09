@@ -1269,8 +1269,12 @@ fn verify_ecdsa_signature(
     let recovery_id_value = if v >= 35 {
         // EIP-155: v = chain_id * 2 + 35 + recovery_id
         ((v - 35) % 2)
-    } else {
+    } else if v >= 27 {
+        // Non-EIP-155: v = 27 + recovery_id
         (v - 27)
+    } else {
+        // Invalid v value
+        return Err(format!("Invalid v value: {}", v));
     };
 
     // Create RecoveryId from u8
@@ -2203,7 +2207,15 @@ async fn handle_get_filter_logs(
 ) -> JsonRpcResponse {
     let filter_id = match &request.params {
         Some(Value::Array(params)) if !params.is_empty() => {
-            params[0].as_u64().or_else(|| params[0].as_str().and_then(|s| s.parse().ok()))
+            if let Some(id_str) = params[0].as_str() {
+                if id_str.starts_with("0x") {
+                    u64::from_str_radix(&id_str[2..], 16).ok()
+                } else {
+                    id_str.parse().ok()
+                }
+            } else {
+                params[0].as_u64()
+            }
         }
         _ => None,
     };
@@ -3100,13 +3112,13 @@ mod tests {
         // Set a test balance
         {
             let mut state_guard = state.write().await;
-            state_guard.set_balance("0x742d3543cf4c0532925a3b8d", 1000000).unwrap();
+            state_guard.set_balance("0x742d35Cc6634C0532925a3b844Bc454e4438f44e", 1000000).unwrap();
         }
 
         let request = JsonRpcRequest {
             jsonrpc: "2.0".to_string(),
             method: "eth_getBalance".to_string(),
-            params: Some(json!(["0x742d3543cf4c0532925a3b8d", "latest"])),
+            params: Some(json!(["0x742d35Cc6634C0532925a3b844Bc454e4438f44e", "latest"])),
             id: Some(json!(1)),
         };
 
@@ -3123,13 +3135,13 @@ mod tests {
         // Set a test nonce
         {
             let mut state_guard = state.write().await;
-            state_guard.set_nonce("0x742d3543cf4c0532925a3b8d", 5).unwrap();
+            state_guard.set_nonce("0x742d35Cc6634C0532925a3b844Bc454e4438f44e", 5).unwrap();
         }
 
         let request = JsonRpcRequest {
             jsonrpc: "2.0".to_string(),
             method: "eth_getTransactionCount".to_string(),
-            params: Some(json!(["0x742d3543cf4c0532925a3b8d", "latest"])),
+            params: Some(json!(["0x742d35Cc6634C0532925a3b844Bc454e4438f44e", "latest"])),
             id: Some(json!(1)),
         };
 
@@ -3163,7 +3175,7 @@ mod tests {
         let state = create_test_state();
 
         let filter = json!({
-            "address": "0x742d3543cf4c0532925a3b8d",
+            "address": "0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
             "fromBlock": "0x0",
             "toBlock": "latest"
         });
@@ -3186,7 +3198,7 @@ mod tests {
         let state = create_test_state();
 
         let call_obj = json!({
-            "to": "0x742d3543cf4c0532925a3b8d",
+            "to": "0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
             "data": "0x"
         });
 
@@ -3283,7 +3295,7 @@ mod tests {
 
         // First create a filter
         let filter_obj = json!({
-            "address": "0x742d3543cf4c0532925a3b8d"
+            "address": "0x742d35Cc6634C0532925a3b844Bc454e4438f44e"
         });
 
         let create_request = JsonRpcRequest {

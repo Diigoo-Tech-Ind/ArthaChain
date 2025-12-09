@@ -1,0 +1,15 @@
+{
+  "total_transactions": 100000,
+  "successful_transactions": 100000,
+  "failed_transactions": 0,
+  "total_data_mb": 24.4140625,
+  "average_tps": 336341.0169104494,
+  "peak_tps": 0.0,
+  "average_confirmation_time_ms": 0.0,
+  "min_confirmation_time_ms": 18446744073709551615,
+  "max_confirmation_time_ms": 0,
+  "memory_usage_mb": 0.0,
+  "cpu_usage_percent": 0.0,
+  "network_bandwidth_mbps": 656.9160486532215,
+  "test_duration_seconds": 0.297317291
+}

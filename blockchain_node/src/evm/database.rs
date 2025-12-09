@@ -58,101 +58,110 @@ impl Database for EvmDatabase {
 
     /// Get basic account information
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
-        // Convert Address to H160
-        let h160_addr = H160::from_slice(address.as_slice());
-        
-        // Check cache first
-        {
-            let cache = self.account_cache.blocking_read();
-            if let Some(info) = cache.get(&h160_addr) {
-                return Ok(Some(info.clone()));
-            }
-        }
-
-        // Fetch from database
-        let key = Self::account_key(&h160_addr);
-        let storage = self.storage.blocking_read();
-        
-        let data = storage.get_sync(&key);
-        
-        if let Some(bytes) = data {
-            // Deserialize account data
-            let account_data: StoredAccountData = serde_json::from_slice(&bytes)?;
+        // Use block_in_place to safely call blocking operations from async context
+        tokio::task::block_in_place(|| {
+            // Convert Address to H160
+            let h160_addr = H160::from_slice(address.as_slice());
             
-            let info = AccountInfo {
-                balance: RevmU256::from_be_bytes(account_data.balance),
-                nonce: account_data.nonce,
-                code_hash: B256::from_slice(&account_data.code_hash),
-                code: account_data.code.map(|c| Bytecode::new_raw(c.into())),
-            };
-
-            // Update cache
+            // Check cache first
             {
-                let mut cache = self.account_cache.blocking_write();
-                cache.insert(h160_addr, info.clone());
+                let cache = self.account_cache.blocking_read();
+                if let Some(info) = cache.get(&h160_addr) {
+                    return Ok(Some(info.clone()));
+                }
             }
 
-            Ok(Some(info))
-        } else {
-            // Account doesn't exist - return default empty account
-            Ok(Some(AccountInfo::default()))
-        }
+            // Fetch from database
+            let key = Self::account_key(&h160_addr);
+            let storage = self.storage.blocking_read();
+            
+            let data = storage.get_sync(&key);
+            
+            if let Some(bytes) = data {
+                // Deserialize account data
+                let account_data: StoredAccountData = serde_json::from_slice(&bytes)?;
+                
+                let info = AccountInfo {
+                    balance: RevmU256::from_be_bytes(account_data.balance),
+                    nonce: account_data.nonce,
+                    code_hash: B256::from_slice(&account_data.code_hash),
+                    code: account_data.code.map(|c| Bytecode::new_raw(c.into())),
+                };
+
+                // Update cache
+                {
+                    let mut cache = self.account_cache.blocking_write();
+                    cache.insert(h160_addr, info.clone());
+                }
+
+                Ok(Some(info))
+            } else {
+                // Account doesn't exist - return default empty account
+                Ok(Some(AccountInfo::default()))
+            }
+        })
     }
 
     /// Get account code by its hash
     fn code_by_hash(&mut self, code_hash: B256) -> Result<Bytecode, Self::Error> {
-        if code_hash == KECCAK_EMPTY {
-            return Ok(Bytecode::default());
-        }
+        tokio::task::block_in_place(|| {
+            if code_hash == KECCAK_EMPTY {
+                return Ok(Bytecode::default());
+            }
 
-        let mut key = b"code:".to_vec();
-        key.extend_from_slice(code_hash.as_slice());
+            let mut key = b"code:".to_vec();
+            key.extend_from_slice(code_hash.as_slice());
 
-        let storage = self.storage.blocking_read();
-        let code_bytes = storage.get_sync(&key);
+            let storage = self.storage.blocking_read();
+            let code_bytes = storage.get_sync(&key);
 
-        if let Some(bytes) = code_bytes {
-            Ok(Bytecode::new_raw(bytes.into()))
-        } else {
-            Ok(Bytecode::default())
-        }
+            if let Some(bytes) = code_bytes {
+                Ok(Bytecode::new_raw(bytes.into()))
+            } else {
+                Ok(Bytecode::default())
+            }
+        })
     }
 
     /// Get storage value at a specific index
     fn storage(&mut self, address: Address, index: RevmU256) -> Result<RevmU256, Self::Error> {
-        let h160_addr = H160::from_slice(address.as_slice());
-        let key = Self::storage_key(&h160_addr, &index);
-        let storage = self.storage.blocking_read();
-        
-        let value = storage.get_sync(&key);
+        tokio::task::block_in_place(|| {
+            let h160_addr = H160::from_slice(address.as_slice());
+            let key = Self::storage_key(&h160_addr, &index);
+            let storage = self.storage.blocking_read();
+            
+            let value = storage.get_sync(&key);
 
-        if let Some(bytes) = value {
-            if bytes.len() == 32 {
-                Ok(RevmU256::from_be_bytes::<32>(bytes.try_into().unwrap()))
+            if let Some(bytes) = value {
+                if bytes.len() == 32 {
+                    Ok(RevmU256::from_be_bytes::<32>(bytes.try_into().unwrap()))
+                } else {
+                    Ok(RevmU256::ZERO)
+                }
             } else {
                 Ok(RevmU256::ZERO)
             }
-        } else {
-            Ok(RevmU256::ZERO)
-        }
+        })
     }
 
     /// Get block hash for a specific block number
     fn block_hash(&mut self, number: u64) -> Result<B256, Self::Error> {
-        let key = Self::block_hash_key(number);
-        let storage = self.storage.blocking_read();
-        
-        let hash = storage.get_sync(&key);
+        tokio::task::block_in_place(|| {
+            let key = Self::block_hash_key(number);
+            let storage = self.storage.blocking_read();
+            
+            let hash = storage.get_sync(&key);
 
-        if let Some(bytes) = hash {
-            if bytes.len() == 32 {
-                Ok(B256::from_slice(&bytes))
+            if let Some(bytes) = hash {
+                if bytes.len() == 32 {
+                    Ok(B256::from_slice(&bytes))
+                } else {
+                    Ok(B256::ZERO)
+                }
             } else {
                 Ok(B256::ZERO)
             }
-        } else {
-            Ok(B256::ZERO)
-        }
+        })
     }
 }
 

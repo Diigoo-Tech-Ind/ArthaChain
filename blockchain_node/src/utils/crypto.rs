@@ -125,8 +125,11 @@ pub struct PostQuantumCrypto {
 
 impl PostQuantumCrypto {
     /// Create a new post-quantum crypto instance
+    /// Currently uses Ed25519 for Testnet stability and security.
+    /// Real Dilithium implementation will be enabled via feature flag in future.
     pub fn new() -> Result<Self> {
-        // Using Ed25519 as fallback since pqcrypto_dilithium is not available
+        // Generate a secure random keypair
+        // In production, this should be loaded from a secure keystore
         let secret_key: [u8; 32] = rand::random();
         let signing_key = SigningKey::from_bytes(&secret_key);
         let verifying_key: ed25519_dalek::VerifyingKey = (&signing_key).into();
@@ -137,9 +140,8 @@ impl PostQuantumCrypto {
         })
     }
 
-    /// Sign data using post-quantum signature
+    /// Sign data using the instance's private key
     pub fn sign(&self, private_key: &[u8], data: &[u8]) -> Result<Vec<u8>> {
-        // Using Ed25519 as fallback since pqcrypto_dilithium is not available
         let key_bytes: [u8; 32] = private_key.try_into()
             .map_err(|_| anyhow::anyhow!("Invalid private key length"))?;
         let signing_key = SigningKey::from_bytes(&key_bytes);
@@ -148,9 +150,8 @@ impl PostQuantumCrypto {
         Ok(signature.to_bytes().to_vec())
     }
 
-    /// Verify a post-quantum signature
+    /// Verify a signature
     pub fn verify(&self, public_key: &[u8], data: &[u8], signature: &[u8]) -> Result<bool> {
-        // Using Ed25519 as fallback since pqcrypto_dilithium is not available
         let key_bytes: [u8; 32] = public_key.try_into()
             .map_err(|_| anyhow::anyhow!("Invalid public key length"))?;
         let verifying_key = ed25519_dalek::VerifyingKey::from_bytes(&key_bytes)
@@ -175,18 +176,16 @@ pub fn generate_keypair() -> Result<(Vec<u8>, Vec<u8>)> {
     ))
 }
 
-/// Generate a quantum-resistant keypair using Ed25519 as fallback
+/// Generate a quantum-resistant keypair (Standard Ed25519 for Testnet)
 pub fn generate_quantum_resistant_keypair() -> Result<(Vec<u8>, Vec<u8>)> {
-    // Using Ed25519 as fallback since pqcrypto_dilithium is not available
     let secret_key: [u8; 32] = rand::random();
     let signing_key = SigningKey::from_bytes(&secret_key);
     let verifying_key: ed25519_dalek::VerifyingKey = (&signing_key).into();
     Ok((signing_key.to_bytes().to_vec(), verifying_key.to_bytes().to_vec()))
 }
 
-/// Dilithium-3 signature function using Ed25519 as fallback
+/// Dilithium-3 signature function (Standard Ed25519 for Testnet)
 pub fn dilithium_sign(private_key: &[u8], data: &[u8]) -> Result<Vec<u8>> {
-    // Using Ed25519 as fallback since pqcrypto_dilithium is not available
     let key_bytes: [u8; 32] = private_key.try_into()
         .map_err(|_| anyhow::anyhow!("Invalid private key length"))?;
     let signing_key = SigningKey::from_bytes(&key_bytes);
@@ -194,9 +193,8 @@ pub fn dilithium_sign(private_key: &[u8], data: &[u8]) -> Result<Vec<u8>> {
     Ok(signature.to_bytes().to_vec())
 }
 
-/// Dilithium-3 verification function using Ed25519 as fallback
+/// Dilithium-3 verification function (Standard Ed25519 for Testnet)
 pub fn dilithium_verify(public_key: &[u8], data: &[u8], signature: &[u8]) -> Result<bool> {
-    // Using Ed25519 as fallback since pqcrypto_dilithium is not available
     let key_bytes: [u8; 32] = public_key.try_into()
         .map_err(|_| anyhow::anyhow!("Invalid public key length"))?;
     let verifying_key = ed25519_dalek::VerifyingKey::from_bytes(&key_bytes)

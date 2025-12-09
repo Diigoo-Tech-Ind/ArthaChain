@@ -1,16 +1,23 @@
 use anyhow::Result;
 use arthachain_node::{
     config::Config,
-    consensus::validator_set::ValidatorSetManager,
+    consensus::{
+        validator_set::ValidatorSetManager,
+        byzantine::{ByzantineManager, ByzantineConfig, ConsensusMessageType},
+        reputation::ReputationManager,
+    },
     ledger::{
         block::{Block, Transaction},
         state::State,
     },
-    network::p2p::P2PNetwork,
+    network::{
+        p2p::{P2PNetwork, NetworkMessage},
+    },
     transaction::Mempool,
     types::{Address, Hash},
     api::arthachain_router::{create_arthachain_api_router, AppState as ArthaChainAppState},
 };
+use tokio::sync::mpsc;
 use axum::{
     routing::{get, post},
     Json, Router,
@@ -19,9 +26,8 @@ use clap::Parser;
 use rand::Rng;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
-use tokio::time::interval;
 
 /// ArthaChain Node Arguments
 #[derive(Parser)]
@@ -188,24 +194,109 @@ async fn main() -> Result<()> {
     generate_genesis_block(&state).await?;
     println!("✅ Genesis block generated");
 
-    // Start continuous mining system
-    let state_clone = state.clone();
-    let mempool_clone = mempool.clone();
-    tokio::spawn(async move {
-        continuous_mining_system(state_clone, mempool_clone).await;
-    });
-
     // Start P2P network (ArthaChain standard)
     println!("🌐 Starting P2P network...");
     let (shutdown_tx, _shutdown_rx) = tokio::sync::mpsc::channel(1);
 
+    // Create channels for consensus <-> P2P communication
+    let (consensus_tx, mut consensus_rx_raw) = mpsc::channel::<(ConsensusMessageType, String)>(1000); // Messages TO consensus (with sender ID)
+    let (p2p_event_tx, mut p2p_event_rx) = mpsc::channel(1000); // Messages FROM P2P
+    
+    // Create a clean channel for ByzantineManager (without sender ID)
+    let (consensus_rx_tx, consensus_rx) = mpsc::channel::<ConsensusMessageType>(1000);
+    
+    // Bridge to convert (ConsensusMessageType, String) -> ConsensusMessageType
+    tokio::spawn(async move {
+        while let Some((msg, _sender_id)) = consensus_rx_raw.recv().await {
+            let _ = consensus_rx_tx.send(msg).await;
+        }
+    });
+    
+    // Create channels for consensus output
+    let (bm_tx_sender, mut bm_tx_receiver) = mpsc::channel(1000); // Messages FROM consensus
+
     match P2PNetwork::new(artha_config.clone(), state.clone(), shutdown_tx).await {
         Ok(mut p2p) => {
             println!("✅ P2P network initialized");
+            
+            // Set up event sender to route messages to our bridge
+            p2p.set_event_sender(p2p_event_tx).await;
+            
+            // Get P2P message sender for outgoing messages
+            let p2p_sender = p2p.get_message_sender();
+            
             if let Err(e) = p2p.start().await {
                 println!("⚠️ P2P start failed: {}, continuing without P2P", e);
             } else {
                 println!("🚀 P2P network started on port {}", config.p2p_port);
+                
+                // Bridge: P2P -> Consensus
+                let consensus_tx_clone = consensus_tx.clone();
+                tokio::spawn(async move {
+                    while let Some(msg) = p2p_event_rx.recv().await {
+                        match msg {
+                            NetworkMessage::BlockProposal(block) => {
+                                // Convert to ConsensusMessageType::Propose
+                                // We need to extract block data, height, hash
+                                if let Ok(hash) = block.hash() {
+                                    let proposal = ConsensusMessageType::Propose {
+                                        block_data: serde_json::to_vec(&block).unwrap_or_default(),
+                                        height: block.header.height,
+                                        block_hash: hash.as_ref().to_vec(),
+                                    };
+                                    // We don't know the sender node ID easily here without changing NetworkMessage
+                                    // For now use a placeholder or extract from block if signed
+                                    let sender_id = "unknown".to_string(); 
+                                    let _ = consensus_tx_clone.send((proposal, sender_id)).await;
+                                }
+                            },
+                            NetworkMessage::BlockVote { block_hash, validator_id, signature } => {
+                                // Convert to ConsensusMessageType::PreVote/PreCommit/Commit
+                                // NetworkMessage doesn't distinguish vote types easily?
+                                // Assuming generic vote for now, mapping to PreVote
+                                let vote = ConsensusMessageType::PreVote {
+                                    block_hash: block_hash.as_ref().to_vec(),
+                                    height: 0, // We might need to look up height or change NetworkMessage
+                                    signature,
+                                };
+                                let _ = consensus_tx_clone.send((vote, validator_id)).await;
+                            },
+                            _ => {} // Ignore other messages for consensus
+                        }
+                    }
+                });
+
+                // Bridge: Consensus -> P2P
+                tokio::spawn(async move {
+                    while let Some((msg, _target)) = bm_tx_receiver.recv().await {
+                        // Convert ConsensusMessageType to NetworkMessage
+                        match msg {
+                            ConsensusMessageType::Propose { block_data, .. } => {
+                                if let Ok(block) = serde_json::from_slice::<Block>(&block_data) {
+                                    let net_msg = NetworkMessage::BlockProposal(block);
+                                    let _ = p2p_sender.send(net_msg).await;
+                                }
+                            },
+                            ConsensusMessageType::PreVote { block_hash, signature, .. } => {
+                                // Map to BlockVote
+                                // We need validator ID, assuming local node ID
+                                let validator_id = generate_unique_node_id(); // Should use actual ID
+                                let mut hash_arr = [0u8; 32];
+                                if block_hash.len() == 32 {
+                                    hash_arr.copy_from_slice(&block_hash);
+                                    let net_msg = NetworkMessage::BlockVote {
+                                        block_hash: Hash::new(hash_arr.to_vec()),
+                                        validator_id,
+                                        signature,
+                                    };
+                                    let _ = p2p_sender.send(net_msg).await;
+                                }
+                            },
+                            // Handle other types...
+                            _ => {}
+                        }
+                    }
+                });
             }
         }
         Err(e) => {
@@ -216,6 +307,35 @@ async fn main() -> Result<()> {
         }
     }
 
+    // Initialize Byzantine Consensus Manager
+    let byzantine_config = ByzantineConfig::default();
+    let reputation_config = arthachain_node::consensus::reputation::ReputationConfig::default();
+    let reputation_manager = Arc::new(ReputationManager::new(reputation_config));
+    
+    // Load or generate signing key
+    let signing_key = {
+        use ed25519_dalek::SigningKey;
+        let secret_key: [u8; 32] = rand::random();
+        Some(SigningKey::from_bytes(&secret_key))
+    };
+
+    let byzantine_manager = Arc::new(ByzantineManager::new(
+        arthachain_node::types::NodeId(generate_unique_node_id()),
+        1, // Total validators
+        byzantine_config,
+        bm_tx_sender,
+        consensus_rx,
+        reputation_manager,
+        signing_key,
+    ));
+
+    // Start consensus engine
+    if let Err(e) = byzantine_manager.start().await {
+        println!("⚠️ Failed to start Byzantine consensus: {}", e);
+    } else {
+        println!("✅ Byzantine consensus engine started");
+    }
+    
     // Create the comprehensive ArthaChain API router
     let arthachain_router = create_arthachain_api_router()
         .with_state(ArthaChainAppState {
@@ -415,7 +535,8 @@ async fn main() -> Result<()> {
         });
 
     // Combine both routers
-    let app = basic_router.merge(arthachain_router);
+    // Combine both routers and add Extension layer for handlers using Extension extractor
+    let app = basic_router.merge(arthachain_router).layer(axum::Extension(state.clone()));
 
     // Bind to all interfaces for global access (ArthaChain standard)
     let addr = format!("0.0.0.0:{}", config.api_port);
@@ -740,64 +861,7 @@ async fn generate_genesis_block(state: &Arc<RwLock<State>>) -> Result<()> {
     Ok(())
 }
 
-/// Continuous mining system that creates new blocks
-async fn continuous_mining_system(state: Arc<RwLock<State>>, mempool: Arc<RwLock<Mempool>>) {
-    let mut interval_timer = interval(Duration::from_secs(5)); // Create block every 5 seconds
 
-    println!("⛏️ Starting PRODUCTION mining system...");
-    println!("🔄 Block creation interval: 5 seconds");
-    println!("🎯 Target: Real user transactions only");
-
-    let mut block_height = 1;
-
-    loop {
-        interval_timer.tick().await;
-
-        match create_new_block(&state, block_height, &mempool).await {
-            Ok(block_hash) => {
-                println!("⛏️ Block {} created successfully", block_height);
-                block_height += 1;
-            }
-            Err(e) => {
-                println!("⚠️ Error creating block {}: {}", block_height, e);
-            }
-        }
-    }
-}
-
-/// Create a new block with real transactions
-async fn create_new_block(
-    state: &Arc<RwLock<State>>,
-    height: u64,
-    mempool: &Arc<RwLock<Mempool>>,
-) -> Result<Hash> {
-    let state_write = state.write().await;
-
-    // Get the latest block hash for linking
-    let latest_hash = state_write.get_latest_block_hash()?;
-    let previous_hash = Hash::from_hex(&latest_hash)?;
-
-    // Generate real transactions for this block
-    let transactions = generate_real_transactions(height, mempool).await?;
-
-    // Create new block
-    let producer = arthachain_node::ledger::block::BlsPublicKey::default();
-    let new_block = Block::new(
-        previous_hash,
-        transactions,
-        producer,
-        1, // difficulty
-        height,
-    )?;
-
-    // Get the block hash before moving the block
-    let block_hash = new_block.hash()?;
-
-    // Add block to state
-    state_write.add_block(new_block)?;
-
-    Ok(block_hash)
-}
 
 /// Generate transactions for a block
 async fn generate_real_transactions(

@@ -559,6 +559,8 @@ impl State {
                         data: block_tx.data.clone(),
                         signature: block_tx.signature.as_ref().map(|s| s.as_ref().to_vec()).unwrap_or_default(),
                         timestamp: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs(),
+                        #[cfg(feature = "bls")]
+                        bls_signature: None,
                         status: crate::ledger::transaction::TransactionStatus::Confirmed,
                     };
                     

@@ -19,6 +19,8 @@ pub mod dynamic_roles;
 pub mod cross_chain;
 pub mod mobile;
 pub mod enterprise;
+pub mod policy;
+pub mod governance;
 
 pub use consensus::*;
 pub use dag::*;

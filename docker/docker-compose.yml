@@ -1,0 +1,295 @@
+# ArthaChain Microservices - Docker Compose
+# Unified deployment for all ArthaChain services
+# Updated: 2025
+
+version: '3.8'
+
+services:
+  # =============================================================
+  # CORE BLOCKCHAIN SERVICES
+  # =============================================================
+
+  # Validator Node - Block production and consensus
+  validator-node:
+    build:
+      context: ..
+      dockerfile: docker/validator-node/Dockerfile
+    image: arthachain/validator-node:latest
+    container_name: arthachain-validator
+    ports:
+      - "1900:1900" # ArthaChain API
+      - "8084:8084" # P2P network
+      - "9184:9184" # Metrics
+    environment:
+      - RUST_LOG=info
+      - NODE_ROLE=validator
+      - ENABLE_MINING=true
+      - ENABLE_CONSENSUS=true
+      - API_PORT=1900
+      - P2P_PORT=8084
+      - METRICS_PORT=9184
+    volumes:
+      - validator-data:/app/data
+      - ./config/validator:/app/config
+    networks:
+      - arthachain-network
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:1900/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # RPC Service - EVM JSON-RPC compatibility
+  rpc-service:
+    build:
+      context: ..
+      dockerfile: docker/rpc-service/Dockerfile
+    image: arthachain/rpc-service:latest
+    container_name: arthachain-rpc
+    ports:
+      - "8545:8545" # EVM JSON-RPC
+      - "1901:1900" # ArthaChain API (alternative port)
+    environment:
+      - RUST_LOG=info
+      - NODE_ROLE=rpc
+      - ENABLE_EVM_RPC=true
+      - API_PORT=1900
+      - EVM_RPC_PORT=8545
+    volumes:
+      - rpc-data:/app/data
+      - ./config/rpc:/app/config
+    networks:
+      - arthachain-network
+    depends_on:
+      - validator-node
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:1900/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Sentry Node - DDoS protection gateway
+  sentry-node:
+    build:
+      context: ..
+      dockerfile: docker/sentry-node/Dockerfile
+    image: arthachain/sentry-node:latest
+    container_name: arthachain-sentry
+    ports:
+      - "1902:1900" # Public API
+      - "8085:8084" # Public P2P
+    environment:
+      - RUST_LOG=info
+      - NODE_ROLE=sentry
+      - ENABLE_SENTRY_MODE=true
+      - ENABLE_DOS_PROTECTION=true
+      - VALIDATOR_BACKEND_URL=http://validator-node:1900
+    volumes:
+      - sentry-data:/app/data
+      - ./config/sentry:/app/config
+    networks:
+      - arthachain-network
+    depends_on:
+      - validator-node
+    restart: unless-stopped
+
+  # =============================================================
+  # API SERVICES
+  # =============================================================
+
+  # API Gateway - REST API endpoint
+  api-gateway:
+    build:
+      context: ..
+      dockerfile: docker/api-gateway/Dockerfile
+    image: arthachain/api-gateway:latest
+    container_name: arthachain-api
+    ports:
+      - "1930:1930" # REST API
+      - "3000:3000" # Alternative port
+    environment:
+      - RUST_LOG=info
+      - NODE_ROLE=api-gateway
+      - API_PORT=1930
+      - BACKEND_NODE_URL=http://validator-node:1900
+    volumes:
+      - ./config/api:/app/config
+    networks:
+      - arthachain-network
+    depends_on:
+      - validator-node
+    restart: unless-stopped
+
+  # WebSocket RPC - Real-time events
+  websocket-rpc:
+    build:
+      context: ..
+      dockerfile: docker/websocket-rpc/Dockerfile
+    image: arthachain/websocket-rpc:latest
+    container_name: arthachain-websocket
+    ports:
+      - "8546:8546" # WebSocket RPC
+      - "1903:1900" # API
+    environment:
+      - RUST_LOG=info
+      - NODE_ROLE=websocket-rpc
+      - ENABLE_WEBSOCKET=true
+      - WEBSOCKET_PORT=8546
+      - BACKEND_NODE_URL=http://validator-node:1900
+    volumes:
+      - websocket-data:/app/data
+      - ./config/websocket:/app/config
+    networks:
+      - arthachain-network
+    depends_on:
+      - validator-node
+    restart: unless-stopped
+
+  # gRPC Server - High-performance RPC
+  grpc-server:
+    build:
+      context: ..
+      dockerfile: docker/grpc-server/Dockerfile
+    image: arthachain/grpc-server:latest
+    container_name: arthachain-grpc
+    ports:
+      - "9944:9944" # gRPC API
+    environment:
+      - RUST_LOG=info
+      - GRPC_PORT=9944
+      - BACKEND_NODE_URL=http://validator-node:1900
+    volumes:
+      - ./config/grpc:/app/config
+    networks:
+      - arthachain-network
+    depends_on:
+      - validator-node
+    restart: unless-stopped
+
+  # =============================================================
+  # NETWORKING & STORAGE
+  # =============================================================
+
+  # P2P Network Node - Peer discovery and routing
+  p2p-network:
+    build:
+      context: ..
+      dockerfile: docker/p2p-network/Dockerfile
+    image: arthachain/p2p-network:latest
+    container_name: arthachain-p2p
+    ports:
+      - "8086:8084" # P2P UDP
+      - "30303:30303" # P2P TCP
+      - "1904:1900" # API
+    environment:
+      - RUST_LOG=info
+      - NODE_ROLE=p2p-relay
+      - ENABLE_P2P_RELAY=true
+      - ENABLE_DHT=true
+      - ENABLE_NAT_TRAVERSAL=true
+      - SEED_NODES=seed1.arthachain.in:8084,seed2.arthachain.in:8084
+    volumes:
+      - p2p-data:/app/data
+      - ./config/p2p:/app/config
+    networks:
+      - arthachain-network
+    depends_on:
+      - validator-node
+    restart: unless-stopped
+
+  # Storage Node - Data persistence
+  storage-node:
+    build:
+      context: ..
+      dockerfile: docker/storage-node/Dockerfile
+    image: arthachain/storage-node:latest
+    container_name: arthachain-storage
+    ports:
+      - "1905:1900" # API
+    environment:
+      - RUST_LOG=info
+      - NODE_ROLE=storage
+      - ENABLE_STORAGE=true
+      - ENABLE_SVDB=true
+      - ENABLE_ROCKSDB=true
+      - STORAGE_PATH=/app/data
+    volumes:
+      - storage-data:/app/data
+      - ./config/storage:/app/config
+    networks:
+      - arthachain-network
+    depends_on:
+      - validator-node
+    restart: unless-stopped
+
+  # =============================================================
+  # MONITORING & OBSERVABILITY
+  # =============================================================
+
+  # Prometheus - Metrics aggregation
+  prometheus-metrics:
+    build:
+      context: prometheus-metrics
+      dockerfile: Dockerfile
+    image: arthachain/prometheus:latest
+    container_name: arthachain-prometheus
+    ports:
+      - "9090:9090" # Prometheus UI
+    volumes:
+      - prometheus-data:/prometheus
+      - ./prometheus-metrics/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    networks:
+      - arthachain-network
+    restart: unless-stopped
+
+  # Grafana - Dashboards (optional)
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: arthachain-grafana
+    ports:
+      - "3001:3000" # Grafana UI
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=arthachain
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./config/grafana/provisioning:/etc/grafana/provisioning
+    networks:
+      - arthachain-network
+    depends_on:
+      - prometheus-metrics
+    restart: unless-stopped
+
+# =============================================================
+# VOLUMES
+# =============================================================
+volumes:
+  validator-data:
+    driver: local
+  rpc-data:
+    driver: local
+  sentry-data:
+    driver: local
+  websocket-data:
+    driver: local
+  p2p-data:
+    driver: local
+  storage-data:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+
+# =============================================================
+# NETWORKS
+# =============================================================
+networks:
+  arthachain-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16

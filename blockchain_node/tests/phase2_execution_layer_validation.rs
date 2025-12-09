@@ -16,7 +16,6 @@ use ethereum_types::H256;
 // use arthachain_node::wasm::{WasmExecutionConfig, WasmExecutionContext, WasmExecutionEngine}; // Temporarily disabled
 use std::sync::Arc;
 use std::time::Instant;
-use tokio;
 
 /// Test Phase 2.1: WASM Virtual Machine Complete Implementation - DISABLED
 #[tokio::test]
@@ -274,10 +273,10 @@ async fn test_phase2_integration() {
 
     // Test execution request processing
     let execution_request = ContractExecutionRequest {
-        contract_address: contract_address.clone(),
+        contract_address: contract_address,
         function: "test_function".to_string(),
         args: vec![1, 2, 3, 4, 5],
-        caller: deployer.clone(),
+        caller: deployer,
         value: 0,
         gas_limit: gas_optimization.optimized_gas,
         gas_price: 1_000_000_000,

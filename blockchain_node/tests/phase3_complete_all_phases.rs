@@ -151,7 +151,7 @@ fn test_phase3_all_components_complete() {
     ];
 
     for (check, description, status) in &readiness_checks {
-        println!("   {} {}: {} - {}", status, check, description, "VERIFIED");
+        println!("   {} {}: {} - VERIFIED", status, check, description);
     }
 
     // Performance Benchmarks

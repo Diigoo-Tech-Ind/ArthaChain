@@ -205,8 +205,8 @@ fn test_complete_system_validation() {
 
     for (criteria, components, status) in &readiness_criteria {
         println!(
-            "   {} {}: {} - {}",
-            status, criteria, components, "VERIFIED"
+            "   {} {}: {} - VERIFIED",
+            status, criteria, components
         );
     }
 

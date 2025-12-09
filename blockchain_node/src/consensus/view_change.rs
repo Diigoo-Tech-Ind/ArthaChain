@@ -385,7 +385,7 @@ impl ViewChangeManager {
 
             let vote = ViewChangeVote {
                 view: new_view + 1,
-                new_leader: new_leader,
+                new_leader,
                 timestamp: 0,
             };
 

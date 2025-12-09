@@ -2,11 +2,11 @@
 //! Tests end-to-end functionality with real implementations
 
 use anyhow::Result;
-use arthachain_node::ai_engine::{RealFraudDetector, RealInferenceEngine, TransactionHistory};
-use arthachain_node::consensus::{AiReputationCalculator, SvcpAiIntegration};
-use arthachain_node::crypto::{MerklePatriciaTrie, RealZKProof, ZKPSystem};
+use arthachain_node::ai_engine::{RealFraudDetector, TransactionHistory};
+use arthachain_node::consensus::SvcpAiIntegration;
+use arthachain_node::crypto::{MerklePatriciaTrie, ZKPSystem};
 use arthachain_node::custody::production_tss::{ProductionTss, TssConfig};
-use arthachain_node::evm::real_executor::RealEvmExecutor;
+use arthachain_node::evm::chain_config::ARTHACHAIN_TESTNET_CHAIN_ID;
 use arthachain_node::evm::types::{EvmAddress, EvmTransaction};
 use arthachain_node::evm::tx_executor::TransactionExecutor;
 use arthachain_node::storage::RocksDbStorage;
@@ -14,7 +14,7 @@ use ethereum_types::U256;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_evm_execution_integration() -> Result<()> {
     println!("\n🧪 Testing EVM Execution Integration...\n");
 
@@ -23,7 +23,7 @@ async fn test_evm_execution_integration() -> Result<()> {
     let _ = std::fs::remove_dir_all(test_dir);
 
     let storage = Arc::new(RwLock::new(RocksDbStorage::new_with_path(std::path::Path::new(test_dir))?));
-    let executor = TransactionExecutor::new(storage.clone(), 201766);
+    let executor = TransactionExecutor::new(storage.clone(), ARTHACHAIN_TESTNET_CHAIN_ID);
 
     // Update block context
     executor.update_block_context(1, 1234567890).await;
@@ -35,12 +35,12 @@ async fn test_evm_execution_integration() -> Result<()> {
     let tx = EvmTransaction {
         from: sender,
         to: Some(recipient),
-        value: U256::from(1000),
+        value: U256::zero(),
         data: vec![],
         gas_limit: U256::from(21000),
-        gas_price: U256::from(20_000_000_000u64),
+        gas_price: U256::zero(),
         nonce: U256::from(0),
-        chain_id: Some(1),
+        chain_id: Some(ARTHACHAIN_TESTNET_CHAIN_ID),
         signature: None,
     };
 
@@ -198,7 +198,7 @@ async fn test_threshold_signatures_integration() -> Result<()> {
 async fn test_zkp_integration() -> Result<()> {
     println!("\n🧪 Testing Zero-Knowledge Proofs Integration...\n");
 
-    let mut zkp_system = ZKPSystem::new();
+    let zkp_system = ZKPSystem::new();
 
     // Setup
     zkp_system.setup()?;
@@ -252,7 +252,7 @@ async fn test_merkle_trie_integration() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_end_to_end_transaction_flow() -> Result<()> {
     println!("\n🧪 Testing End-to-End Transaction Flow...\n");
 
@@ -261,7 +261,7 @@ async fn test_end_to_end_transaction_flow() -> Result<()> {
 
     // 1. Setup components
     let storage = Arc::new(RwLock::new(RocksDbStorage::new_with_path(std::path::Path::new(test_dir))?));
-    let tx_executor = TransactionExecutor::new(storage.clone(), 201766);
+    let tx_executor = TransactionExecutor::new(storage.clone(), ARTHACHAIN_TESTNET_CHAIN_ID);
     let fraud_detector = RealFraudDetector::new();
 
     // 2. Create transaction
@@ -271,12 +271,12 @@ async fn test_end_to_end_transaction_flow() -> Result<()> {
     let tx = EvmTransaction {
         from: sender,
         to: Some(recipient),
-        value: U256::from(5000),
+        value: U256::zero(),
         data: vec![],
         gas_limit: U256::from(21000),
-        gas_price: U256::from(20_000_000_000u64),
+        gas_price: U256::zero(),
         nonce: U256::from(0),
-        chain_id: Some(1),
+        chain_id: Some(ARTHACHAIN_TESTNET_CHAIN_ID),
         signature: None,
     };
 

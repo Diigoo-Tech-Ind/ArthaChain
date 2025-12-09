@@ -5,7 +5,7 @@ use crate::consensus::cross_shard::key_registry::{InMemoryKeyRegistry, KeyRegist
 use crate::network::cross_shard::{
     CrossShardConfig, CrossShardManager, CrossShardTransaction, ParticipantHandler, TxPhase,
 };
-use crate::utils::crypto::generate_quantum_resistant_keypair;
+
 use anyhow::{anyhow, Result};
 use log::info;
 use std::sync::Arc;
@@ -49,8 +49,12 @@ impl EnhancedCrossShardManager {
         // Create base manager
         let manager = CrossShardManager::new(config.clone());
 
-        // Generate quantum-resistant keys
-        let (private_key, _public_key) = generate_quantum_resistant_keypair()?;
+        // Generate quantum-resistant keys (Dilithium)
+        use pqcrypto_mldsa::mldsa65::keypair;
+        use pqcrypto_traits::sign::{SecretKey, PublicKey};
+        let (pk, sk) = keypair();
+        let private_key = sk.as_bytes().to_vec();
+        let public_key = pk.as_bytes().to_vec();
 
         // Create coordinator message channels
         let (coord_sender, coord_receiver) = mpsc::channel(100);
@@ -72,9 +76,15 @@ impl EnhancedCrossShardManager {
             },
         };
 
-        // Create coordinator - needs 4 args: config, private_key, sender, key_registry
+        // Create coordinator - needs 4 args: config, sk_bytes, sender, key_registry
         let coordinator =
-            CrossShardCoordinator::new(coordinator_config, private_key.clone(), coord_sender.clone(), key_registry).await?;
+            CrossShardCoordinator::new(
+                coordinator_config,
+                private_key.clone(),
+                public_key.clone(),
+                coord_sender.clone(),
+                key_registry
+            ).await?;
 
         // Create participant handler (network layer version expects shard_id and address)
         let participant =
@@ -103,7 +113,7 @@ impl EnhancedCrossShardManager {
     /// Stop the enhanced manager
     pub async fn stop(&mut self) -> Result<()> {
         // Stop the coordinator
-        self.coordinator.stop().await;
+        let _ = self.coordinator.stop().await;
         
         info!("Enhanced cross-shard manager stopped");
 
@@ -232,7 +242,7 @@ impl EnhancedCrossShardManager {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+
 
     // #[tokio::test]
     // async fn test_enhanced_manager() {

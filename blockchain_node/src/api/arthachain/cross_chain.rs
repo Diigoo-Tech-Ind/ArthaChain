@@ -480,7 +480,10 @@ pub async fn get_bridge_health(
 }
 
 /// Create cross-chain router
-pub fn create_cross_chain_router() -> Router {
+pub fn create_cross_chain_router<S>() -> Router<S>
+where
+    S: Clone + Send + Sync + 'static,
+{
     Router::new()
         .route("/status", get(get_cross_chain_bridge_status))
         .route("/chains", get(get_supported_chains))

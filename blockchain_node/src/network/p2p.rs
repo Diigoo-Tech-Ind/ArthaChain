@@ -14,7 +14,6 @@ use libp2p::{
     kad::{self, store::MemoryStore, QueryId, QueryResult},
     noise,
     ping::{self, Behaviour as PingBehaviour, Event as PingEvent},
-    quic,
     swarm::{NetworkBehaviour, Swarm, SwarmEvent},
     tcp, yamux, PeerId, Transport as _,
 };
@@ -452,6 +451,8 @@ pub struct P2PNetwork {
     peer_latency_ms: Arc<RwLock<HashMap<String, f64>>>,
     /// Pending Kademlia provider queries: QueryId -> cid_hex
     pending_provider_queries: Arc<RwLock<HashMap<QueryId, String>>>,
+    /// Channel for sending network events to the application
+    event_sender: Arc<RwLock<Option<mpsc::Sender<NetworkMessage>>>>,
 }
 
 impl P2PNetwork {
@@ -500,7 +501,14 @@ impl P2PNetwork {
             cid_providers: Arc::new(RwLock::new(HashMap::new())),
             peer_latency_ms: Arc::new(RwLock::new(HashMap::new())),
             pending_provider_queries: Arc::new(RwLock::new(HashMap::new())),
+            event_sender: Arc::new(RwLock::new(None)),
         })
+    }
+
+    /// Set the event sender channel
+    pub async fn set_event_sender(&self, sender: mpsc::Sender<NetworkMessage>) {
+        let mut guard = self.event_sender.write().await;
+        *guard = Some(sender);
     }
 
     /// Start the P2P network
@@ -521,28 +529,19 @@ impl P2PNetwork {
         let svdb_chunks_topic = self.svdb_chunks_topic.clone();
         let cid_providers = self.cid_providers.clone();
         let peer_latency_ms = self.peer_latency_ms.clone();
+        let peer_latency_ms = self.peer_latency_ms.clone();
         let pending_provider_queries = self.pending_provider_queries.clone();
+        let event_sender = self.event_sender.clone();
 
         // Create swarm
         let keypair = identity::Keypair::generate_ed25519();
         let _peer_id = PeerId::from(keypair.public());
 
-        // Create QUIC and TCP transports and combine them
-        let quic_transport = quic::tokio::Transport::new(quic::Config::new(&keypair));
-        let tcp_transport = tcp::tokio::Transport::new(tcp::Config::default().nodelay(true))
+        // Create TCP transport only (QUIC disabled for security)
+        let transport = tcp::tokio::Transport::new(tcp::Config::default().nodelay(true))
             .upgrade(upgrade::Version::V1)
             .authenticate(noise::Config::new(&keypair)?)
-            .multiplex(yamux::Config::default());
-
-        let transport = OrTransport::new(quic_transport, tcp_transport)
-            .map(|either, _| match either {
-                futures::future::Either::Left((peer_id, muxer)) => {
-                    (peer_id, libp2p::core::muxing::StreamMuxerBox::new(muxer))
-                }
-                futures::future::Either::Right((peer_id, muxer)) => {
-                    (peer_id, libp2p::core::muxing::StreamMuxerBox::new(muxer))
-                }
-            })
+            .multiplex(yamux::Config::default())
             .boxed();
 
         // Create behavior
@@ -573,27 +572,18 @@ impl P2PNetwork {
             .gossipsub
             .subscribe(&svdb_chunks_topic)?;
 
-        // Listen on TCP and QUIC addresses
+        // Listen on TCP address only
         let listen_tcp = format!("/ip4/0.0.0.0/tcp/{}", config.network.p2p_port)
             .parse()
             .context("Failed to parse TCP listen address")?;
-        let listen_quic = format!("/ip4/0.0.0.0/udp/{}/quic-v1", config.network.p2p_port)
-            .parse()
-            .context("Failed to parse QUIC listen address")?;
 
         info!(
-            "Attempting to listen on {} (TCP) and QUIC udp/{})",
-            config.network.p2p_port, config.network.p2p_port
+            "Attempting to listen on {} (TCP)",
+            config.network.p2p_port
         );
         if let Err(e) = swarm.listen_on(listen_tcp) {
             warn!(
                 "Failed to listen on TCP port {}: {}",
-                config.network.p2p_port, e
-            );
-        }
-        if let Err(e) = swarm.listen_on(listen_quic) {
-            warn!(
-                "Failed to listen on QUIC port {}: {}",
                 config.network.p2p_port, e
             );
         }
@@ -661,7 +651,7 @@ impl P2PNetwork {
                                 }
 
                                 // Handle built-in topics (blocks/tx/etc.)
-                                if let Err(e) = Self::handle_pubsub_message(&message, &message_tx, &state, &dos_protection).await {
+                                if let Err(e) = Self::handle_pubsub_message(&message, &message_tx, &event_sender, &state, &dos_protection).await {
                                     warn!("Error handling pubsub message: {e}");
                                 }
 
@@ -896,6 +886,7 @@ impl P2PNetwork {
     async fn handle_pubsub_message(
         message: &gossipsub::Message,
         message_tx: &mpsc::Sender<NetworkMessage>,
+        event_sender: &Arc<RwLock<Option<mpsc::Sender<NetworkMessage>>>>,
         state: &Arc<RwLock<State>>,
         dos_protection: &DosProtection,
     ) -> Result<()> {
@@ -922,11 +913,17 @@ impl P2PNetwork {
             NetworkMessage::BlockProposal(block) => {
                 info!("Received block proposal: {}", block.hash()?.to_evm_hex());
 
-                // Forward to consensus layer
-                message_tx
-                    .send(network_message)
-                    .await
-                    .context("Failed to forward block proposal")?;
+                // Forward to consensus layer via event sender
+                let event_sender_guard = event_sender.read().await;
+                if let Some(sender) = &*event_sender_guard {
+                    sender.send(network_message).await.context("Failed to forward block proposal to event handler")?;
+                } else {
+                    // Fallback to internal loop if no event sender (legacy behavior)
+                    message_tx
+                        .send(network_message)
+                        .await
+                        .context("Failed to forward block proposal")?;
+                }
             }
             NetworkMessage::BlockVote {
                 block_hash,
@@ -939,11 +936,16 @@ impl P2PNetwork {
                     hex::encode(block_hash.as_ref())
                 );
 
-                // Forward to consensus layer
-                message_tx
-                    .send(network_message)
-                    .await
-                    .context("Failed to forward block vote")?;
+                // Forward to consensus layer via event sender
+                let event_sender_guard = event_sender.read().await;
+                if let Some(sender) = &*event_sender_guard {
+                    sender.send(network_message).await.context("Failed to forward block vote to event handler")?;
+                } else {
+                    message_tx
+                        .send(network_message)
+                        .await
+                        .context("Failed to forward block vote")?;
+                }
             }
             NetworkMessage::TransactionGossip(tx) => {
                 debug!(
@@ -1294,6 +1296,7 @@ impl P2PNetwork {
             cid_providers: Arc::new(RwLock::new(HashMap::new())),
             peer_latency_ms: Arc::new(RwLock::new(HashMap::new())),
             pending_provider_queries: Arc::new(RwLock::new(HashMap::new())),
+            event_sender: Arc::new(RwLock::new(None)),
         })
     }
 

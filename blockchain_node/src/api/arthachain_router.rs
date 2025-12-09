@@ -13,6 +13,8 @@ use crate::api::arthachain::{
     cross_chain::create_cross_chain_router,
     mobile::create_mobile_router,
     enterprise::create_enterprise_router,
+    governance::create_governance_router,
+    policy::create_policy_router,
 };
 use axum::{
     extract::Extension,
@@ -487,13 +489,15 @@ pub fn create_arthachain_api_router() -> Router<AppState> {
         .route("/overview", get(get_arthachain_api_overview))
         .route("/api-health", get(get_api_health_status))
         .route("/docs", get(get_api_documentation))
-        .nest("/consensus", create_svcp_consensus_router().with_state(()))
-        .nest("/dag", create_dag_router().with_state(()))
-        .nest("/ai", create_ai_native_router().with_state(()))
-        .nest("/quantum", create_quantum_resistance_router().with_state(()))
-        .nest("/self-healing", create_self_healing_router().with_state(()))
-        .nest("/roles", create_dynamic_roles_router().with_state(()))
-        .nest("/bridges", create_cross_chain_router().with_state(()))
-        .nest("/mobile", create_mobile_router().with_state(()))
-        .nest("/enterprise", create_enterprise_router().with_state(()))
+        .nest("/consensus", create_svcp_consensus_router())
+        .nest("/dag", create_dag_router())
+        .nest("/ai", create_ai_native_router())
+        .nest("/quantum", create_quantum_resistance_router())
+        .nest("/self-healing", create_self_healing_router())
+        .nest("/roles", create_dynamic_roles_router())
+        .nest("/bridges", create_cross_chain_router())
+        .nest("/mobile", create_mobile_router())
+        .nest("/enterprise", create_enterprise_router())
+        .nest("/governance", create_governance_router())
+        .nest("/policy", create_policy_router())
 }

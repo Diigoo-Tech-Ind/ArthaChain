@@ -3,8 +3,8 @@ use crate::types::Transaction;
 use crate::utils::crypto::Hash;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use dashmap::DashMap;
+use std::sync::Arc;
 use tokio::sync::mpsc;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -34,12 +34,13 @@ pub enum ValidationStatus {
 }
 
 pub struct Mempool {
-    transactions: Arc<RwLock<HashMap<Hash, MempoolTransaction>>>,
-    pending_queue: Arc<RwLock<Vec<Hash>>>,
-    executed_transactions: Arc<RwLock<HashMap<Hash, MempoolTransaction>>>,
+    transactions: Arc<DashMap<Hash, MempoolTransaction>>,
+    pending_queue: Arc<DashMap<usize, Hash>>,  // Using index as key for ordered queue
+    queue_counter: Arc<std::sync::atomic::AtomicUsize>,
+    executed_transactions: Arc<DashMap<Hash, MempoolTransaction>>,
     max_size: usize,
     tx_sender: mpsc::Sender<Transaction>,
-    tx_receiver: mpsc::Receiver<Transaction>,
+    tx_receiver: tokio::sync::Mutex<mpsc::Receiver<Transaction>>,
 }
 
 impl Mempool {
@@ -47,12 +48,13 @@ impl Mempool {
         let (tx_sender, tx_receiver) = mpsc::channel(10000);
 
         Self {
-            transactions: Arc::new(RwLock::new(HashMap::new())),
-            pending_queue: Arc::new(RwLock::new(Vec::new())),
-            executed_transactions: Arc::new(RwLock::new(HashMap::new())),
+            transactions: Arc::new(DashMap::new()),
+            pending_queue: Arc::new(DashMap::new()),
+            queue_counter: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+            executed_transactions: Arc::new(DashMap::new()),
             max_size,
             tx_sender,
-            tx_receiver,
+            tx_receiver: tokio::sync::Mutex::new(tx_receiver),
         }
     }
 
@@ -62,6 +64,12 @@ impl Mempool {
         self.validate_transaction(&transaction)?;
 
         let hash = transaction.hash();
+        
+        // Check size limit
+        if self.transactions.len() >= self.max_size {
+            return Err(Error::MempoolFull);
+        }
+        
         let mempool_tx = MempoolTransaction {
             transaction,
             received_at: Utc::now(),
@@ -71,18 +79,12 @@ impl Mempool {
             retry_count: 0,
         };
 
-        {
-            let mut txs = self.transactions.write().unwrap();
-            if txs.len() >= self.max_size {
-                return Err(Error::MempoolFull);
-            }
-            txs.insert(hash.clone(), mempool_tx);
-        }
-
-        {
-            let mut queue = self.pending_queue.write().unwrap();
-            queue.push(hash.clone());
-        }
+        // Insert into transactions (lock-free)
+        self.transactions.insert(hash.clone(), mempool_tx);
+        
+        // Add to pending queue
+        let index = self.queue_counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        self.pending_queue.insert(index, hash.clone());
 
         Ok(hash)
     }
@@ -106,7 +108,7 @@ impl Mempool {
         if !tx.signature.is_empty() {
             // For now, skip signature verification to avoid complex crypto dependencies
             // In production, this would verify the signature properly
-            println!("⚠️ Signature verification skipped for development");
+            // Signature verification is disabled in development mode for performance
         }
 
         // Check nonce (in production, would check against account state)
@@ -121,60 +123,48 @@ impl Mempool {
 
     /// Get next batch of transactions for block inclusion
     pub async fn get_transactions_for_block(&self, max_count: usize) -> Vec<Transaction> {
-        let mut selected_txs = Vec::new();
+        // Collect all transactions
+        let mut candidates: Vec<MempoolTransaction> = self.transactions
+            .iter()
+            .map(|entry| entry.value().clone())
+            .collect();
 
-        {
-            let txs = self.transactions.read().unwrap();
-            let mut queue = self.pending_queue.write().unwrap();
+        // Sort by priority and fee (higher priority/fee first)
+        candidates.sort_by(|tx_a, tx_b| {
+            tx_b.priority
+                .cmp(&tx_a.priority)
+                .then(tx_b.fee_per_gas.cmp(&tx_a.fee_per_gas))
+        });
 
-            // Sort by priority and fee (higher priority/fee first)
-            queue.sort_by(|a, b| {
-                let tx_a = txs.get(a).unwrap();
-                let tx_b = txs.get(b).unwrap();
-
-                tx_b.priority
-                    .cmp(&tx_a.priority)
-                    .then(tx_b.fee_per_gas.cmp(&tx_a.fee_per_gas))
-            });
-
-            // Take top transactions
-            for hash in queue.iter().take(max_count) {
-                if let Some(mempool_tx) = txs.get(hash) {
-                    selected_txs.push(mempool_tx.transaction.clone());
-                }
-            }
-        }
-
-        selected_txs
+        // Take top transactions
+        candidates
+            .into_iter()
+            .take(max_count)
+            .map(|tx| tx.transaction)
+            .collect()
     }
 
     /// Mark transaction as executed (moved to block)
     pub async fn mark_executed(&self, hash: &Hash) {
-        if let Some(mempool_tx) = self.transactions.write().unwrap().remove(hash) {
-            let mut executed = self.executed_transactions.write().unwrap();
-            executed.insert(hash.clone(), mempool_tx);
+        if let Some((_, mempool_tx)) = self.transactions.remove(hash) {
+            self.executed_transactions.insert(hash.clone(), mempool_tx);
         }
 
-        // Remove from pending queue
-        if let Ok(mut queue) = self.pending_queue.write() {
-            queue.retain(|h| h != hash);
-        }
+        // Remove from pending queue (linear scan, but acceptable for now)
+        self.pending_queue.retain(|_, h| h != hash);
     }
 
     /// Get mempool statistics
     pub async fn get_stats(&self) -> MempoolStats {
-        let txs = self.transactions.read().unwrap();
-        let executed = self.executed_transactions.read().unwrap();
-
         MempoolStats {
-            pending_count: txs.len(),
-            executed_count: executed.len(),
-            total_size_bytes: txs
-                .values()
-                .map(|tx| std::mem::size_of_val(&tx.transaction))
+            pending_count: self.transactions.len(),
+            executed_count: self.executed_transactions.len(),
+            total_size_bytes: self.transactions
+                .iter()
+                .map(|entry| std::mem::size_of_val(&entry.value().transaction))
                 .sum(),
-            oldest_transaction: txs.values().map(|tx| tx.received_at).min(),
-            newest_transaction: txs.values().map(|tx| tx.received_at).max(),
+            oldest_transaction: self.transactions.iter().map(|entry| entry.value().received_at).min(),
+            newest_transaction: self.transactions.iter().map(|entry| entry.value().received_at).max(),
         }
     }
 
@@ -184,8 +174,9 @@ impl Mempool {
     }
 
     /// Process incoming transactions
-    pub async fn process_incoming_transactions(&mut self) {
-        while let Some(transaction) = self.tx_receiver.recv().await {
+    pub async fn process_incoming_transactions(&self) {
+        let mut receiver = self.tx_receiver.lock().await;
+        while let Some(transaction) = receiver.recv().await {
             if let Err(e) = self.add_transaction(transaction).await {
                 eprintln!("Failed to add transaction to mempool: {}", e);
             }
@@ -195,31 +186,33 @@ impl Mempool {
     // WebSocket service methods
     /// Get total mempool size
     pub fn get_size(&self) -> usize {
-        self.transactions.read().unwrap().len()
+        self.transactions.len()
     }
 
     /// Get pending transactions count
     pub fn get_pending_count(&self) -> usize {
-        self.pending_queue.read().unwrap().len()
+        self.pending_queue.len()
     }
 
     /// Get queued transactions count
     pub fn get_queued_count(&self) -> usize {
-        self.transactions.read().unwrap().len() - self.pending_queue.read().unwrap().len()
+        self.transactions.len().saturating_sub(self.pending_queue.len())
     }
 
     /// Get memory usage in bytes
     pub fn get_memory_usage(&self) -> usize {
-        let txs = self.transactions.read().unwrap();
-        txs.values()
-            .map(|tx| std::mem::size_of_val(&tx.transaction))
+        self.transactions
+            .iter()
+            .map(|entry| std::mem::size_of_val(&entry.value().transaction))
             .sum()
     }
 
     /// Get gas price statistics
     pub fn get_gas_prices(&self) -> GasPriceStats {
-        let txs = self.transactions.read().unwrap();
-        let mut gas_prices: Vec<u64> = txs.values().map(|tx| tx.fee_per_gas).collect();
+        let mut gas_prices: Vec<u64> = self.transactions
+            .iter()
+            .map(|entry| entry.value().fee_per_gas)
+            .collect();
 
         gas_prices.sort();
 
@@ -246,8 +239,10 @@ impl Mempool {
 
     /// Get recent transactions
     pub fn get_recent_transactions(&self, count: usize) -> Vec<Transaction> {
-        let txs = self.transactions.read().unwrap();
-        let mut sorted_txs: Vec<_> = txs.values().collect();
+        let mut sorted_txs: Vec<_> = self.transactions
+            .iter()
+            .map(|entry| entry.value().clone())
+            .collect();
 
         // Sort by received time (newest first)
         sorted_txs.sort_by(|a, b| b.received_at.cmp(&a.received_at));
@@ -255,40 +250,31 @@ impl Mempool {
         sorted_txs
             .into_iter()
             .take(count)
-            .map(|tx| tx.transaction.clone())
+            .map(|tx| tx.transaction)
             .collect()
     }
 
     /// Get transaction by hash
     pub fn get_transaction(&self, hash: &Hash) -> Option<Transaction> {
         self.transactions
-            .read()
-            .unwrap()
             .get(hash)
-            .map(|tx| tx.transaction.clone())
+            .map(|entry| entry.value().transaction.clone())
     }
 
     /// Get all pending transactions from mempool
     pub async fn get_pending_transactions(&self) -> Vec<Transaction> {
-        let txs = self.transactions.read().unwrap();
-        let queue = self.pending_queue.read().unwrap();
-
-        queue
+        self.transactions
             .iter()
-            .filter_map(|hash| txs.get(hash))
-            .map(|mempool_tx| mempool_tx.transaction.clone())
+            .map(|entry| entry.value().transaction.clone())
             .collect()
     }
 
     /// Get mempool transactions for cross-node communication
     pub async fn get_mempool_transactions_for_api(&self) -> Vec<serde_json::Value> {
-        let txs = self.transactions.read().unwrap();
-        let queue = self.pending_queue.read().unwrap();
-
-        queue
+        self.transactions
             .iter()
-            .filter_map(|hash| txs.get(hash))
-            .map(|mempool_tx| {
+            .map(|entry| {
+                let mempool_tx = entry.value();
                 serde_json::json!({
                     "hash": format!("0x{}", hex::encode(mempool_tx.transaction.hash().as_bytes())),
                     "from": format!("0x{}", hex::encode(mempool_tx.transaction.from.0)),

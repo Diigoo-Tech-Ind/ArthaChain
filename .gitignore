@@ -96,3 +96,9 @@ contracts/out/
 contracts/lib/
 
 .cargo/
+
+# Test databases
+test_db/
+**/test_db/
+*_kyber.key
+*_falcon.key

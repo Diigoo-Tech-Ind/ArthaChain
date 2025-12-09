@@ -169,7 +169,7 @@ pub struct AnomalyDetector {
 }
 
 /// Trait for ML-based anomaly detection models
-#[cfg(feature = "ml_detection")]
+#[cfg(feature = "ai-engine")]
 pub trait AnomalyModel: Send + Sync {
     /// Detect anomalies in the provided features
     fn detect(&self, features: Vec<f64>) -> Result<(bool, f64, Option<AnomalyType>)>;

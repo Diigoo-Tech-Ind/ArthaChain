@@ -612,7 +612,10 @@ pub async fn get_ai_model_performance(
 }
 
 /// Create AI-native router
-pub fn create_ai_native_router() -> Router {
+pub fn create_ai_native_router<S>() -> Router<S>
+where
+    S: Clone + Send + Sync + 'static,
+{
     Router::new()
         .route("/status", get(get_ai_system_status))
         .route("/models", get(get_ai_models))

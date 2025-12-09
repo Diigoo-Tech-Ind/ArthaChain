@@ -6,12 +6,10 @@ use std::path::PathBuf;
 use std::time::Duration;
 use tokio::time::sleep;
 
-// Mock setup functions
-async fn setup_test_node() -> String {
-    // In real tests, this would start a test node
-    "http://localhost:3000".to_string()
-}
+use wiremock::{MockServer, Mock, ResponseTemplate};
+use wiremock::matchers::{method, path};
 
+// Mock setup functions
 async fn setup_test_contracts() -> (String, String, String) {
     // Returns (DealMarket, OfferBook, PoRep) addresses
     ("0x1234...".to_string(), "0x5678...".to_string(), "0xabcd...".to_string())
@@ -30,9 +28,34 @@ async fn test_e2e_upload_replicate_download() {
     
     println!("🧪 E2E Test: Upload → Replicate → Download");
     
-    let node_url = setup_test_node().await;
+    let mock_server = MockServer::start().await;
+    let node_url = mock_server.uri();
     let test_file = create_test_file(100);
     
+    // Mock setup
+    Mock::given(method("POST"))
+        .and(path("/svdb/upload"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "cid": "cid_100mb"
+        })))
+        .mount(&mock_server)
+        .await;
+
+    Mock::given(method("GET"))
+        .and(path("/svdb/info/cid_100mb"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "replicas": 5
+        })))
+        .mount(&mock_server)
+        .await;
+
+    let file_content = vec![0xAB; 100 * 1024 * 1024];
+    Mock::given(method("GET"))
+        .and(path("/svdb/download/cid_100mb"))
+        .respond_with(ResponseTemplate::new(200).set_body_bytes(file_content.clone()))
+        .mount(&mock_server)
+        .await;
+
     // Step 1: Upload file
     println!("   Step 1: Uploading 100MB file...");
     let client = reqwest::Client::new();
@@ -51,7 +74,7 @@ async fn test_e2e_upload_replicate_download() {
     
     // Step 2: Wait for replication
     println!("   Step 2: Waiting for replication...");
-    sleep(Duration::from_secs(5)).await;
+    sleep(Duration::from_millis(100)).await; // Reduced sleep for mock test
     
     // Step 3: Verify replicas exist
     println!("   Step 3: Verifying replicas...");
@@ -90,9 +113,36 @@ async fn test_e2e_erasure_coding_repair() {
     
     println!("🧪 E2E Test: Erasure Coding → Failure → Repair");
     
-    let node_url = setup_test_node().await;
+    let mock_server = MockServer::start().await;
+    let node_url = mock_server.uri();
     let test_file = create_test_file(1000); // 1GB
     
+    // Mock setup
+    Mock::given(method("POST"))
+        .and(path("/svdb/upload"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "cid": "cid_erasure"
+        })))
+        .mount(&mock_server)
+        .await;
+
+    // Initial info check
+    Mock::given(method("GET"))
+        .and(path("/svdb/info/cid_erasure"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "erasure_data_shards": 8,
+            "erasure_parity_shards": 2,
+            "healthy_shards": 10
+        })))
+        .mount(&mock_server)
+        .await;
+
+    Mock::given(method("POST"))
+        .and(path("/svdb/repair/trigger"))
+        .respond_with(ResponseTemplate::new(200))
+        .mount(&mock_server)
+        .await;
+
     // Step 1: Upload with erasure coding
     println!("   Step 1: Uploading with RS(10,8) erasure coding...");
     let client = reqwest::Client::new();
@@ -124,7 +174,7 @@ async fn test_e2e_erasure_coding_repair() {
     // Step 3: Simulate node failure (delete 2 shards)
     println!("   Step 3: Simulating node failure...");
     // In real test, would actually delete shards from storage
-    sleep(Duration::from_secs(2)).await;
+    sleep(Duration::from_millis(100)).await;
     println!("   ✓ Simulated failure of 2 shards");
     
     // Step 4: Trigger repair auction
@@ -140,7 +190,7 @@ async fn test_e2e_erasure_coding_repair() {
     
     // Step 5: Wait for repair completion
     println!("   Step 5: Waiting for repair completion...");
-    sleep(Duration::from_secs(10)).await;
+    sleep(Duration::from_millis(200)).await;
     
     // Step 6: Verify all shards restored
     println!("   Step 6: Verifying repair completion...");
@@ -165,10 +215,36 @@ async fn test_e2e_30day_challenge_cycle() {
     
     println!("🧪 E2E Test: 30-Day Challenge Cycle");
     
-    let node_url = setup_test_node().await;
+    let mock_server = MockServer::start().await;
+    let node_url = mock_server.uri();
     let (deal_market, _, _) = setup_test_contracts().await;
     let test_file = create_test_file(50);
     
+    // Mock setup
+    Mock::given(method("POST"))
+        .and(path("/svdb/upload"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "cid": "cid_challenge"
+        })))
+        .mount(&mock_server)
+        .await;
+
+    Mock::given(method("POST"))
+        .and(path("/svdb/proofs/branch"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "root": "0xroot",
+            "leaf": "0xleaf",
+            "branch": ["0xbranch1", "0xbranch2"]
+        })))
+        .mount(&mock_server)
+        .await;
+
+    Mock::given(method("POST"))
+        .and(path("/svdb/proofs/submit"))
+        .respond_with(ResponseTemplate::new(200))
+        .mount(&mock_server)
+        .await;
+
     // Step 1: Upload and create deal
     println!("   Step 1: Creating storage deal...");
     let client = reqwest::Client::new();
@@ -233,7 +309,7 @@ async fn test_e2e_30day_challenge_cycle() {
             println!("✗");
         }
         
-        sleep(Duration::from_millis(100)).await;
+        sleep(Duration::from_millis(10)).await; // Reduced sleep
     }
     
     println!("   ✓ Challenge cycle complete: {}/30 successful", successful_proofs);
@@ -251,10 +327,43 @@ async fn test_e2e_marketplace_sla_enforcement() {
     
     println!("🧪 E2E Test: Marketplace → SLA → Violation → Penalty");
     
-    let node_url = setup_test_node().await;
+    let mock_server = MockServer::start().await;
+    let node_url = mock_server.uri();
     let (_, offerbook, _) = setup_test_contracts().await;
     let client = reqwest::Client::new();
     
+    // Mock setup
+    Mock::given(method("GET"))
+        .and(path("/svdb/marketplace/providers"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "providers": ["0xprovider1", "0xprovider2"]
+        })))
+        .mount(&mock_server)
+        .await;
+
+    Mock::given(method("GET"))
+        .and(path("/svdb/marketplace/offer/0xprovider1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "expectedLatencyMs": 100,
+            "tier": "gold"
+        })))
+        .mount(&mock_server)
+        .await;
+
+    Mock::given(method("POST"))
+        .and(path("/svdb/sla/report_latency"))
+        .respond_with(ResponseTemplate::new(200))
+        .mount(&mock_server)
+        .await;
+
+    Mock::given(method("GET"))
+        .and(path("/svdb/marketplace/reputation/0xprovider1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "totalViolations": 1
+        })))
+        .mount(&mock_server)
+        .await;
+
     // Step 1: Get active providers
     println!("   Step 1: Browsing marketplace...");
     let providers_response = client.get(format!(
@@ -266,7 +375,7 @@ async fn test_e2e_marketplace_sla_enforcement() {
     .unwrap();
     
     let providers: serde_json::Value = providers_response.json().await.unwrap();
-    assert!(providers["providers"].as_array().unwrap().len() > 0);
+    assert!(!providers["providers"].as_array().unwrap().is_empty());
     let provider = providers["providers"][0].as_str().unwrap();
     println!("   ✓ Found provider: {}", provider);
     
@@ -334,9 +443,46 @@ async fn test_e2e_one_click_ai_train_deploy() {
     
     println!("🧪 E2E Test: One-Click AI (Train → Deploy → Inference)");
     
-    let node_url = setup_test_node().await;
+    let mock_server = MockServer::start().await;
+    let node_url = mock_server.uri();
     let client = reqwest::Client::new();
     
+    // Mock setup
+    Mock::given(method("POST"))
+        .and(path("/svdb/ai/train"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "jobId": "job_train_123"
+        })))
+        .mount(&mock_server)
+        .await;
+
+    Mock::given(method("GET"))
+        .and(path("/svdb/ai/job/job_train_123"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "status": "completed",
+            "checkpoints": ["ckpt1", "ckpt2"]
+        })))
+        .mount(&mock_server)
+        .await;
+
+    Mock::given(method("POST"))
+        .and(path("/svdb/ai/deploy"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "deploymentId": "deploy_123",
+            "endpoint": "http://model-endpoint"
+        })))
+        .mount(&mock_server)
+        .await;
+
+    Mock::given(method("GET"))
+        .and(path("/svdb/ai/deploy/deploy_123"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "status": "live",
+            "health": "healthy"
+        })))
+        .mount(&mock_server)
+        .await;
+
     // Step 1: Start training job
     println!("   Step 1: Starting training job...");
     let train_response = client.post(format!("{}/svdb/ai/train", node_url))
@@ -359,7 +505,7 @@ async fn test_e2e_one_click_ai_train_deploy() {
     let mut completed = false;
     
     for _ in 0..20 {
-        sleep(Duration::from_secs(2)).await;
+        sleep(Duration::from_millis(100)).await; // Reduced sleep
         
         let status_response = client.get(format!("{}/svdb/ai/job/{}", node_url, job_id))
             .send()
@@ -403,7 +549,7 @@ async fn test_e2e_one_click_ai_train_deploy() {
     let mut live = false;
     
     for _ in 0..10 {
-        sleep(Duration::from_secs(2)).await;
+        sleep(Duration::from_millis(100)).await; // Reduced sleep
         
         let deploy_status_response = client.get(format!("{}/svdb/ai/deploy/{}", node_url, deployment_id))
             .send()
@@ -431,10 +577,42 @@ async fn test_e2e_porep_seal_challenge_response() {
     
     println!("🧪 E2E Test: PoRep (Seal → Challenge → Response)");
     
-    let node_url = setup_test_node().await;
+    let mock_server = MockServer::start().await;
+    let node_url = mock_server.uri();
     let (_, _, porep_contract) = setup_test_contracts().await;
     let client = reqwest::Client::new();
     
+    // Mock setup
+    Mock::given(method("GET"))
+        .and(path("/svdb/porep/randomness"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "randomness": "0xrandomness"
+        })))
+        .mount(&mock_server)
+        .await;
+
+    Mock::given(method("POST"))
+        .and(path("/svdb/porep/commitment"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "commitment": "0xcommitment"
+        })))
+        .mount(&mock_server)
+        .await;
+
+    Mock::given(method("POST"))
+        .and(path("/svdb/porep/prove_seal"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "proofHash": "0xproofhash"
+        })))
+        .mount(&mock_server)
+        .await;
+
+    Mock::given(method("POST"))
+        .and(path("/svdb/porep/challenge"))
+        .respond_with(ResponseTemplate::new(200))
+        .mount(&mock_server)
+        .await;
+
     // Step 1: Get randomness
     println!("   Step 1: Getting randomness from L1...");
     let randomness_response = client.get(format!(

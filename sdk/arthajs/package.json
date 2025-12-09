@@ -1,24 +1,46 @@
 {
-  "name": "arthajs",
+  "name": "@arthachain/sdk",
   "version": "1.0.0",
   "description": "TypeScript SDK for ArthaChain - Identity, Storage, and AI Cloud Platform",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "scripts": {
     "build": "tsc",
     "test": "jest",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "lint": "eslint src --ext .ts"
   },
   "keywords": [
     "blockchain",
     "identity",
     "storage",
     "ai",
-    "arthachain"
+    "arthachain",
+    "web3",
+    "did",
+    "verifiable-credentials",
+    "decentralized"
   ],
-  "author": "ArthaChain",
+  "author": "ArthaChain <dev@arthachain.in>",
   "license": "MIT",
+  "homepage": "https://arthachain.in",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ArthaChain/arthajs.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ArthaChain/arthajs/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "dependencies": {
     "ethers": "^6.15.0"
   },
@@ -26,14 +48,15 @@
     "@types/jest": "^29.0.0",
     "@types/node": "^20.0.0",
     "jest": "^29.0.0",
+    "ts-jest": "^29.0.0",
     "typescript": "^5.0.0"
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/arthachain/arthajs.git"
+  "publishConfig": {
+    "access": "public"
   }
 }

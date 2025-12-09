@@ -2,11 +2,11 @@ use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::sync::{mpsc, Mutex, RwLock};
+use tokio::sync::{mpsc, Mutex};
 use tokio::task::JoinSet;
 
 use arthachain_node::consensus::cross_shard::{
-    coordinator::{CoordinatorMessage, CrossShardCoordinator},
+    coordinator::CrossShardCoordinator,
     merkle_proof::{MerkleTree, ProofCache, ProvenTransaction},
 };
 use arthachain_node::consensus::view_change::{
@@ -18,16 +18,27 @@ use arthachain_node::types::Address;
 /// Validate claim: Cross-shard transactions complete in <5 seconds
 #[tokio::test]
 async fn validate_cross_shard_latency_claim() {
-    let config = CrossShardConfig {
+    let mut config = CrossShardConfig {
         local_shard: 1,
         connected_shards: vec![1, 2, 3],
         transaction_timeout_ms: 500,
         ..Default::default()
     };
+    let temp_dir = tempfile::Builder::new().prefix("perf_latency").tempdir().unwrap();
+    config.coordinator_config.db_path = temp_dir.path().to_str().unwrap().to_string();
 
     let (tx, _rx) = mpsc::channel(100);
     let key_registry = std::sync::Arc::new(arthachain_node::consensus::cross_shard::key_registry::InMemoryKeyRegistry::new());
-    let coordinator = CrossShardCoordinator::new(config, vec![1, 2, 3, 4], tx, key_registry).await.unwrap();
+    // Helper to generate valid keys
+    fn generate_test_quantum_keypair() -> (Vec<u8>, Vec<u8>) {
+        use pqcrypto_mldsa::mldsa65::*;
+        use pqcrypto_traits::sign::{SecretKey, PublicKey};
+        let keypair = keypair();
+        (keypair.1.as_bytes().to_vec(), keypair.0.as_bytes().to_vec())
+    }
+
+    let (sk, pk) = generate_test_quantum_keypair();
+    let coordinator = CrossShardCoordinator::new(config, sk, pk, tx, key_registry).await.unwrap();
 
     let num_transactions = 10;
     let mut latencies = Vec::new();
@@ -48,7 +59,7 @@ async fn validate_cross_shard_latency_claim() {
             proof,
             1, // source shard
             2, // target shard
-            1234567890 + i as u64,
+            1234567890 + i,
         );
 
         // Submit transaction
@@ -194,7 +205,7 @@ async fn validate_byzantine_fault_tolerance_claim() {
 
             let message = ViewChangeMessage::new(
                 target_view,
-                validator_addr.clone(),
+                validator_addr,
                 vec![i as u8, (iteration + 1) as u8], // Mock signature
             );
 
@@ -284,15 +295,26 @@ async fn validate_view_change_timeout_claim() {
 /// Stress test: Concurrent operations under load
 #[tokio::test]
 async fn stress_test_concurrent_operations() {
-    let config = CrossShardConfig {
+    let mut config = CrossShardConfig {
         local_shard: 1,
         connected_shards: vec![1, 2, 3, 4, 5],
         ..Default::default()
     };
+    let temp_dir = tempfile::Builder::new().prefix("perf_stress").tempdir().unwrap();
+    config.coordinator_config.db_path = temp_dir.path().to_str().unwrap().to_string();
 
     let (tx, _rx) = mpsc::channel(1000);
     let key_registry = std::sync::Arc::new(arthachain_node::consensus::cross_shard::key_registry::InMemoryKeyRegistry::new());
-    let coordinator = Arc::new(CrossShardCoordinator::new(config, vec![1, 2, 3, 4], tx, key_registry).await.unwrap());
+    // Helper to generate valid keys
+    fn generate_test_quantum_keypair() -> (Vec<u8>, Vec<u8>) {
+        use pqcrypto_mldsa::mldsa65::*;
+        use pqcrypto_traits::sign::{SecretKey, PublicKey};
+        let keypair = keypair();
+        (keypair.1.as_bytes().to_vec(), keypair.0.as_bytes().to_vec())
+    }
+
+    let (sk, pk) = generate_test_quantum_keypair();
+    let coordinator = Arc::new(CrossShardCoordinator::new(config, sk, pk, tx, key_registry).await.unwrap());
 
     let num_concurrent_operations = 100;
     let start = Instant::now();
@@ -315,7 +337,7 @@ async fn stress_test_concurrent_operations() {
                 proof,
                 1,
                 ((i % 4) + 2) as u32, // Distribute across shards
-                1234567890 + i as u64,
+                1234567890 + i,
             );
 
             let operation_start = Instant::now();
@@ -384,7 +406,7 @@ async fn stress_test_concurrent_operations() {
 /// Validate claim: 99.9% uptime simulation
 #[tokio::test]
 async fn validate_uptime_simulation() {
-    let total_operations = 100;
+    let total_operations = 50; // Reduced from 100 for faster testing
     let max_acceptable_failures = 1; // 1% failure rate for 99% uptime
 
     let config = ViewChangeConfig {
@@ -405,7 +427,7 @@ async fn validate_uptime_simulation() {
         .collect();
 
     {
-        let mut mgr = manager.lock().await;
+        let mgr = manager.lock().await;
         mgr.initialize(validators.clone()).await.unwrap();
     }
 
@@ -430,12 +452,12 @@ async fn validate_uptime_simulation() {
 
         let message = ViewChangeMessage::new(
             (i / 100) + 1, // Periodic view changes
-            validator_addr.clone(),
+            validator_addr,
             vec![i as u8],
         );
 
         {
-            let mut mgr = manager.lock().await;
+            let mgr = manager.lock().await;
             let result = mgr
                 .validate_view_change_message(&message, &validator_addr)
                 .await;

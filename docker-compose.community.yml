@@ -1,0 +1,108 @@
+# ArthaChain Community Node Deployment
+# Standard single-node setup for community members
+# Anyone can run this - no staking, no special requirements!
+#
+# Node Types (auto-selected based on hardware):
+#   - Standard Node: Regular block validation
+#   - GPU Node: AI compute tasks (if GPU detected)
+#   - Mining Node: Block creation
+#   - Validator Node: Block finality
+#   - Shard Node: Cross-shard processing (auto-assigned)
+
+version: '3.8'
+
+services:
+  # =============================================================
+  # ARTHACHAIN NODE - Standard Ports for All Community Members
+  # =============================================================
+  arthachain-node:
+    build:
+      context: .
+      dockerfile: blockchain_node/Dockerfile
+    image: arthachain/node:latest
+    container_name: arthachain-node
+    hostname: arthachain-node
+
+    # STANDARD PORTS - Same for everyone!
+    ports:
+      - "8080:8080" # HTTP REST API
+      - "8545:8545" # EVM JSON-RPC (MetaMask compatible)
+      - "9944:9944" # gRPC API
+      - "8084:8084" # P2P Network (gossip, consensus)
+      - "9184:9184" # Prometheus Metrics
+
+    environment:
+      # Logging
+      - RUST_LOG=info
+
+      # Node Identity (auto-generated if not set)
+      - NODE_ID=${NODE_ID:-auto}
+
+      # Node Role - leave empty for auto-detection
+      # Options: validator, miner, shard, full, light
+      - NODE_ROLE=${NODE_ROLE:-full}
+
+      # GPU Support - auto-detected
+      - ENABLE_GPU=${ENABLE_GPU:-auto}
+
+      # Standard Ports
+      - API_PORT=8080
+      - EVM_RPC_PORT=8545
+      - GRPC_PORT=9944
+      - P2P_PORT=8084
+      - METRICS_PORT=9184
+
+      # Network Configuration
+      - NETWORK=${NETWORK:-testnet}
+
+      # Seed Nodes (official ArthaChain seed nodes)
+      - SEED_NODES=${SEED_NODES:-seed1.arthachain.in:8084,seed2.arthachain.in:8084}
+
+      # Auto-enable features based on hardware
+      - CONSENSUS_ENABLED=true
+      - MINING_ENABLED=${MINING_ENABLED:-true}
+      - SHARDING_ENABLED=true
+
+      # Data Directory
+      - DATA_DIR=/data
+
+    volumes:
+      # Persistent data storage
+      - arthachain-data:/data
+      # Optional: GPU runtime (if available)
+      # - /dev/nvidia0:/dev/nvidia0  # Uncomment for GPU support
+
+    networks:
+      - arthachain
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    # Resource limits (optional - adjust based on your system)
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '4'
+    #       memory: 8G
+    #     reservations:
+    #       cpus: '1'
+    #       memory: 2G
+
+    # =============================================================
+    # VOLUMES - Persistent Storage
+    # =============================================================
+volumes:
+  arthachain-data:
+    driver: local
+
+# =============================================================
+# NETWORKS
+# =============================================================
+networks:
+  arthachain:
+    driver: bridge

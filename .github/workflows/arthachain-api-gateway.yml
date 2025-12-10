@@ -35,7 +35,7 @@ jobs:
           REPOSITORY: arthachain-api # your ECR repository name
         run: |
           IMAGE_TAG=$(git rev-parse --short "$GITHUB_SHA")
-          docker build -t $REGISTRY/$REPOSITORY:$IMAGE_TAG docker/api-gateway/
+          docker build -f docker/api-gateway/Dockerfile -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
           docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
 
       - name: Update kube config

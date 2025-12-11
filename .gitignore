@@ -43,7 +43,7 @@ tmp/
 # Rust
 /target/
 **/target/
-Cargo.lock
+
 .rustup/
 .cargo/
 rust-toolchain.toml

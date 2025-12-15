@@ -13,7 +13,8 @@ version: '3.8'
 x-node-common: &node-common
   build:
     context: .
-    dockerfile: blockchain_node/Dockerfile
+    dockerfile: docker/Dockerfile
+  image: arthachain/node:latest
   restart: unless-stopped
   networks:
     - arthachain-testnet

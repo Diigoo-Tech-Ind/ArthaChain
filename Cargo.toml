@@ -1,6 +1,7 @@
 [workspace]
 members = [
-  "blockchain_node"
+  "blockchain_node",
+  "services/ai-jobd"
 ]
 resolver = "2"
 
@@ -114,3 +115,10 @@ rustc-hash = "2.0"  # Replacement for fxhash
 #
 # Both vulnerabilities are acceptable for TESTNET launch
 # MUST be resolved before MAINNET via dependency updates or code removal
+
+[profile.release]
+lto = false
+codegen-units = 16
+strip = true
+panic = "abort"
+

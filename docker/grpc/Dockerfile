@@ -1,4 +1,4 @@
-# ArthaChain API Gateway
+# ArthaChain gRPC Server
 # =============================================================================
 # FAST BUILD: Uses pre-built binaries. Run ./scripts/build_binaries.sh first.
 # =============================================================================
@@ -12,16 +12,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN groupadd -r arthachain && useradd -r -g arthachain arthachain
 RUN mkdir -p /data /config && chown -R arthachain:arthachain /data /config
 
-COPY target/release/api_server /usr/local/bin/
+COPY target/release/grpc_server /usr/local/bin/
 
 WORKDIR /data
 USER arthachain
 
-ENV NODE_ROLE=api-gateway
+ENV NODE_ROLE=grpc
 ENV RUST_LOG=info
-ENV API_PORT=1930
 
-EXPOSE 1930
+EXPOSE 50051
 
-ENTRYPOINT ["api_server"]
-CMD ["--port", "1930"]
+ENTRYPOINT ["grpc_server"]
+CMD []

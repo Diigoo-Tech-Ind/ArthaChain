@@ -318,8 +318,8 @@ wiremock = "0.6"
 
 [features]
 default = ["audit-clean"]
-# Full feature set WITHOUT vulnerable dependencies
-full = ["ai-engine", "quantum-resistance", "wasm-runtime", "evm-runtime", "cross-shard", "biometrics", "ml_detection", "python-ai"]
+# Full feature set WITHOUT vulnerable dependencies (ml_detection disabled due to interface mismatch)
+full = ["ai-engine", "quantum-resistance", "wasm-runtime", "evm-runtime", "cross-shard", "biometrics", "python-ai"]
 # Insecure features (have known vulnerabilities) - opt-in only
 zk-snarks = [] # ["ark-relations", "ark-r1cs-std", "ark-std", "ark-snark", "ark-groth16", "ark-crypto-primitives", "ark-bn254", "ark-ff", "ark-serialize", "light-poseidon"]
 ethereum = [] # ["ethers", "ethers-providers"]

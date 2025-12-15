@@ -15,8 +15,9 @@ pub use gas::GasMeter;
 pub use storage::WasmStorage;
 
 use anyhow::Result;
-#[cfg(feature = "wasm-runtime")]
-use wasmtime::*;
+// wasmtime crate disabled in Cargo.toml due to dependency conflicts
+// #[cfg(feature = "wasm-runtime")]
+// use wasmtime::*;
 
 /// Configuration for WASM execution
 #[derive(Debug, Clone)]

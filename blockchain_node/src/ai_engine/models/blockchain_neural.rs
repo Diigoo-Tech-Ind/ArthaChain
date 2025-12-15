@@ -44,7 +44,7 @@ fn tanh_(x: &Tensor) -> Tensor {
     out
 }
 
-use log::info;
+use log::{debug, info};
 #[cfg(feature = "python-ai")]
 use pyo3::Python;
 use serde::{Deserialize, Serialize};

@@ -2,8 +2,6 @@
 # Unified deployment for all ArthaChain services
 # Updated: 2025
 
-version: '3.8'
-
 services:
   # =============================================================
   # CORE BLOCKCHAIN SERVICES
@@ -13,7 +11,7 @@ services:
   validator-node:
     build:
       context: ..
-      dockerfile: docker/validator-node/Dockerfile
+      dockerfile: docker/Dockerfile
     image: arthachain/validator-node:latest
     container_name: arthachain-validator
     ports:
@@ -44,7 +42,7 @@ services:
   rpc-service:
     build:
       context: ..
-      dockerfile: docker/rpc-service/Dockerfile
+      dockerfile: docker/rpc/Dockerfile
     image: arthachain/rpc-service:latest
     container_name: arthachain-rpc
     ports:
@@ -74,7 +72,7 @@ services:
   sentry-node:
     build:
       context: ..
-      dockerfile: docker/sentry-node/Dockerfile
+      dockerfile: docker/sentry/Dockerfile
     image: arthachain/sentry-node:latest
     container_name: arthachain-sentry
     ports:
@@ -126,7 +124,7 @@ services:
   websocket-rpc:
     build:
       context: ..
-      dockerfile: docker/websocket-rpc/Dockerfile
+      dockerfile: docker/websocket/Dockerfile
     image: arthachain/websocket-rpc:latest
     container_name: arthachain-websocket
     ports:
@@ -151,7 +149,7 @@ services:
   grpc-server:
     build:
       context: ..
-      dockerfile: docker/grpc-server/Dockerfile
+      dockerfile: docker/grpc/Dockerfile
     image: arthachain/grpc-server:latest
     container_name: arthachain-grpc
     ports:
@@ -176,7 +174,7 @@ services:
   p2p-network:
     build:
       context: ..
-      dockerfile: docker/p2p-network/Dockerfile
+      dockerfile: docker/p2p/Dockerfile
     image: arthachain/p2p-network:latest
     container_name: arthachain-p2p
     ports:
@@ -203,7 +201,7 @@ services:
   storage-node:
     build:
       context: ..
-      dockerfile: docker/storage-node/Dockerfile
+      dockerfile: docker/storage/Dockerfile
     image: arthachain/storage-node:latest
     container_name: arthachain-storage
     ports:

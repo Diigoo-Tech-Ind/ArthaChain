@@ -4,7 +4,6 @@
 use axum::{
     extract::{Path, Query, State, Json},
     http::StatusCode,
-    response::IntoResponse,
     routing::{get, post},
     Router,
 };
@@ -13,7 +12,6 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use std::collections::HashMap;
 use sha3::{Keccak256, Digest};
-use std::str::FromStr;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum JobType {
@@ -246,7 +244,7 @@ impl ContractClient {
             format!("{:064x}", budget),
         ];
 
-        let tx_hash = self.send_transaction(&self.ai_job_manager, method_hash, params, "").await?;
+        let tx_hash = self.send_transaction(&self.ai_job_manager, &method_hash, params, "").await?;
         
         // Get job_id from event logs
         // For now, derive from tx_hash
@@ -270,7 +268,7 @@ impl ContractClient {
             format!("{:064x}", budget),
         ];
 
-        let tx_hash = self.send_transaction(&self.ai_job_manager, method_hash, params, "").await?;
+        let tx_hash = self.send_transaction(&self.ai_job_manager, &method_hash, params, "").await?;
         let job_id = format!("job-{}", &tx_hash[2..18]);
         println!("📝 Submitted infer job to blockchain: {} (tx: {})", job_id, tx_hash);
         Ok(job_id)
@@ -287,7 +285,7 @@ impl ContractClient {
             format!("{:064x}", budget),
         ];
 
-        let tx_hash = self.send_transaction(&self.ai_job_manager, method_hash, params, "").await?;
+        let tx_hash = self.send_transaction(&self.ai_job_manager, &method_hash, params, "").await?;
         let job_id = format!("job-{}", &tx_hash[2..18]);
         println!("📝 Submitted agent job to blockchain: {} (tx: {})", job_id, tx_hash);
         Ok(job_id)
@@ -306,7 +304,7 @@ impl ContractClient {
             format!("{:064x}", tags.len()),
         ];
 
-        let tx_hash = self.send_transaction(&self.dataset_registry, method_hash, params, "").await?;
+        let tx_hash = self.send_transaction(&self.dataset_registry, &method_hash, params, "").await?;
         let dataset_id = format!("dataset-{}", &tx_hash[2..18]);
         println!("📊 Registered dataset on-chain: {} (tx: {})", dataset_id, tx_hash);
         Ok(dataset_id)
@@ -329,7 +327,7 @@ impl ContractClient {
             hex::encode(version.as_bytes())[..64].to_string(),
         ];
 
-        let tx_hash = self.send_transaction(&self.model_registry, method_hash, params, "").await?;
+        let tx_hash = self.send_transaction(&self.model_registry, &method_hash, params, "").await?;
         let model_id = format!("model-{}", &tx_hash[2..18]);
         println!("🧠 Registered model on-chain: {} (tx: {})", model_id, tx_hash);
         Ok(model_id)
@@ -351,7 +349,7 @@ impl ContractClient {
             format!("{:064x}", u8::from_str_radix(status_str, 10).unwrap()),
         ];
 
-        self.send_transaction(&self.ai_job_manager, method_hash, params, "").await?;
+        self.send_transaction(&self.ai_job_manager, &method_hash, params, "").await?;
         println!("🔄 Updated job {} status to {:?} on-chain", job_id, status);
         Ok(())
     }
@@ -363,7 +361,7 @@ impl ContractClient {
             hex::encode(node_pubkey.as_bytes())[..64].to_string(),
         ];
 
-        self.send_transaction(&self.ai_job_manager, method_hash, params, "").await?;
+        self.send_transaction(&self.ai_job_manager, &method_hash, params, "").await?;
         Ok(())
     }
 
@@ -372,7 +370,7 @@ impl ContractClient {
         let method_hash = Self::function_selector("getJob(bytes32)");
         let params = vec![hex::encode(job_id.as_bytes())[..64].to_string()];
 
-        let result = self.call_contract(&self.ai_job_manager, method_hash, params).await?;
+        let result = self.call_contract(&self.ai_job_manager, &method_hash, params).await?;
         // Decode result and construct Job
         // For now, return a basic job
         Ok(Job {

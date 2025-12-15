@@ -1,7 +1,8 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "ai-engine")]
-use statrs::statistics::{OrderStatistics, Statistics};
+// statrs crate not available - statistics functionality implemented manually in FeatureStats
+// #[cfg(feature = "ai-engine")]
+// use statrs::statistics::{OrderStatistics, Statistics};
 use std::collections::HashMap;
 
 /// Pure Rust Device Health Anomaly Detection Model

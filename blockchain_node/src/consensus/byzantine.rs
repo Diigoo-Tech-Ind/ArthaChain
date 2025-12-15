@@ -300,7 +300,7 @@ pub struct ByzantineDetector {
     validators: Arc<RwLock<HashSet<NodeId>>>,
     /// AI detection model
     #[cfg(feature = "ml_detection")]
-    ai_model: Option<Arc<crate::ai_engine::AnomalyDetector>>,
+    ai_model: Option<Arc<crate::consensus::anomaly_detection::AnomalyDetector>>,
 }
 
 impl ByzantineManager {
@@ -1304,7 +1304,7 @@ impl ByzantineDetector {
             message_history: Arc::new(RwLock::new(HashMap::new())),
             pending_evidence: Arc::new(RwLock::new(HashMap::new())),
             validators,
-            #[cfg(feature = "ai_detection")]
+            #[cfg(feature = "ml_detection")]
             ai_model: None,
         }
     }
@@ -1312,9 +1312,9 @@ impl ByzantineDetector {
     /// Initialize the Byzantine detector
     pub async fn initialize(&mut self) -> Result<()> {
         // Initialize AI model if enabled
-        #[cfg(feature = "ai_detection")]
+        #[cfg(feature = "ml_detection")]
         if self.config.enable_ai_detection {
-            self.ai_model = Some(Arc::new(crate::ai_engine::AnomalyDetector::new().await?));
+            self.ai_model = Some(Arc::new(crate::consensus::anomaly_detection::AnomalyDetector::new().await?));
         }
 
         // Start background tasks for cleaning up old data
@@ -1500,7 +1500,7 @@ impl ByzantineDetector {
     }
 
     /// Verify evidence using AI models
-    #[cfg(feature = "ai_detection")]
+    #[cfg(feature = "ml_detection")]
     async fn verify_with_ai(&self, evidence: &ByzantineEvidence) -> Result<bool> {
         if let Some(ai_model) = &self.ai_model {
             // Prepare evidence for AI verification
@@ -1530,13 +1530,13 @@ impl ByzantineDetector {
     }
 
     // Non-AI version of verify_with_ai for when the feature is disabled
-    #[cfg(not(feature = "ai_detection"))]
+    #[cfg(not(feature = "ml_detection"))]
     async fn verify_with_ai(&self, _evidence: &ByzantineEvidence) -> Result<bool> {
         Ok(true)
     }
 
     /// Prepare evidence features for AI verification
-    #[cfg(feature = "ai_detection")]
+    #[cfg(feature = "ml_detection")]
     async fn prepare_evidence_features(&self, evidence: &ByzantineEvidence) -> Result<Vec<f32>> {
         // Extract relevant features from the evidence based on fault type
         let mut features = Vec::new();

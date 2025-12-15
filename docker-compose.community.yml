@@ -18,7 +18,7 @@ services:
   arthachain-node:
     build:
       context: .
-      dockerfile: blockchain_node/Dockerfile
+      dockerfile: docker/Dockerfile
     image: arthachain/node:latest
     container_name: arthachain-node
     hostname: arthachain-node

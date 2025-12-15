@@ -144,7 +144,7 @@ pub struct FraudDetectionEngine {
     suspicious_nodes: RwLock<HashMap<NodeId, Vec<FraudEvidence>>>,
     /// AI model for fraud detection
     #[cfg(feature = "ml_detection")]
-    ml_model: Option<Arc<crate::ai_engine::AnomalyDetector>>,
+    ml_model: Option<Arc<crate::consensus::anomaly_detection::AnomalyDetector>>,
 }
 
 /// Block header information for validation
@@ -210,7 +210,7 @@ impl FraudDetectionEngine {
         // Initialize the ML model if enabled
         #[cfg(feature = "ml_detection")]
         if self.config.read().await.enable_ml_detection {
-            self.ml_model = Some(Arc::new(crate::ai_engine::AnomalyDetector::new().await?));
+            self.ml_model = Some(Arc::new(crate::consensus::anomaly_detection::AnomalyDetector::new().await?));
         }
 
         *running = true;
@@ -682,46 +682,31 @@ impl FraudDetectionEngine {
     /// Extract features from a transaction for ML detection
     #[cfg(feature = "ml_detection")]
     async fn extract_transaction_features(&self, tx: &Transaction) -> Result<Vec<f32>> {
-        // Simple feature extraction:
-        // 1. Number of inputs
-        // 2. Number of outputs
-        // 3. Total input value
-        // 4. Total output value
+        // Feature extraction using available Transaction fields:
+        // 1. Transaction amount
+        // 2. Gas price
+        // 3. Gas limit
+        // 4. Data size
         // 5. Fee amount
-        // 6. Is coinbase?
-        // 7. Transaction size
+        // 6. Transaction size
+        // 7. Nonce (transaction sequence indicator)
 
         let mut features = Vec::new();
 
-        features.push(tx.inputs.len() as f32);
-        features.push(tx.outputs.len() as f32);
+        // Transaction value features
+        features.push(tx.amount as f32);
+        features.push(tx.gas_price as f32);
+        features.push(tx.gas_limit as f32);
+        features.push(tx.data.len() as f32);
 
-        // Calculate total input value by summing previous output values
-        // In a real implementation, this would query the UTXO set
-        let total_input_value = tx
-            .inputs
-            .iter()
-            .map(|input| {
-                // Estimate input value based on output index pattern
-                // This is a heuristic for when UTXO set is not available
-                match input.prev_index {
-                    0 => 1000.0, // First output typically larger
-                    1 => 500.0,  // Second output typically smaller
-                    _ => 100.0,  // Subsequent outputs typically change
-                }
-            })
-            .sum::<f32>();
-        features.push(total_input_value);
-
-        let output_value = tx.outputs.iter().map(|o| o.value).sum::<u64>() as f32;
-        features.push(output_value);
-
-        features.push(tx.fee.unwrap_or(0) as f32);
-        features.push(if tx.is_coinbase { 1.0 } else { 0.0 });
-        features.push(tx.size.unwrap_or(0) as f32);
+        // Calculated features
+        features.push(tx.fee() as f32);
+        features.push(tx.size() as f32);
+        features.push(tx.nonce as f32);
 
         Ok(features)
     }
+
 
     /// Report fraud to the network
     async fn report_fraud(&self, evidence: &FraudEvidence) -> Result<()> {

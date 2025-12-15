@@ -102,3 +102,5 @@ test_db/
 **/test_db/
 *_kyber.key
 *_falcon.key
+blockchain_node/cargo_home/
+.cargo-home/

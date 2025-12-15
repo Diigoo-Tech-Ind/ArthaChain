@@ -1,10 +1,46 @@
-target/
-blockchain_node/target/
-blockchain_node/cargo_home/
-testnet_data/
-.git/
-.env
-**/*.log
-**/.DS_Store
+# Docker build context ignore file
+# Based on .gitignore
+
+# Dependencies
+# Target directory (but allow release binaries for fast Docker builds)
+target/debug/
+target/.rustc_info.json
+target/.cargo-lock
+**/*/target/
 node_modules/
-venv/
+**/*/node_modules/
+.cargo/
+.rustup/
+
+# Git
+.git/
+.gitignore
+
+# Environment and Secrets
+.env
+.env.*
+*.pem
+*.key
+*.p8
+
+# OS files
+.DS_Store
+**/.DS_Store
+Thumbs.db
+
+# Logs and Data
+logs/
+*.log
+data/
+testnet_data/
+test_db/
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.iml
+
+# Archives
+*.zip
+*.tar.gz

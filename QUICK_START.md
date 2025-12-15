@@ -60,25 +60,21 @@ cd /Users/sainathtangallapalli/blockchain/ArthaChain/blockchain_node/tests
 
 ---
 
-## 🚀 Start Production Node
+## 🚀 Start Production Node (Docker - Recommended)
+
+The simplified Docker setup is the easiest way to run a node.
 
 ```bash
-cd /Users/sainathtangallapalli/blockchain/ArthaChain/blockchain_node
+cd /Users/sainathtangallapalli/blockchain/ArthaChain
 
-# Start main node
-ARTHA_API_PORT=3000 \
-ARTHA_P2P_PORT=9000 \
-ARTHA_ROLE_SP=true \
-./target/release/arthachain_node
-
-# In another terminal, start scheduler (for automated proofs)
-ARTHA_NODE_API_URL=http://localhost:3000 \
-ARTHA_RPC_URL=http://localhost:8545 \
-./target/release/artha_scheduler
+# Start community node (Full Node + Auto-Role)
+docker compose -f docker-compose.community.yml up -d
 ```
 
-**API Available:** http://localhost:3000  
-**Health Check:** `curl http://localhost:3000/health`
+**API Available:** http://localhost:8080 (REST) | http://localhost:8545 (EVM)
+**Health Check:** `curl http://localhost:8080/health`
+
+**See [docs/RUN_YOUR_NODE.md](docs/RUN_YOUR_NODE.md) for advanced configuration.**
 
 ---
 

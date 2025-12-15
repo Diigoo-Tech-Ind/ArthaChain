@@ -106,6 +106,42 @@ case "$NODE_ROLE" in
             --chain testnet
         ;;
 
+    "sentry")
+        echo "🛡️ Starting Sentry Node..."
+        exec arthachain_node \
+            --sentry \
+            --base-path "$DATA_DIR" \
+            --chain testnet
+        ;;
+
+    "storage")
+        echo "💾 Starting Storage Node (SVDB)..."
+        exec arthachain_node \
+            --storage-mode \
+            --enable-svdb \
+            --base-path "$DATA_DIR" \
+            --chain testnet
+        ;;
+
+    "websocket")
+        echo "🔌 Starting WebSocket RPC..."
+        exec arthachain_node \
+            --ws-external \
+            --ws-port 9944 \
+            --base-path "$DATA_DIR" \
+            --chain testnet
+        ;;
+
+    "grpc")
+        echo "⚡ Starting gRPC Server..."
+        # gRPC might be a separate binary or flag
+        if command -v grpc_server &> /dev/null; then
+             exec grpc_server
+        else
+             exec arthachain_node --grpc-external
+        fi
+        ;;
+
     *)
         echo "🌟 Starting Standard Full Node..."
         # Pass through any command line arguments

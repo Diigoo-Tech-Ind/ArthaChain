@@ -11,7 +11,7 @@ services:
   validator-node:
     build:
       context: ..
-      dockerfile: docker/Dockerfile
+      dockerfile: docker/validator/Dockerfile
     image: arthachain/validator-node:latest
     container_name: arthachain-validator
     ports:

@@ -2,7 +2,7 @@ name: build and deploy arthachain-sentry
 
 on:
   workflow_dispatch:  
-  push:
+#  push:
 #    branches:
 #      - dev
 

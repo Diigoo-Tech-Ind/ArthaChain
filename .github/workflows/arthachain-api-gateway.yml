@@ -3,8 +3,8 @@ name: build and deploy arthachain-api-gateway
 on:
   workflow_dispatch:  
   push:
-    branches:
-      - dev
+#    branches:
+#      - dev
 
 jobs:
   deploy:
@@ -44,7 +44,7 @@ jobs:
       - name: Deploy to EKS
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}        
-          REPOSITORY: diigoo-arth # your ECR repository name
+          REPOSITORY: arthachain-api # your ECR repository name
           EKS_CLUSTER_NAME: ${{ secrets.EKS_CLUSTER_NAME }}
         run: |
           IMAGE_TAG=$(git rev-parse --short "$GITHUB_SHA")

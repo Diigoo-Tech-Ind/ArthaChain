@@ -1,7 +1,10 @@
 name: build and deploy arthachain-rpc
 
 on:
-  workflow_dispatch:  
+  workflow_dispatch:
+  push:
+    branches:
+      - dev  
 
 jobs:
   deploy:

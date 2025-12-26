@@ -8,52 +8,21 @@ set -e
 # Default values if not set
 export NODE_ROLE=${NODE_ROLE:-full}
 export RUST_LOG=${RUST_LOG:-info}
-export DATA_DIR=${DATA_DIR:-/data}
+# Note: DATA_DIR is not currently configurable via CLI in the binary, 
+# it presumably uses internal defaults or config file
+export API_PORT=${API_PORT:-1900}
+export P2P_PORT=${P2P_PORT:-8084}
+export METRICS_PORT=${METRICS_PORT:-9184}
 
 echo "🚀 Starting ArthaChain Node..."
 echo "📍 Role: $NODE_ROLE"
-echo "🔧 Data Dir: $DATA_DIR"
+echo "🔌 API Port: $API_PORT"
+echo "🌐 P2P Port: $P2P_PORT"
 
-# Ensure data directory exists and is writable
-mkdir -p "$DATA_DIR"
+# Ensure simple execution for now, ignoring complex role logic that requires unsupported flags
+# We pass the standard ports and enable all features for the testnet node
 
-# Handle specific roles
 case "$NODE_ROLE" in
-    "auto")
-        echo "🤖 Auto-Detecting Best Node Role..."
-        
-        # Check for GPU
-        if command -v nvidia-smi &> /dev/null; then
-            echo "   ✅ GPU Detected (NVIDIA)"
-            echo "   👉 Selecting Role: AI Worker + Full Node"
-            
-            # Start AI Daemon in background
-            echo "   🤖 Starting AI Job Daemon..."
-            ai-jobd &
-            AI_PID=$!
-            
-            # Start Full Node with Mining/Sharding
-            echo "   🌟 Starting ArthaChain Smart Node (Mining + Sharding + Validation)..."
-            exec arthachain_node \
-                --validator \
-                --enable-mining \
-                --enable-sharding \
-                --base-path "$DATA_DIR" \
-                --chain testnet
-        else
-            echo "   ❌ No GPU Detected"
-            echo "   👉 Selecting Role: Full Node (Mining + Validation)"
-            
-            echo "   🌟 Starting ArthaChain Smart Node..."
-            exec arthachain_node \
-                --validator \
-                --enable-mining \
-                --enable-sharding \
-                --base-path "$DATA_DIR" \
-                --chain testnet
-        fi
-        ;;
-
     "ai-worker"|"ai")
         echo "🤖 Starting AI Job Daemon..."
         exec ai-jobd
@@ -61,93 +30,20 @@ case "$NODE_ROLE" in
         
     "api-gateway"|"gateway")
         echo "🌐 Starting API Gateway..."
-        # If API_PORT is 3000, use that, otherwise default to 1930 or 8080?
-        # api_server takes --port argument
-        PORT=${API_PORT:-1930}
-        NETWORK=${NETWORK:-mainnet}
-        echo "   Port: $PORT"
-        echo "   Network: $NETWORK"
-        exec api_server --port "$PORT" --network "$NETWORK"
-        ;;
-    
-    "validator")
-        echo "🛡️ Starting Validator Node..."
-        exec arthachain_node \
-            --validator \
-            --base-path "$DATA_DIR" \
-            --chain testnet
-        ;;
-        
-    "miner")
-        echo "⛏️ Starting Miner Node..."
-        # Mining is usually a flag on the full node
-        export MINING_ENABLED=true
-        exec arthachain_node \
-            --validator \
-            --base-path "$DATA_DIR" \
-            --chain testnet
-        ;;
-        
-    "rpc"|"api")
-        echo "🔌 Starting RPC/API Node..."
-        exec arthachain_node \
-            --rpc-external \
-            --ws-external \
-            --rpc-cors all \
-            --base-path "$DATA_DIR" \
-            --chain testnet
-        ;;
-        
-    "p2p-relay")
-        echo "📡 Starting P2P Relay Node..."
-        exec arthachain_node \
-            --p2p-only \
-            --base-path "$DATA_DIR" \
-            --chain testnet
-        ;;
-
-    "sentry")
-        echo "🛡️ Starting Sentry Node..."
-        exec arthachain_node \
-            --sentry \
-            --base-path "$DATA_DIR" \
-            --chain testnet
-        ;;
-
-    "storage")
-        echo "💾 Starting Storage Node (SVDB)..."
-        exec arthachain_node \
-            --storage-mode \
-            --enable-svdb \
-            --base-path "$DATA_DIR" \
-            --chain testnet
-        ;;
-
-    "websocket")
-        echo "🔌 Starting WebSocket RPC..."
-        exec arthachain_node \
-            --ws-external \
-            --ws-port 9944 \
-            --base-path "$DATA_DIR" \
-            --chain testnet
-        ;;
-
-    "grpc")
-        echo "⚡ Starting gRPC Server..."
-        # gRPC might be a separate binary or flag
-        if command -v grpc_server &> /dev/null; then
-             exec grpc_server
-        else
-             exec arthachain_node --grpc-external
-        fi
+        exec api_server --port "${API_PORT}" --network "testnet"
         ;;
 
     *)
-        echo "🌟 Starting Standard Full Node..."
-        # Pass through any command line arguments
+        echo "🌟 Starting ArthaChain Smart Node (Unified Binary)..."
+        echo "   (Mining, Consensus, and API enabled by default)"
+        
+        # Launch with supported arguments only
         exec arthachain_node \
-            --base-path "$DATA_DIR" \
-            --chain testnet \
+            --api-port "$API_PORT" \
+            --p2p-port "$P2P_PORT" \
+            --metrics-port "$METRICS_PORT" \
+            --enable-faucet \
+            --enable-testnet-features \
             "$@"
         ;;
 esac

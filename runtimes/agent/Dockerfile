@@ -15,9 +15,9 @@ RUN pip install --no-cache-dir \
     langgraph==0.0.20 \
     langchain-community==0.0.13 \
     langchain-openai==0.0.2 \
-    openai==1.6.1 \
+    openai==1.7.1 \
     crewai==0.11.0 \
-    autogen-agentchat==0.2.0
+    autogen-agentchat==0.2.40
 
 # Install tool libraries
 RUN pip install --no-cache-dir \
@@ -36,7 +36,6 @@ RUN mkdir -p /agent /memory /tools /app
 # Copy agent scripts
 COPY agent_loop.py /app/agent_loop.py
 COPY tools.py /app/tools.py
-COPY memory.py /app/memory.py
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1

@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  # 1. Main Validator/Full Node
+  arthachain-node:
+    image: arthachain-node:latest
+    container_name: arthachain-node
+    ports:
+      - "8545:8545" # EVM RPC
+      - "30303:30303" # P2P
+      - "9944:9944" # WebSocket/gRPC
+      - "1900:1900" # Admin API
+    volumes:
+      - node_data:/data
+      - ./config:/config
+    environment:
+      - NODE_ROLE=full
+      - RUST_LOG=info
+      - API_PORT=8545
+      - P2P_PORT=30303
+      - METRICS_PORT=9184
+    networks:
+      - arthachain-net
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8545/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 2. AI Job Worker (Compute Node)
+  ai-worker:
+    image: arthachain-node:latest
+    container_name: arthachain-ai-worker
+    environment:
+      - NODE_ROLE=ai-worker
+      - RUST_LOG=info
+      # Connects to main node via internal network if needed, or operates autonomously via chain
+    volumes:
+      - ai_data:/data
+    networks:
+      - arthachain-net
+    depends_on:
+      - arthachain-node
+    restart: unless-stopped
+
+  # 3. API Gateway (REST Interface)
+  api-gateway:
+    image: arthachain-node:latest
+    container_name: arthachain-api-gateway
+    ports:
+      - "1930:1930" # REST API Port
+    environment:
+      - NODE_ROLE=api-gateway
+      - API_PORT=1930
+      - NETWORK=testnet
+      - RUST_LOG=info
+    networks:
+      - arthachain-net
+    depends_on:
+      - arthachain-node
+    restart: unless-stopped
+
+  # 4. Metrics (Prometheus)
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: arthachain-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    networks:
+      - arthachain-net
+    restart: unless-stopped
+
+volumes:
+  node_data:
+  ai_data:
+  prometheus_data:
+
+
+networks:
+  arthachain-net:
+    driver: bridge

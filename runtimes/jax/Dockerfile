@@ -2,7 +2,7 @@
 # Supports JAX, Flax, Optax for ML training and inference
 # Updated: 2025 - Latest stable versions
 
-FROM nvidia/cuda:12.6.0-cudnn9-runtime-ubuntu22.04
+FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
@@ -12,9 +12,9 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 
 # Install Python and system dependencies (minimal)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3.12 \
+    python3.10 \
     python3-pip \
-    python3.12-venv \
+    python3.10-venv \
     git \
     wget \
     ca-certificates \
@@ -24,17 +24,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/tmp/*
 
 # Upgrade pip and install build tools
-RUN python3.12 -m pip install --no-cache-dir --upgrade pip setuptools wheel
+RUN python3.10 -m pip install --no-cache-dir --upgrade pip setuptools wheel
 
-# Install JAX with CUDA 12.6 support (latest stable)
+# Install JAX with CUDA 12.1 support
+# Install JAX with CUDA 12.1 support
 RUN pip3 install --no-cache-dir \
-    "jax[cuda12_local]"==0.4.28 \
+    "jax[cuda12]"==0.4.28 \
     jaxlib==0.4.28 \
     flax==0.8.3 \
     optax==0.2.2 \
     numpy==2.2.1 \
     transformers==4.46.0 \
-    requests==2.32.3
+    requests==2.32.3 \
+    blake3 \
+    -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 
 # Create non-root user
 RUN groupadd -r -g 1010 mluser && \

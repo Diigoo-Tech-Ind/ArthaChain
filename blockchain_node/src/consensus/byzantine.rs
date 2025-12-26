@@ -739,17 +739,24 @@ impl ByzantineManager {
         Ok(())
     }
 
+    /// Register a validator in the consensus set
+    pub async fn register_validator(&self, node_id: NodeId) {
+        let mut validators = self.validators.write().await;
+        if validators.insert(node_id.clone()) {
+            info!("Registered new validator for consensus: {}", node_id);
+        }
+    }
+
     pub async fn propose_block(&self, block_data: Vec<u8>, height: u64) -> Result<Vec<u8>> {
         // Generate a placeholder block hash
-        let mut rng = rand::thread_rng();
-        let mut block_hash = Vec::with_capacity(32);
-
-        // Fill with 32 random bytes using u8 range instead of gen::<u8>()
-        for _ in 0..32 {
-            // Generate a random u8 (0-255)
-            let random_byte = rng.gen_range(0..=255);
-            block_hash.push(random_byte);
-        }
+        let block_hash = {
+            let mut rng = rand::thread_rng();
+            let mut hash = Vec::with_capacity(32);
+            for _ in 0..32 {
+                hash.push(rng.gen_range(0..=255));
+            }
+            hash
+        };
 
         // Store round information
         let round = ConsensusRound {
@@ -775,16 +782,21 @@ impl ByzantineManager {
         };
 
         // Broadcast proposal to all validators
-        let validators_guard = self.validators.read().await;
-        for validator in validators_guard.iter() {
-            if let Err(e) = self
-                .tx_sender
-                .send((propose.clone(), validator.clone()))
-                .await
-            {
-                error!("Failed to send proposal: {}", e);
+        // Broadcast proposal to all validators without holding lock
+        let validators: Vec<_> = self.validators.read().await.iter().cloned().collect();
+        let tx_sender = self.tx_sender.clone();
+        let propose_msg = propose.clone();
+
+        tokio::spawn(async move {
+            for validator in validators {
+                if let Err(e) = tx_sender
+                    .send((propose_msg.clone(), validator))
+                    .await
+                {
+                    error!("Failed to send proposal: {}", e);
+                }
             }
-        }
+        });
 
         Ok(block_hash)
     }
@@ -807,9 +819,6 @@ impl ByzantineManager {
         signature.to_bytes().to_vec()
     }
 
-    pub async fn register_validator(&self, validator_id: NodeId) {
-        self.validators.write().await.insert(validator_id);
-    }
 
     /// Get the current consensus height
     pub async fn get_height(&self) -> u64 {

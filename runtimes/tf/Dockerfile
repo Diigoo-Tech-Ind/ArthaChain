@@ -1,26 +1,26 @@
-FROM nvidia/cuda:12.2.0-cudnn8-runtime-ubuntu22.04
+FROM tensorflow/tensorflow:2.15.0-gpu
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
 
 RUN apt-get update && apt-get install -y \
-    python3.10 \
-    python3-pip \
     git \
     wget \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install --upgrade pip
+RUN pip install --upgrade pip
 
-# Install TensorFlow with GPU support
-RUN pip3 install tensorflow[and-cuda]==2.15.0 \
+# Install additional libraries
+RUN pip install \
     keras==2.15.0 \
     tensorflow-datasets==4.9.0 \
     transformers==4.35.0 \
     datasets==2.14.0 \
     numpy==1.24.3 \
-    requests==2.31.0
+    requests==2.31.0 \
+    Pillow==10.0.1 \
+    blake3
 
 WORKDIR /workspace
 

@@ -16,7 +16,8 @@ RUN pip3 install \
     neat-python==0.92 \
     deap==1.4.1 \
     numpy==1.24.3 \
-    requests==2.31.0
+    requests==2.31.0 \
+    blake3
 
 WORKDIR /workspace
 

@@ -4,7 +4,7 @@
 # ============================================================================
 
 # ----------------- BUILDER STAGE -----------------
-FROM rust:1.91-slim as builder
+FROM rust:1.85-bookworm as builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -35,15 +35,21 @@ RUN strip target/release/arthachain_node || true
 RUN strip target/release/ai-jobd || true
 
 # ----------------- RUNTIME STAGE -----------------
-FROM debian:bookworm-slim as runtime
+FROM debian:bookworm as runtime
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     libssl3 \
+    libstdc++6 \
+    libexpat1 \
     curl \
     iproute2 \
     && rm -rf /var/lib/apt/lists/*
+
+# Copy libpython from builder to ensure version match
+COPY --from=builder /usr/lib/x86_64-linux-gnu/libpython3.11* /usr/lib/x86_64-linux-gnu/
+RUN ldconfig
 
 # Create dedicated user
 RUN groupadd -r arthachain && useradd -r -g arthachain arthachain
@@ -61,6 +67,7 @@ COPY --from=builder /app/target/release/api_server /usr/local/bin/
 COPY --from=builder /app/target/release/real_time_api_server /usr/local/bin/
 
 # Copy entrypoint script
+RUN echo "Force Update: Fix Entrypoint Arguments"
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 

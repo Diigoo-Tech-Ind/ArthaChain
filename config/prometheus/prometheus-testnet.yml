@@ -1,38 +1,25 @@
-# Prometheus configuration for ArthaChain Multi-Node Testnet
-# Scrapes metrics from all 3 validator nodes
+# ArthaChain Testnet Local Prometheus Configuration
+# For standalone testnet monitoring
 
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
+
   external_labels:
     monitor: 'arthachain-testnet'
+    environment: 'testnet'
 
 scrape_configs:
-  # Validator 1
-  - job_name: 'validator-1'
-    static_configs:
-      - targets: ['validator-1:9184']
-        labels:
-          node: 'validator-1'
-          role: 'validator'
-
-  # Validator 2
-  - job_name: 'validator-2'
-    static_configs:
-      - targets: ['validator-2:9184']
-        labels:
-          node: 'validator-2'
-          role: 'validator'
-
-  # Validator 3
-  - job_name: 'validator-3'
-    static_configs:
-      - targets: ['validator-3:9184']
-        labels:
-          node: 'validator-3'
-          role: 'validator'
-
   # Prometheus self-monitoring
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']
+
+  # Local Testnet Node Metrics
+  - job_name: 'arthachain-testnet'
+    static_configs:
+      - targets: ['host.docker.internal:9184']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'testnet-validator'

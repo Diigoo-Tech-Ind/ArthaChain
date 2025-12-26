@@ -166,6 +166,28 @@ services:
       - validator-node
     restart: unless-stopped
 
+  # AI Worker - Computes AI jobs using Runtimes
+  ai-worker:
+    build:
+      context: ..
+      dockerfile: services/ai-jobd/Dockerfile
+    image: arthachain/ai-worker:latest
+    container_name: arthachain-ai-worker
+    environment:
+      - RUST_LOG=info
+      - NODE_ROLE=ai-worker
+      - ENABLE_AI_WORKER=true
+      - API_PORT=1900
+      - BACKEND_NODE_URL=http://validator-node:1900
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock # Required to spawn runtime containers
+      - ./config/ai-worker:/app/config
+    networks:
+      - arthachain-network
+    depends_on:
+      - validator-node
+    restart: unless-stopped
+
   # =============================================================
   # NETWORKING & STORAGE
   # =============================================================
@@ -228,10 +250,7 @@ services:
 
   # Prometheus - Metrics aggregation
   prometheus-metrics:
-    build:
-      context: prometheus-metrics
-      dockerfile: Dockerfile
-    image: arthachain/prometheus:latest
+    image: prom/prometheus:v2.45.0
     container_name: arthachain-prometheus
     ports:
       - "9090:9090" # Prometheus UI

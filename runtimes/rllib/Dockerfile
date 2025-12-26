@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.2.0-cudnn8-runtime-ubuntu22.04
+FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
@@ -14,11 +14,12 @@ RUN pip3 install --upgrade pip
 # Reinforcement Learning stack
 RUN pip3 install \
     torch==2.1.0 \
-    gymnasium==0.29.1 \
+    gymnasium==0.28.1 \
     stable-baselines3==2.1.0 \
     ray[rllib]==2.7.1 \
     tensorboard==2.14.1 \
-    requests==2.31.0
+    requests==2.31.0 \
+    blake3
 
 WORKDIR /workspace
 

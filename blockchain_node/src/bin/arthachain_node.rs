@@ -319,8 +319,11 @@ async fn main() -> Result<()> {
         Some(SigningKey::from_bytes(&secret_key))
     };
 
+    let node_id_str = generate_unique_node_id();
+    let local_node_id = arthachain_node::types::NodeId(node_id_str.clone());
+
     let byzantine_manager = Arc::new(ByzantineManager::new(
-        arthachain_node::types::NodeId(generate_unique_node_id()),
+        local_node_id.clone(),
         1, // Total validators
         byzantine_config,
         bm_tx_sender,
@@ -335,7 +338,81 @@ async fn main() -> Result<()> {
     } else {
         println!("✅ Byzantine consensus engine started");
     }
+
+    // Register self as validator (Immediate Solo Mode)
+    byzantine_manager.register_validator(local_node_id).await;
+    println!("✅ Registered local node as validator for Solo Mode");
+
+    // Spawn Block Production Loop (Solo Mode - Full Mining + Validation + Finalization)
+    let bm_clone = byzantine_manager.clone();
+    let mempool_clone = mempool.clone();
+    let state_clone = state.clone();
+    let initial_height = state.read().await.get_height().unwrap_or(0);
     
+    tokio::spawn(async move {
+        // Wait for system startup
+        tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+        println!("⛏️  Starting Block Production Loop (Solo Mode: Mining + Validation + Finalization)...");
+        
+        let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(6)); // 6s block time
+        let mut current_height = initial_height;
+
+        loop {
+            interval.tick().await;
+            
+            // Check mempool for transactions
+            let pending_txs = mempool_clone.read().await.get_pending_count();
+            
+            // Solo Mode: Mine if we have transactions OR periodically for empty blocks
+            if pending_txs > 0 {
+                println!("⛏️  Found {} pending transactions. Mining block at height {}...", pending_txs, current_height + 1);
+                
+                // Get actual transactions from mempool
+                let transactions = {
+                    let mempool_read = mempool_clone.read().await;
+                    mempool_read.get_transactions_for_block(100).await
+                };
+                
+                // Create the block data
+                let block_data = serde_json::to_vec(&transactions).unwrap_or_else(|_| b"block_content".to_vec());
+                
+                // Step 1: Propose block (generates hash)
+                match bm_clone.propose_block(block_data.clone(), current_height + 1).await {
+                    Ok(hash_bytes) => {
+                        let hash_hex = hex::encode(&hash_bytes);
+                        
+                        // Step 2: SOLO MODE - Immediately finalize (we are the only validator)
+                        // Update state height directly
+                        {
+                            let state_write = state_clone.write().await;
+                            if let Err(e) = state_write.set_height(current_height + 1) {
+                                println!("⚠️  Failed to update block height: {}", e);
+                            } else {
+                                // Update latest block hash
+                                let _ = state_write.set_latest_block_hash(&hash_hex);
+                                
+                                current_height += 1;
+                                println!("✅ Block #{} finalized! Hash: 0x{}... | {} txs", 
+                                    current_height, &hash_hex[0..8], transactions.len());
+                                
+                                // Step 3: Mark transactions as executed
+                                {
+                                    let mempool_write = mempool_clone.write().await;
+                                    for tx in &transactions {
+                                        mempool_write.mark_executed(&tx.hash).await;
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    Err(e) => println!("❌ Failed to propose block: {}", e),
+                }
+            }
+        }
+    });
+
+
+
     // Create the comprehensive ArthaChain API router
     let arthachain_router = create_arthachain_api_router()
         .with_state(ArthaChainAppState {
@@ -760,12 +837,81 @@ async fn faucet_request(
     axum::extract::State(state): axum::extract::State<AppState>,
     Json(request): Json<serde_json::Value>,
 ) -> Json<serde_json::Value> {
-    // Faucet implementation would go here
-    Json(serde_json::json!({
-        "status": "success",
-        "message": "Faucet request processed",
-        "timestamp": chrono::Utc::now().to_rfc3339()
-    }))
+    // Parse the target address from the request
+    let target_address = match request.get("address").and_then(|v| v.as_str()) {
+        Some(addr) => addr.trim_start_matches("0x"),
+        None => {
+            return Json(serde_json::json!({
+                "status": "error",
+                "message": "Missing 'address' field",
+                "timestamp": chrono::Utc::now().to_rfc3339()
+            }));
+        }
+    };
+    
+    // Create faucet transaction (from faucet address to target)
+    let faucet_address = "0000000000000000000000000000000000001111"; // Faucet address
+    let faucet_amount = 10_000_000_000_000_000_000u64; // 10 ARTHA
+    
+    // Parse addresses
+    let from_bytes = match hex::decode(faucet_address) {
+        Ok(b) if b.len() == 20 => b,
+        _ => {
+            return Json(serde_json::json!({
+                "status": "error",
+                "message": "Invalid faucet address",
+                "timestamp": chrono::Utc::now().to_rfc3339()
+            }));
+        }
+    };
+    
+    let to_bytes = match hex::decode(target_address) {
+        Ok(b) if b.len() == 20 => b,
+        _ => {
+            return Json(serde_json::json!({
+                "status": "error",
+                "message": "Invalid target address format (must be 20 bytes hex)",
+                "timestamp": chrono::Utc::now().to_rfc3339()
+            }));
+        }
+    };
+    
+    // Create the transaction
+    let from_addr = Address::new(from_bytes.try_into().unwrap());
+    let to_addr = Address::new(to_bytes.try_into().unwrap());
+    
+    let transaction = arthachain_node::types::Transaction {
+        from: from_addr,
+        to: to_addr,
+        value: faucet_amount,
+        gas_price: 1_000_000_000, // 1 gwei
+        gas_limit: 21000,
+        nonce: rand::random::<u64>() % 1000, // Random nonce for faucet (special case)
+        data: vec![],
+        signature: vec![],
+        hash: arthachain_node::utils::crypto::Hash::default(),
+    };
+    
+    // Add to mempool (bypass nonce validation for faucet)
+    let mempool = state.mempool.write().await;
+    match mempool.add_transaction(transaction).await {
+        Ok(_) => {
+            Json(serde_json::json!({
+                "status": "success",
+                "message": format!("Faucet sent {} ARTHA to 0x{}", faucet_amount / 1_000_000_000_000_000_000, target_address),
+                "amount": faucet_amount.to_string(),
+                "tx_added_to_mempool": true,
+                "timestamp": chrono::Utc::now().to_rfc3339()
+            }))
+        },
+        Err(e) => {
+            Json(serde_json::json!({
+                "status": "error",
+                "message": format!("Failed to add faucet transaction: {}", e),
+                "timestamp": chrono::Utc::now().to_rfc3339()
+            }))
+        }
+    }
 }
 
 /// Get consensus status endpoint

@@ -16,8 +16,9 @@ RUN pip3 install \
     qiskit==0.44.1 \
     cirq==1.2.0 \
     pennylane==0.32.0 \
-    numpy==1.24.3 \
-    requests==2.31.0
+    numpy==1.23.5 \
+    requests==2.31.0 \
+    blake3
 
 WORKDIR /workspace
 

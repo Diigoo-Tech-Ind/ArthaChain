@@ -2,7 +2,7 @@
 # Updated: 2025 - Latest stable versions with security best practices
 
 # Build stage
-FROM rust:1.83-slim as builder
+FROM rust:1.85-bookworm as builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -18,6 +18,9 @@ COPY Cargo.toml Cargo.lock ./
 
 # Copy service-specific Cargo.toml
 COPY services/ai-jobd/Cargo.toml ./services/ai-jobd/
+
+# Copy workspace member Cargo.toml (required for workspace resolution)
+COPY blockchain_node/Cargo.toml ./blockchain_node/
 
 # Pre-build dependencies (caching optimization)
 RUN cargo fetch

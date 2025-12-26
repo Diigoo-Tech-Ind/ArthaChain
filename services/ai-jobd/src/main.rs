@@ -426,7 +426,7 @@ impl PolicyGate {
         });
 
         let response = self.client
-            .post(&format!("{}/policy/check", self.policy_api_url))
+            .post(format!("{}/policy/check", self.policy_api_url))
             .json(&payload)
             .send()
             .await
@@ -767,7 +767,7 @@ async fn job_assigned(
     });
     
     let response = client
-        .post(&format!("{}/job/start", runtime_url))
+        .post(format!("{}/job/start", runtime_url))
         .json(&start_request)
         .send()
         .await
@@ -842,7 +842,7 @@ async fn upload_to_svdb(data: &str) -> Result<String, String> {
     let client = reqwest::Client::new();
     
     let response = client
-        .post(&format!("{}/svdb/upload", svdb_url))
+        .post(format!("{}/svdb/upload", svdb_url))
         .body(data.as_bytes().to_vec())
         .header("Content-Type", "application/octet-stream")
         .send()

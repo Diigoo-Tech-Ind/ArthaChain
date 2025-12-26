@@ -1,0 +1,18 @@
+{
+  "timestamp": "2025-12-20T23:28:57.462022",
+  "contracts_deployed": 5,
+  "large_transactions": {
+    "successful": 0,
+    "failed": 100,
+    "total_data_mb": 0
+  },
+  "blockchain": {
+    "initial_height": 445,
+    "final_height": 450,
+    "blocks_produced": 5
+  },
+  "performance": {
+    "duration_seconds": 32.61898684501648,
+    "data_throughput_kbps": 0.0
+  }
+}

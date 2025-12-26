@@ -2,13 +2,13 @@
 # Supports PyTorch, HuggingFace Transformers, vLLM for training and inference
 # Updated: 2025 - Latest stable versions
 
-FROM nvidia/cuda:12.6.0-cudnn9-runtime-ubuntu22.04
+FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
 
 # Install Python and system dependencies (minimal)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3.12 \
+    python3.10 \
     python3-pip \
-    python3.12-venv \
+    python3.10-venv \
     git \
     wget \
     curl \
@@ -19,14 +19,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/tmp/*
 
 # Upgrade pip and install build tools
-RUN python3.12 -m pip install --no-cache-dir --upgrade pip setuptools wheel
+RUN python3.10 -m pip install --no-cache-dir --upgrade pip setuptools wheel
 
-# Install PyTorch with CUDA 12.6 support (latest stable)
+# Install PyTorch with CUDA 12.1 support (vLLM compatible)
 RUN pip3 install --no-cache-dir \
-    torch==2.5.1 \
-    torchvision==0.20.1 \
-    torchaudio==2.5.1 \
-    --index-url https://download.pytorch.org/whl/cu126
+    torch==2.4.0 \
+    torchvision==0.19.0 \
+    torchaudio==2.4.0 \
+    --index-url https://download.pytorch.org/whl/cu121
 
 # Install ML libraries (latest stable versions)
 RUN pip3 install --no-cache-dir \
@@ -35,19 +35,19 @@ RUN pip3 install --no-cache-dir \
     datasets==3.1.0 \
     tokenizers==0.20.2 \
     sentencepiece==0.2.0 \
-    protobuf==5.28.2 \
+    protobuf==4.24.4 \
     tensorboard==2.17.0 \
     wandb==0.18.5 \
-    numpy==2.2.1 \
+    numpy==1.26.4 \
     scipy==1.14.1 \
-    scikit-learn==1.6.0 \
+    scikit-learn==1.5.2 \
     pandas==2.2.3
 
-# Install vLLM for fast inference (latest stable)
+# Install vLLM (now compatible with torch 2.4.0)
 RUN pip3 install --no-cache-dir vllm==0.6.3
 
 # Install Artha SVDB client
-RUN pip3 install --no-cache-dir requests==2.32.3 blake3==0.4.3
+RUN pip3 install --no-cache-dir requests==2.32.3 blake3==1.0.0
 
 # Create non-root user
 RUN groupadd -r -g 1000 mluser && \

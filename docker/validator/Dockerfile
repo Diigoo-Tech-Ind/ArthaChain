@@ -15,7 +15,8 @@ RUN cargo build --release --bin arthachain_node --features "production"
 RUN strip target/release/arthachain_node
 
 # ----------------- RUNTIME STAGE -----------------
-FROM debian:bookworm-slim
+# ----------------- RUNTIME STAGE -----------------
+FROM python:3.13-slim
 
 # Install runtime dependencies only
 RUN apt-get update && apt-get install -y --no-install-recommends \

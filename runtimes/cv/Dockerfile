@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.2.0-cudnn8-runtime-ubuntu22.04
+FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
@@ -14,15 +14,24 @@ RUN apt-get update && apt-get install -y \
 RUN pip3 install --upgrade pip
 
 # Computer Vision stack
+# Computer Vision stack - Torch first
 RUN pip3 install \
     torch==2.1.0 \
     torchvision==0.16.0 \
+    requests==2.31.0 \
+    "numpy<2.0.0" \
+    blake3
+
+# Detectron2 (requires torch)
+RUN python3 -m pip install 'git+https://github.com/facebookresearch/detectron2.git' --no-build-isolation
+
+# Other libs
+RUN pip3 install \
     opencv-python==4.8.1.78 \
     ultralytics==8.0.196 \
     transformers==4.35.0 \
     timm==0.9.7 \
-    detectron2 \
-    requests==2.31.0
+    "numpy<2.0.0"
 
 WORKDIR /workspace
 

@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.2.0-cudnn8-runtime-ubuntu22.04
+FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
@@ -20,8 +20,9 @@ RUN pip3 install \
     transformers==4.35.0 \
     librosa==0.10.1 \
     soundfile==0.12.1 \
-    whisper==20231117 \
-    requests==2.31.0
+    openai-whisper==20231117 \
+    requests==2.31.0 \
+    blake3
 
 WORKDIR /workspace
 

@@ -1,0 +1,37 @@
+{
+  "timestamp": "2025-12-20T20:05:26.447311",
+  "contracts": {
+    "token": "0xd6008f527644fe09566119d35d5af5d2857e580e",
+    "nft": "0x93fc31c7782d87b8fa2054aeb1e7fedf683f8ae4",
+    "dex": "0xcb8bd799b9949a983ea1b61a9975f4f523d37a3b",
+    "staking": "0x66f2861b0adfdf8ba20bcef23cbbd539f5545d1f",
+    "dao": "0x3b39e3d9cb40f4972162fab31f8a075027ca2ca0",
+    "lending": "0x6d59b664dc957c663eea0f15d52f05252af96c09",
+    "crowdfund": "0x007ac5569b27e92dbe477274e7bf1eb35f32cb4e",
+    "escrow": "0xbc28eae36d96ca2b1344ff99c1b76828e51bd372",
+    "lottery": "0xfa8b0b97a6871f910deb20455dd1e1251cfdc839",
+    "supply_chain": "0xaf341b67adb73f86a6224f1fb6e965f0cdb3e5f4"
+  },
+  "statistics": {
+    "contracts_deployed": 10,
+    "transactions_sent": 1050,
+    "transactions_success": 1050,
+    "transactions_failed": 0,
+    "token_transfers": 200,
+    "nft_operations": 150,
+    "dex_swaps": 150,
+    "staking_ops": 100,
+    "governance_votes": 100,
+    "lending_ops": 100,
+    "crowdfund_ops": 100,
+    "escrow_ops": 50,
+    "lottery_ops": 50,
+    "supply_chain_ops": 50,
+    "start_time": 1766241325.5591521,
+    "end_time": 1766241326.446369
+  },
+  "duration_seconds": 0.8872168064117432,
+  "tps": 1183.4762285969498,
+  "blockchain_height_start": 0,
+  "blockchain_height_end": 0
+}
